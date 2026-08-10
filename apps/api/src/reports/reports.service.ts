@@ -4,6 +4,7 @@ import {
   reportConfigSchema,
   type ReportConfig,
   type ReportDateRange,
+  type ReportExportFormat,
   type ReportMetricKey,
   type ReportRunResult,
 } from '@taskapp/shared-types';
@@ -11,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { assertDepartmentScope } from '../common/scope.util';
 import type { AccessTokenPayload } from '../auth/auth.service';
 import type { CreateReportDto, UpdateReportDto } from './dto/report.dto';
+import { toCsv, toPdf, toXlsx } from './report-export.util';
 
 /** Flow/cumulative metrics are summed across the date range; everything else is a point-in-time
  * snapshot, so we read the latest periodDate on or before the range end (docs/05-FEATURES.md §3.6
@@ -120,6 +122,40 @@ export class ReportsService {
     await this.assertVisible(user, report);
     const config = this.parseConfig(report.config as Record<string, unknown>);
     return this.runConfig(user, config);
+  }
+
+  async exportSaved(user: AccessTokenPayload, id: string, format: ReportExportFormat) {
+    const report = await this.prisma.savedReport.findUnique({ where: { id } });
+    if (!report) throw new NotFoundException('Report not found');
+    await this.assertVisible(user, report);
+    const config = this.parseConfig(report.config as Record<string, unknown>);
+    const results = await this.runConfig(user, config);
+    return this.render(report.name, results, format);
+  }
+
+  async exportPreview(user: AccessTokenPayload, rawConfig: Record<string, unknown>, format: ReportExportFormat) {
+    const config = this.parseConfig(rawConfig);
+    const results = await this.runConfig(user, config);
+    return this.render('Report Preview', results, format);
+  }
+
+  private async render(
+    reportName: string,
+    results: ReportRunResult[],
+    format: ReportExportFormat,
+  ): Promise<{ buffer: Buffer; contentType: string; extension: string }> {
+    switch (format) {
+      case 'csv':
+        return { buffer: Buffer.from(toCsv(results), 'utf-8'), contentType: 'text/csv', extension: 'csv' };
+      case 'xlsx':
+        return {
+          buffer: await toXlsx(reportName, results),
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          extension: 'xlsx',
+        };
+      case 'pdf':
+        return { buffer: await toPdf(reportName, results), contentType: 'application/pdf', extension: 'pdf' };
+    }
   }
 
   /**
