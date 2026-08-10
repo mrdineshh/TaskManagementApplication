@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: taskapp-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taskapp
+      POSTGRES_PASSWORD: taskapp
+      POSTGRES_DB: taskapp_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - taskapp-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  taskapp-postgres-data:

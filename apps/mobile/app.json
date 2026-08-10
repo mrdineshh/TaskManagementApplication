@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Task Management",
+    "slug": "taskapp-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "net.econz.taskapp"
+    },
+    "android": {
+      "package": "net.econz.taskapp"
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:3000"
+    }
+  }
+}

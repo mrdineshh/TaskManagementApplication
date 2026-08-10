@@ -1,0 +1,4 @@
+project_id = "econz-taskapp-prod"
+region     = "asia-south1"
+api_image  = "asia-south1-docker.pkg.dev/econz-taskapp-dev/taskapp/api:latest" # promoted from staging, not rebuilt
+enable_ha  = false
