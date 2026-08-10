@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useSessionStore } from '../lib/auth/session-store';
 import { useHasAnyPermission, usePermission } from '../lib/permissions/usePermission';
 import { apiClient } from '../lib/api-client/client';
@@ -7,6 +7,7 @@ const navItems = [
   { to: '/', label: 'My Tasks', end: true },
   { to: '/tasks', label: 'All Tasks' },
   { to: '/tasks/board', label: 'Kanban' },
+  { to: '/tasks/timeline', label: 'Timeline' },
   { to: '/team', label: 'Team' },
   { to: '/notifications', label: 'Notifications' },
 ];
@@ -72,9 +73,14 @@ export function Shell() {
         <div className="border-t border-slate-200 p-3">
           <p className="truncate text-xs font-medium text-slate-700">{currentUser?.full_name}</p>
           <p className="truncate text-xs text-slate-400">{currentUser?.email}</p>
-          <button onClick={handleLogout} className="mt-2 text-xs text-slate-400 hover:text-slate-700">
-            Sign out
-          </button>
+          <div className="mt-2 flex gap-3">
+            <Link to="/settings" className="text-xs text-slate-400 hover:text-slate-700">
+              Settings
+            </Link>
+            <button onClick={handleLogout} className="text-xs text-slate-400 hover:text-slate-700">
+              Sign out
+            </button>
+          </div>
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto bg-slate-50 p-6">

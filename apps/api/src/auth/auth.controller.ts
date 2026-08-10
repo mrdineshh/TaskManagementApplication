@@ -1,17 +1,42 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Put } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsArray, IsBoolean, IsIn, IsString, MinLength, ValidateNested } from 'class-validator';
+import {
+  notificationChannels,
+  notificationTypes,
+  updateOwnProfileSchema,
+  type NotificationChannel,
+  type NotificationType,
+} from '@taskapp/shared-types';
 import { AuthService, type AccessTokenPayload } from './auth.service';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ExchangeTokenDto, RefreshTokenDto } from './dto/auth.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { updateOwnProfileSchema } from '@taskapp/shared-types';
 
 class RegisterPushTokenDto {
   @IsString()
   @MinLength(1)
   push_token!: string;
+}
+
+class NotificationPreferenceEntryDto {
+  @IsIn(notificationTypes)
+  type!: NotificationType;
+
+  @IsIn(notificationChannels)
+  channel!: NotificationChannel;
+
+  @IsBoolean()
+  enabled!: boolean;
+}
+
+class UpdateNotificationPreferencesDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => NotificationPreferenceEntryDto)
+  preferences!: NotificationPreferenceEntryDto[];
 }
 
 @ApiTags('auth')
@@ -91,6 +116,36 @@ export class MeController {
   @Post('push-token')
   async registerPushToken(@CurrentUser() user: AccessTokenPayload, @Body() dto: RegisterPushTokenDto) {
     await this.prisma.user.update({ where: { id: user.sub }, data: { pushToken: dto.push_token } });
+    return { success: true };
+  }
+
+  /**
+   * Per-event, per-channel notification preferences (docs/05-FEATURES.md §1.5). Always returns
+   * the full type x channel matrix — rows with no stored override resolve to enabled=true, since
+   * NotificationsService.notify() treats "no row" as enabled too.
+   */
+  @Get('notification-preferences')
+  async getNotificationPreferences(@CurrentUser() user: AccessTokenPayload) {
+    const rows = await this.prisma.notificationPreference.findMany({ where: { userId: user.sub } });
+    const overrides = new Map(rows.map((r) => [`${r.type}:${r.channel}`, r.enabled]));
+    return notificationTypes.flatMap((type) =>
+      notificationChannels.map((channel) => ({
+        type,
+        channel,
+        enabled: overrides.get(`${type}:${channel}`) ?? true,
+      })),
+    );
+  }
+
+  @Put('notification-preferences')
+  async updateNotificationPreferences(@CurrentUser() user: AccessTokenPayload, @Body() dto: UpdateNotificationPreferencesDto) {
+    for (const p of dto.preferences) {
+      await this.prisma.notificationPreference.upsert({
+        where: { userId_type_channel: { userId: user.sub, type: p.type, channel: p.channel } },
+        update: { enabled: p.enabled },
+        create: { userId: user.sub, type: p.type, channel: p.channel, enabled: p.enabled },
+      });
+    }
     return { success: true };
   }
 }

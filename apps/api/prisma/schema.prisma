@@ -99,6 +99,7 @@ model User {
   timeLogs            TimeLog[]
   approvalSteps       ApprovalStep[]
   savedReports        SavedReport[]
+  notificationPreferences NotificationPreference[]
 
   @@unique([authProvider, authProviderId])
   @@map("users")
@@ -506,6 +507,21 @@ model Notification {
 
   @@index([userId])
   @@map("notifications")
+}
+
+// Per-event, per-channel opt-out (docs/05-FEATURES.md §1.5). Absence of a row means enabled —
+// only explicit disables are stored, so new notification types/channels are on by default for
+// everyone without a backfill.
+model NotificationPreference {
+  id      String              @id @default(uuid())
+  userId  String              @map("user_id")
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type    String
+  channel NotificationChannel
+  enabled Boolean             @default(true)
+
+  @@unique([userId, type, channel])
+  @@map("notification_preferences")
 }
 
 // ---------------------------------------------------------------------------

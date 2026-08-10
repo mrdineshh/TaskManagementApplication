@@ -28,6 +28,7 @@ import type {
   ReportRunResult,
   ReportSchedule,
   ReportExportFormat,
+  NotificationPreference,
 } from '@taskapp/shared-types';
 
 export class ApiError extends Error {
@@ -155,6 +156,9 @@ export function createApiClient(config: ApiClientConfig) {
       get: () => request<CurrentUser & { roles: { id: string; name: string }[] }>('GET', '/me'),
       update: (data: { full_name?: string; avatar_url?: string }) => request('PATCH', '/me', data),
       registerPushToken: (pushToken: string) => request<{ success: boolean }>('POST', '/me/push-token', { push_token: pushToken }),
+      notificationPreferences: () => request<NotificationPreference[]>('GET', '/me/notification-preferences'),
+      updateNotificationPreferences: (preferences: NotificationPreference[]) =>
+        request<{ success: boolean }>('PUT', '/me/notification-preferences', { preferences }),
     },
     departments: {
       list: () => request<Department[]>('GET', '/departments'),

@@ -33,7 +33,18 @@ export class NotificationsService {
     // Push fires for the same event set as in-app/email once a device is registered
     // (docs/05-FEATURES.md §2.6) — callers don't need to opt in per-call, they just get it
     // automatically if (and only if) the user has ever registered a push token.
-    const effectiveChannels = user?.pushToken && !channels.includes('push') ? [...channels, 'push' as const] : channels;
+    const withPush = user?.pushToken && !channels.includes('push') ? [...channels, 'push' as const] : channels;
+
+    // Per-event, per-channel opt-out (docs/05-FEATURES.md §1.5): a stored, explicit disable
+    // is the only thing that removes a channel here — absence of a row means enabled, so this
+    // never has to special-case new notification types or channels that predate a user's
+    // preference rows.
+    const disabled = await this.prisma.notificationPreference.findMany({
+      where: { userId, type, channel: { in: withPush }, enabled: false },
+      select: { channel: true },
+    });
+    const disabledChannels = new Set(disabled.map((d) => d.channel));
+    const effectiveChannels = withPush.filter((c) => !disabledChannels.has(c));
 
     for (const channel of effectiveChannels) {
       const notification = await this.prisma.notification.create({

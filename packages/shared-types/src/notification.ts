@@ -28,3 +28,10 @@ export interface Notification {
 
 /** Default: task due-soon notification fires this many hours before due_date (05-FEATURES.md §1.5). */
 export const DEFAULT_DUE_SOON_HOURS = 24;
+
+/** Per-event, per-channel opt-out (05-FEATURES.md §1.5). Absence of a stored override means enabled. */
+export interface NotificationPreference {
+  type: NotificationType;
+  channel: NotificationChannel;
+  enabled: boolean;
+}
