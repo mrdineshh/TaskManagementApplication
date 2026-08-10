@@ -20,6 +20,14 @@ import type {
   TaskDependency,
   ApprovalStep,
   SLAPolicy,
+  SavedReport,
+  ReportConfig,
+  ReportMetricDefinition,
+  ReportDimension,
+  ReportChartType,
+  ReportRunResult,
+  ReportSchedule,
+  ReportExportFormat,
 } from '@taskapp/shared-types';
 
 export class ApiError extends Error {
@@ -106,6 +114,35 @@ export function createApiClient(config: ApiClientConfig) {
 
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
+  }
+
+  /** For binary downloads (report export) — same auth/refresh handling as `request`, but resolves a Blob instead of JSON. */
+  async function requestBlob(method: string, path: string, body?: unknown, opts: { skipAuthRetry?: boolean } = {}): Promise<Blob> {
+    const accessToken = config.getAccessToken();
+    const res = await fetch(`${config.baseUrl}/api/v1${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+    if (res.status === 401 && !opts.skipAuthRetry) {
+      refreshInFlight ??= refreshAccessToken().finally(() => {
+        refreshInFlight = null;
+      });
+      const newToken = await refreshInFlight;
+      if (newToken) return requestBlob(method, path, body, { skipAuthRetry: true });
+      config.onAuthFailure();
+      throw new ApiError(401, 'UNAUTHENTICATED', 'Session expired');
+    }
+
+    if (!res.ok) {
+      const errBody = (await res.json().catch(() => null)) as ApiErrorBody | null;
+      throw new ApiError(res.status, errBody?.error.code ?? 'UNKNOWN_ERROR', errBody?.error.message ?? res.statusText, errBody?.error.details);
+    }
+    return res.blob();
   }
 
   return {
@@ -238,6 +275,38 @@ export function createApiClient(config: ApiClientConfig) {
     organization: {
       get: () => request<Record<string, unknown> | null>('GET', '/organization-settings'),
       update: (data: Record<string, unknown>) => request('PATCH', '/organization-settings', data),
+    },
+    // v1.2
+    reportMetrics: {
+      list: () =>
+        request<{ metrics: ReportMetricDefinition[]; dimensions: readonly ReportDimension[]; chart_types: readonly ReportChartType[] }>(
+          'GET',
+          '/report-metrics',
+        ),
+    },
+    reports: {
+      list: () => request<SavedReport[]>('GET', '/reports'),
+      get: (id: string) => request<SavedReport>('GET', `/reports/${id}`),
+      create: (data: { name: string; config: ReportConfig; visibility?: SavedReport['visibility']; shared_with_role_ids?: string[] }) =>
+        request<SavedReport>('POST', '/reports', data),
+      update: (id: string, data: Partial<{ name: string; config: ReportConfig; visibility: SavedReport['visibility']; shared_with_role_ids: string[] }>) =>
+        request<SavedReport>('PATCH', `/reports/${id}`, data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/reports/${id}`),
+      preview: (config: ReportConfig) => request<ReportRunResult[]>('POST', '/reports/preview', { config }),
+      run: (id: string) => request<ReportRunResult[]>('GET', `/reports/${id}/run`),
+      exportSaved: (id: string, format: ReportExportFormat) => requestBlob('GET', `/reports/${id}/export?format=${format}`),
+      exportPreview: (config: ReportConfig, format: ReportExportFormat) =>
+        requestBlob('POST', `/reports/preview/export?format=${format}`, { config }),
+    },
+    reportSchedules: {
+      list: (reportId: string) => request<ReportSchedule[]>('GET', `/reports/${reportId}/schedules`),
+      create: (
+        reportId: string,
+        data: Omit<ReportSchedule, 'id' | 'saved_report_id' | 'is_active' | 'last_run_at'>,
+      ) => request<ReportSchedule>('POST', `/reports/${reportId}/schedules`, data),
+      update: (reportId: string, scheduleId: string, data: Partial<Omit<ReportSchedule, 'id' | 'saved_report_id' | 'last_run_at'>>) =>
+        request<ReportSchedule>('PATCH', `/reports/${reportId}/schedules/${scheduleId}`, data),
+      remove: (reportId: string, scheduleId: string) => request<{ success: boolean }>('DELETE', `/reports/${reportId}/schedules/${scheduleId}`),
     },
   };
 }
