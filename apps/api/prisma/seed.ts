@@ -252,6 +252,64 @@ async function main() {
     });
   }
 
+  console.log('Seeding starter report templates...');
+  const starterTemplates = [
+    {
+      name: 'Department Overview',
+      config: {
+        metrics: ['task_counts_by_status', 'task_counts_by_priority'],
+        dimensions: [],
+        date_range: { preset: 'last_30_days' },
+        chart_type: 'bar',
+        filters: {},
+      },
+    },
+    {
+      name: 'Overdue Tasks',
+      config: {
+        metrics: ['overdue_count', 'overdue_rate'],
+        dimensions: [],
+        date_range: { preset: 'last_30_days' },
+        chart_type: 'table',
+        filters: {},
+      },
+    },
+    {
+      name: 'Team Workload',
+      config: {
+        metrics: ['workload_distribution'],
+        dimensions: [],
+        date_range: { preset: 'last_30_days' },
+        chart_type: 'bar',
+        filters: {},
+      },
+    },
+    {
+      name: 'SLA Compliance',
+      config: {
+        metrics: ['sla_compliance_rate'],
+        dimensions: [],
+        date_range: { preset: 'last_30_days' },
+        chart_type: 'bar',
+        filters: {},
+      },
+    },
+  ] as const;
+
+  for (const t of starterTemplates) {
+    const existing = await prisma.savedReport.findFirst({ where: { name: t.name, isTemplate: true } });
+    if (existing) continue;
+    await prisma.savedReport.create({
+      data: {
+        name: t.name,
+        createdById: admin,
+        config: t.config,
+        visibility: 'shared_org',
+        isTemplate: true,
+      },
+    });
+  }
+
   console.log('Seed complete.');
   console.log('Dev sign-in: POST /api/v1/auth/dev with { "token": "admin@econz.net" } (or any seeded email).');
 }
