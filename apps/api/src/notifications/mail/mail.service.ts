@@ -10,6 +10,12 @@ interface SmtpConfig {
   username: string;
 }
 
+export interface MailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+}
+
 /**
  * Sends transactional email via the Admin-UI-configured SMTP settings
  * (docs/01-ARCHITECTURE.md §2.9, §2.9a) — never a deployment secret.
@@ -25,10 +31,11 @@ export class MailService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async send(to: string, subject: string, body: string): Promise<void> {
+  async send(to: string, subject: string, body: string, attachments: MailAttachment[] = []): Promise<void> {
+    const attachmentNote = attachments.length > 0 ? ` attachments=[${attachments.map((a) => a.filename).join(', ')}]` : '';
     const setting = await this.prisma.integrationSetting.findUnique({ where: { key: 'smtp' } });
     if (!setting) {
-      this.logger.warn(`[mock email — no SMTP configured] to=${to} subject="${subject}"\n${body}`);
+      this.logger.warn(`[mock email — no SMTP configured] to=${to} subject="${subject}"${attachmentNote}\n${body}`);
       return;
     }
 
@@ -36,14 +43,14 @@ export class MailService {
     const password = setting.encryptedConfig ? decryptSecret(setting.encryptedConfig) : null;
 
     if (!config?.host || !password) {
-      this.logger.warn(`[mock email — incomplete SMTP config] to=${to} subject="${subject}"`);
+      this.logger.warn(`[mock email — incomplete SMTP config] to=${to} subject="${subject}"${attachmentNote}`);
       return;
     }
 
     // Real network send is wired up once GCP/Google Workspace SMTP relay access is provided —
     // the config/decryption plumbing above is already exercised against real Admin-saved values.
     this.logger.log(
-      `[mock email — SMTP configured but network send not yet enabled] to=${to} via ${config.host}:${config.port} subject="${subject}"`,
+      `[mock email — SMTP configured but network send not yet enabled] to=${to} via ${config.host}:${config.port} subject="${subject}"${attachmentNote}`,
     );
   }
 }

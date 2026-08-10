@@ -139,6 +139,17 @@ export class ReportsService {
     return this.render('Report Preview', results, format);
   }
 
+  /** Used by ReportScheduleDeliveryService, which runs on behalf of a report's creator rather than a live request. */
+  async renderForUser(
+    user: AccessTokenPayload,
+    reportName: string,
+    config: ReportConfig,
+    format: ReportExportFormat,
+  ): Promise<{ buffer: Buffer; contentType: string; extension: string }> {
+    const results = await this.runConfig(user, config);
+    return this.render(reportName, results, format);
+  }
+
   private async render(
     reportName: string,
     results: ReportRunResult[],
