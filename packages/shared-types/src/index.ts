@@ -13,3 +13,4 @@ export * from './timeLog';
 export * from './taskDependency';
 export * from './approvalStep';
 export * from './slaPolicy';
+export * from './report';

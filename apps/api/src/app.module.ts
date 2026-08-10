@@ -21,6 +21,7 @@ import { IntegrationSettingsModule } from './integration-settings/integration-se
 import { OrganizationModule } from './organization/organization.module';
 import { DashboardsModule } from './dashboards/dashboards.module';
 import { SLAModule } from './sla/sla.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { SLAModule } from './sla/sla.module';
     OrganizationModule,
     DashboardsModule,
     SLAModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [

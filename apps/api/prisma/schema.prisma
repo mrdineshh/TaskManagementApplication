@@ -1,7 +1,4 @@
-// Prisma schema — v1 + v1.1 data model per docs/02-DATA-MODEL.md.
-// v1.2-only tables (SavedReport, ReportSchedule, materialized aggregates) are
-// intentionally NOT modeled yet; they are added when that phase is built,
-// per the doc's own phasing guidance.
+// Prisma schema — v1 + v1.1 + v1.2 data model per docs/02-DATA-MODEL.md.
 
 generator client {
   provider = "prisma-client-js"
@@ -53,14 +50,15 @@ model Department {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  primaryUsers    User[]                  @relation("PrimaryDepartment")
-  userDepartments UserDepartment[]
-  roles           Role[]
-  tasks           Task[]
-  workflows       WorkflowDefinition[]
-  priorities      PriorityDefinition[]
-  customFieldDefs CustomFieldDefinition[]
-  slaPolicies     SLAPolicy[]
+  primaryUsers     User[]                  @relation("PrimaryDepartment")
+  userDepartments  UserDepartment[]
+  roles            Role[]
+  tasks            Task[]
+  workflows        WorkflowDefinition[]
+  priorities       PriorityDefinition[]
+  customFieldDefs  CustomFieldDefinition[]
+  slaPolicies      SLAPolicy[]
+  reportAggregates ReportAggregateCache[]
 
   @@map("departments")
 }
@@ -100,6 +98,7 @@ model User {
   updatedIntegrations IntegrationSetting[]
   timeLogs            TimeLog[]
   approvalSteps       ApprovalStep[]
+  savedReports        SavedReport[]
 
   @@unique([authProvider, authProviderId])
   @@map("users")
@@ -507,4 +506,87 @@ model Notification {
 
   @@index([userId])
   @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// v1.2 — Reporting & analytics (docs/02-DATA-MODEL.md §8, 05-FEATURES.md §3)
+// ---------------------------------------------------------------------------
+
+enum ReportVisibility {
+  private
+  shared_roles
+  shared_org
+}
+
+model SavedReport {
+  id                String           @id @default(uuid())
+  name              String
+  createdById       String           @map("created_by_id")
+  createdBy         User             @relation(fields: [createdById], references: [id])
+  /// Metrics, dimensions/grouping, date range, filters, chart type — see report-builder.dto.ts.
+  config            Json             @default("{}")
+  visibility        ReportVisibility @default(private)
+  sharedWithRoleIds String[]         @map("shared_with_role_ids")
+  isTemplate        Boolean          @default(false) @map("is_template")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  schedules ReportSchedule[]
+
+  @@map("saved_reports")
+}
+
+enum ReportFrequency {
+  daily
+  weekly
+  monthly
+}
+
+enum ReportExportFormat {
+  csv
+  xlsx
+  pdf
+}
+
+model ReportSchedule {
+  id               String             @id @default(uuid())
+  savedReportId    String             @map("saved_report_id")
+  savedReport      SavedReport        @relation(fields: [savedReportId], references: [id], onDelete: Cascade)
+  frequency        ReportFrequency
+  sendAt           String             @map("send_at") // "HH:MM", org timezone
+  dayOfWeek        Int?               @map("day_of_week") // 0-6, for weekly
+  dayOfMonth       Int?               @map("day_of_month") // 1-31, for monthly
+  recipientUserIds String[]           @map("recipient_user_ids")
+  recipientRoleIds String[]           @map("recipient_role_ids")
+  exportFormat     ReportExportFormat @map("export_format")
+  isActive         Boolean            @default(true) @map("is_active")
+  lastRunAt        DateTime?          @map("last_run_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+
+  @@map("report_schedules")
+}
+
+/// Materialized-aggregate stand-in (docs/05-FEATURES.md §3.6): refreshed periodically by
+/// ReportAggregationService rather than computed live on every report view. One row per
+/// (metric, department, dimension bucket, day) — covers every v1.2 metric uniformly, from
+/// simple counts to per-assignee/per-status breakdowns, by varying what `dimensionValue` means
+/// per metric. Real Postgres MATERIALIZED VIEWs were considered and rejected for this build:
+/// an app-level cache table refreshed on the same schedule satisfies the doc's actual
+/// requirement (periodic aggregation, not live queries on raw tables) with far less operational
+/// complexity (no REFRESH MATERIALIZED VIEW scheduling/locking to manage).
+model ReportAggregateCache {
+  id             String      @id @default(uuid())
+  metricKey      String      @map("metric_key")
+  departmentId   String?     @map("department_id")
+  department     Department? @relation(fields: [departmentId], references: [id])
+  /// What this represents varies by metric: a status/priority/user id, or "all" for
+  /// department- or org-level scalars.
+  dimensionValue String      @map("dimension_value")
+  periodDate     DateTime    @map("period_date") @db.Date
+  value          Float
+  refreshedAt    DateTime    @default(now()) @map("refreshed_at")
+
+  @@unique([metricKey, departmentId, dimensionValue, periodDate])
+  @@index([metricKey, periodDate])
+  @@map("report_aggregate_cache")
 }
