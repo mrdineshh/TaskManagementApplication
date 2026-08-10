@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useSessionStore } from '../lib/auth/session-store';
-import { useHasAnyPermission } from '../lib/permissions/usePermission';
+import { useHasAnyPermission, usePermission } from '../lib/permissions/usePermission';
 import { apiClient } from '../lib/api-client/client';
 
 const navItems = [
@@ -15,6 +15,7 @@ export function Shell() {
   const currentUser = useSessionStore((s) => s.currentUser);
   const clear = useSessionStore((s) => s.clear);
   const isAdmin = useHasAnyPermission('.manage');
+  const canViewReports = usePermission('report.view');
 
   async function handleLogout() {
     await apiClient.auth.logout().catch(() => {});
@@ -43,6 +44,18 @@ export function Shell() {
               {item.label}
             </NavLink>
           ))}
+          {canViewReports && (
+            <NavLink
+              to="/reports"
+              className={({ isActive }) =>
+                `block rounded-md px-3 py-2 text-sm font-medium ${
+                  isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-100'
+                }`
+              }
+            >
+              Reports
+            </NavLink>
+          )}
           {isAdmin && (
             <NavLink
               to="/admin"

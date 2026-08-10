@@ -11,6 +11,9 @@ import { TaskListPage } from '../pages/tasks/TaskListPage';
 import { TaskDetailPage } from '../pages/tasks/TaskDetailPage';
 import { KanbanBoardPage } from '../pages/tasks/KanbanBoardPage';
 import { SLAAdminPage } from '../pages/admin/SLAAdminPage';
+import { ReportsListPage } from '../pages/reports/ReportsListPage';
+import { ReportBuilderPage } from '../pages/reports/ReportBuilderPage';
+import { ReportViewerPage } from '../pages/reports/ReportViewerPage';
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { AdminLayout } from '../pages/admin/AdminLayout';
 import { AdminHomePage } from '../pages/admin/AdminHomePage';
@@ -45,7 +48,10 @@ function AppRoutes() {
           <Route path="tasks/board" element={<KanbanBoardPage />} />
           <Route path="tasks/timeline" element={<ComingSoon title="Gantt / timeline" phase="v1.1" />} />
           <Route path="team" element={<TeamDashboardPage />} />
-          <Route path="reports" element={<ComingSoon title="Reports" phase="v1.2" />} />
+          <Route path="reports" element={<ReportsListPage />} />
+          <Route path="reports/builder" element={<ReportBuilderPage />} />
+          <Route path="reports/:id" element={<ReportViewerPage />} />
+          <Route path="reports/:id/edit" element={<ReportBuilderPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="settings" element={<ComingSoon title="Profile & notification settings" phase="v1" />} />
           <Route path="admin" element={<AdminLayout />}>

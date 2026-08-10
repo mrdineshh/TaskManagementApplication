@@ -26,9 +26,9 @@ export interface ReportMetricDefinition {
   label: string;
   description: string;
   /** Whether this metric can be broken down by the given dimension. */
-  supportedDimensions: ReportDimension[];
+  supported_dimensions: ReportDimension[];
   /** v1.1-data-dependent metrics (SLA compliance, time tracked) per 05-FEATURES.md §3.2. */
-  requiresV11Data: boolean;
+  requires_v11_data: boolean;
 }
 
 export const reportDimensions = ['department', 'assignee', 'status', 'priority', 'time_period'] as const;
