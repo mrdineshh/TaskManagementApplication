@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { apiClient } from '../../lib/api-client/client';
 import { useSessionStore } from '../../lib/auth/session-store';
+import { Button } from '../../components/Button';
+import { colors, radius, spacing, typography } from '../../theme';
 
 /**
  * Same dev-provider approach as apps/web's LoginPage — real Google Sign-In (Firebase)
@@ -29,41 +32,90 @@ export function LoginScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Task Management</Text>
-      <Text style={styles.subtitle}>Sign in with your @econz.net account</Text>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.logo}>
+          <Ionicons name="checkmark-done" size={30} color={colors.white} />
+        </View>
+        <Text style={styles.title}>Task Management</Text>
+        <Text style={styles.subtitle}>Sign in with your @econz.net account</Text>
 
-      <View style={styles.googleButton}>
-        <Text style={styles.googleButtonText}>Sign in with Google (pending GCP setup)</Text>
-      </View>
+        <View style={styles.card}>
+          <View style={styles.googleButton}>
+            <Ionicons name="logo-google" size={16} color={colors.slate[400]} style={{ marginRight: 8 }} />
+            <Text style={styles.googleButtonText}>Sign in with Google (pending GCP setup)</Text>
+          </View>
 
-      <Text style={styles.divider}>dev sign-in (mock)</Text>
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.divider}>dev sign-in (mock)</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
-      <TextInput
-        value={email}
-        onChangeText={setEmail}
-        placeholder="you@econz.net"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={styles.input}
-      />
-      {error && <Text style={styles.error}>{error}</Text>}
-      <Pressable style={styles.button} onPress={handleLogin} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? 'Signing in…' : 'Sign in (dev)'}</Text>
-      </Pressable>
-    </View>
+          <Text style={styles.inputLabel}>Email</Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@econz.net"
+            placeholderTextColor={colors.slate[400]}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            style={styles.input}
+          />
+          {error && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle" size={14} color={colors.danger} />
+              <Text style={styles.error}>{error}</Text>
+            </View>
+          )}
+          <Button label={loading ? 'Signing in…' : 'Sign in (dev)'} onPress={handleLogin} loading={loading} style={{ marginTop: spacing.sm }} />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#f8fafc' },
-  title: { fontSize: 22, fontWeight: '700', color: '#0f172a', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#64748b', marginBottom: 24 },
-  googleButton: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 16, opacity: 0.6 },
-  googleButtonText: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
-  divider: { textAlign: 'center', color: '#94a3b8', fontSize: 12, marginBottom: 16 },
-  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 14 },
-  error: { color: '#dc2626', marginBottom: 8, fontSize: 13 },
-  button: { backgroundColor: '#2563eb', borderRadius: 8, padding: 12, alignItems: 'center' },
-  buttonText: { color: 'white', fontWeight: '600', fontSize: 14 },
+  flex: { flex: 1, backgroundColor: colors.slate[50] },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl },
+  logo: {
+    alignSelf: 'center',
+    width: 64,
+    height: 64,
+    borderRadius: radius.xl,
+    backgroundColor: colors.brand[600],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  title: { ...typography.h1, textAlign: 'center', marginBottom: 4 },
+  subtitle: { ...typography.body, color: colors.slate[500], textAlign: 'center', marginBottom: spacing.xl },
+  card: { backgroundColor: colors.white, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.slate[200] },
+  googleButton: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: colors.slate[200],
+    borderRadius: radius.md,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.slate[50],
+  },
+  googleButtonText: { color: colors.slate[400], fontSize: 14, fontWeight: '600' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.slate[200] },
+  divider: { ...typography.caption, marginHorizontal: spacing.sm },
+  inputLabel: { ...typography.label, marginBottom: spacing.xs },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.slate[300],
+    borderRadius: radius.md,
+    padding: 12,
+    fontSize: 14,
+    color: colors.slate[900],
+    marginBottom: spacing.xs,
+  },
+  errorRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.xs, marginBottom: spacing.xs },
+  error: { color: colors.danger, fontSize: 13 },
 });

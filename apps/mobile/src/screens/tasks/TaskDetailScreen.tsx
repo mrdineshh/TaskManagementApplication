@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, FlatList, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   useTask,
@@ -10,9 +11,25 @@ import {
   useWorkflowTransitions,
 } from '../../features/tasks/hooks';
 import { Badge } from '../../components/Badge';
+import { Card } from '../../components/Card';
+import { Button } from '../../components/Button';
+import { LoadingView } from '../../components/LoadingView';
+import { EmptyState } from '../../components/EmptyState';
+import { colors, radius, spacing, typography } from '../../theme';
 import type { TasksStackParamList } from '../../app/Navigation';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'TaskDetail'>;
+
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.round(diffMs / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
 
 /**
  * View/update assigned tasks, change status (within allowed transitions), comment —
@@ -29,13 +46,7 @@ export function TaskDetailScreen({ route }: Props) {
   const addComment = useAddComment(id);
   const [commentBody, setCommentBody] = useState('');
 
-  if (isLoading || !task) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.empty}>Loading…</Text>
-      </View>
-    );
-  }
+  if (isLoading || !task) return <LoadingView />;
 
   const available = (transitions ?? []).filter((t: any) => t.from_status_id === task.status_id);
   const statusLabel = (statusId: string) => statuses?.find((s: any) => s.id === statusId)?.label ?? statusId;
@@ -55,71 +66,115 @@ export function TaskDetailScreen({ route }: Props) {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>{task.title}</Text>
-      {task.description && <Text style={styles.description}>{task.description}</Text>}
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: spacing.lg }}>
+        <Text style={styles.title}>{task.title}</Text>
+        {task.description ? <Text style={styles.description}>{task.description}</Text> : null}
 
-      <View style={styles.badgeRow}>
-        {(task as any).status && <Badge label={(task as any).status.label} color={(task as any).status.color} />}
-        {(task as any).priority && <Badge label={(task as any).priority.label} color={(task as any).priority.color} />}
-      </View>
-
-      {available.length > 0 && (
-        <View style={styles.transitionsSection}>
-          <Text style={styles.sectionLabel}>Move to</Text>
-          <View style={styles.transitionRow}>
-            {available.map((t: any) => (
-              <Pressable key={t.id} style={styles.transitionButton} onPress={() => handleTransition(t.to_status_id)}>
-                <Text style={styles.transitionButtonText}>{statusLabel(t.to_status_id)}</Text>
-              </Pressable>
-            ))}
-          </View>
+        <View style={styles.badgeRow}>
+          {(task as any).status && <Badge label={(task as any).status.label} color={(task as any).status.color} />}
+          {(task as any).priority && <Badge label={(task as any).priority.label} color={(task as any).priority.color} />}
         </View>
-      )}
 
-      <Text style={styles.sectionLabel}>Comments</Text>
-      <FlatList
-        data={comments ?? []}
-        keyExtractor={(c: any) => c.id}
-        scrollEnabled={false}
-        ListEmptyComponent={<Text style={styles.empty}>No comments yet.</Text>}
-        renderItem={({ item }: { item: any }) => (
-          <View style={styles.comment}>
-            <Text style={styles.commentBody}>{item.body}</Text>
+        {(task.due_date || (task as any).assignee) && (
+          <View style={styles.metaRow}>
+            {task.due_date && (
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={14} color={colors.slate[400]} />
+                <Text style={styles.metaText}>Due {new Date(task.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
+              </View>
+            )}
+            {(task as any).assignee && (
+              <View style={styles.metaItem}>
+                <Ionicons name="person-outline" size={14} color={colors.slate[400]} />
+                <Text style={styles.metaText}>{(task as any).assignee.full_name}</Text>
+              </View>
+            )}
           </View>
         )}
-      />
+
+        {available.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Move to</Text>
+            <View style={styles.transitionRow}>
+              {available.map((t: any) => (
+                <Button
+                  key={t.id}
+                  label={statusLabel(t.to_status_id)}
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => handleTransition(t.to_status_id)}
+                  loading={transitionTask.isPending}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Comments</Text>
+          <FlatList
+            data={comments ?? []}
+            keyExtractor={(c: any) => c.id}
+            scrollEnabled={false}
+            ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
+            ListEmptyComponent={<EmptyState icon="chatbubble-outline" title="No comments yet" />}
+            renderItem={({ item }: { item: any }) => (
+              <Card>
+                <Text style={styles.commentBody}>{item.body}</Text>
+                <Text style={styles.commentTime}>{relativeTime(item.created_at)}</Text>
+              </Card>
+            )}
+          />
+        </View>
+      </ScrollView>
+
       <View style={styles.commentInputRow}>
         <TextInput
           value={commentBody}
           onChangeText={setCommentBody}
           placeholder="Add a comment…"
+          placeholderTextColor={colors.slate[400]}
           style={styles.commentInput}
+          multiline
         />
-        <Pressable style={styles.postButton} onPress={handlePost}>
-          <Text style={styles.postButtonText}>Post</Text>
-        </Pressable>
+        <Button label="Post" onPress={handlePost} size="sm" disabled={!commentBody.trim()} loading={addComment.isPending} />
       </View>
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc', padding: 16 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 6 },
-  description: { fontSize: 14, color: '#475569', marginBottom: 10 },
-  badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  transitionsSection: { marginBottom: 16 },
-  transitionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  transitionButton: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
-  transitionButtonText: { fontSize: 12, fontWeight: '600', color: '#334155' },
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 8 },
-  comment: { backgroundColor: 'white', borderRadius: 8, padding: 10, marginBottom: 8 },
-  commentBody: { fontSize: 13, color: '#334155' },
-  commentInputRow: { flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 24 },
-  commentInput: { flex: 1, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, fontSize: 13 },
-  postButton: { backgroundColor: '#2563eb', borderRadius: 8, paddingHorizontal: 14, justifyContent: 'center' },
-  postButtonText: { color: 'white', fontWeight: '600', fontSize: 13 },
-  empty: { color: '#94a3b8', fontSize: 13 },
+  flex: { flex: 1, backgroundColor: colors.slate[50] },
+  container: { flex: 1, padding: 16 },
+  title: { ...typography.h2, marginBottom: 6 },
+  description: { ...typography.body, marginBottom: spacing.md },
+  badgeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  metaRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.lg },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { ...typography.caption },
+  section: { marginBottom: spacing.lg },
+  sectionLabel: { ...typography.label, marginBottom: spacing.sm },
+  transitionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  commentBody: { ...typography.body, marginBottom: 4 },
+  commentTime: { ...typography.caption },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.slate[200],
+  },
+  commentInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.slate[300],
+    borderRadius: radius.md,
+    padding: 10,
+    fontSize: 13,
+    color: colors.slate[900],
+    maxHeight: 100,
+  },
 });

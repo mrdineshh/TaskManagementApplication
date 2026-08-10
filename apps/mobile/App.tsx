@@ -1,7 +1,8 @@
-import { View, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Navigation } from './src/app/Navigation';
+import { LoadingView } from './src/components/LoadingView';
 import { useBootstrapSession } from './src/features/auth/useBootstrapSession';
 import { usePushNotifications } from './src/features/notifications/usePushNotifications';
 
@@ -11,26 +12,22 @@ function Root() {
   const ready = useBootstrapSession();
   usePushNotifications();
 
-  if (!ready) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text>Loading…</Text>
-      </View>
-    );
-  }
+  if (!ready) return <LoadingView />;
 
   return (
     <>
       <Navigation />
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </>
   );
 }
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Root />
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <Root />
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }
