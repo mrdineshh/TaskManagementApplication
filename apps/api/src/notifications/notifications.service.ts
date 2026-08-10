@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { NotificationChannel, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from './mail/mail.service';
+import { PushService } from './push/push.service';
 
 const NOTIFICATION_SUBJECTS: Record<string, (payload: Record<string, unknown>) => string> = {
   task_assigned: (p) => `Task assigned to you: ${p.taskTitle}`,
@@ -18,6 +19,7 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
+    private readonly push: PushService,
   ) {}
 
   async notify(
@@ -26,21 +28,29 @@ export class NotificationsService {
     payload: Record<string, unknown>,
     channels: NotificationChannel[] = ['in_app', 'email'],
   ) {
-    for (const channel of channels) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    // Push fires for the same event set as in-app/email once a device is registered
+    // (docs/05-FEATURES.md §2.6) — callers don't need to opt in per-call, they just get it
+    // automatically if (and only if) the user has ever registered a push token.
+    const effectiveChannels = user?.pushToken && !channels.includes('push') ? [...channels, 'push' as const] : channels;
+
+    for (const channel of effectiveChannels) {
       const notification = await this.prisma.notification.create({
         data: { userId, type, payload: payload as Prisma.InputJsonValue, channel },
       });
 
-      if (channel === 'email') {
-        const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (user) {
-          const subjectFn = NOTIFICATION_SUBJECTS[type];
-          await this.mail.send(
-            user.email,
-            subjectFn ? subjectFn(payload) : `Task Management notification: ${type}`,
-            JSON.stringify(payload, null, 2),
-          );
-        }
+      if (channel === 'email' && user) {
+        const subjectFn = NOTIFICATION_SUBJECTS[type];
+        const subject = subjectFn ? subjectFn(payload) : `Task Management notification: ${type}`;
+        await this.mail.send(user.email, subject, JSON.stringify(payload, null, 2));
+        await this.prisma.notification.update({ where: { id: notification.id }, data: { sentAt: new Date() } });
+      }
+
+      if (channel === 'push' && user?.pushToken) {
+        const subjectFn = NOTIFICATION_SUBJECTS[type];
+        const title = subjectFn ? subjectFn(payload) : 'Task Management';
+        await this.push.send(user.pushToken, title, type);
         await this.prisma.notification.update({ where: { id: notification.id }, data: { sentAt: new Date() } });
       }
     }

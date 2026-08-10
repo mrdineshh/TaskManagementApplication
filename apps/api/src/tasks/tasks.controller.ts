@@ -7,7 +7,9 @@ import type { AccessTokenPayload } from '../auth/auth.service';
 import {
   AssignTaskDto,
   CreateCommentDto,
+  CreateTaskDependencyDto,
   CreateTaskDto,
+  CreateTimeLogDto,
   TaskListQueryDto,
   TransitionTaskDto,
   UpdateTaskDto,
@@ -77,5 +79,54 @@ export class TasksController {
   @RequirePermission('task.comment')
   addComment(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string, @Body() dto: CreateCommentDto) {
     return this.tasks.addComment(user, id, dto.body);
+  }
+
+  // --- v1.1: Time tracking (docs/04-API-SPEC.md §5 v1.1 additions) ---
+
+  @Get(':id/time-logs')
+  @RequirePermission('task.view')
+  listTimeLogs(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.tasks.listTimeLogs(user, id);
+  }
+
+  @Post(':id/time-logs')
+  @RequirePermission('task.edit')
+  addTimeLog(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string, @Body() dto: CreateTimeLogDto) {
+    return this.tasks.addTimeLog(user, id, dto.minutes, dto.note, dto.logged_at);
+  }
+
+  // --- v1.1: Task dependencies ---
+
+  @Get(':id/dependencies')
+  @RequirePermission('task.view')
+  listDependencies(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.tasks.listDependencies(user, id);
+  }
+
+  @Post(':id/dependencies')
+  @RequirePermission('task.edit')
+  addDependency(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string, @Body() dto: CreateTaskDependencyDto) {
+    return this.tasks.addDependency(user, id, dto.depends_on_task_id, dto.type);
+  }
+
+  @Delete(':id/dependencies/:depId')
+  @RequirePermission('task.edit')
+  removeDependency(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string, @Param('depId') depId: string) {
+    return this.tasks.removeDependency(user, id, depId);
+  }
+
+  // --- v1.1: Approval workflows ---
+
+  @Get(':id/approval-steps')
+  @RequirePermission('task.view')
+  listApprovalSteps(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.tasks.listApprovalSteps(user, id);
+  }
+
+  @Post(':id/approval-steps')
+  submitForApproval(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string, @Body() dto: TransitionTaskDto) {
+    // Equivalent to attempting the guarded transition directly — transition() already creates
+    // the ApprovalStep when the target WorkflowTransition has requires_approval set.
+    return this.tasks.transition(user, id, dto.to_status_id);
   }
 }

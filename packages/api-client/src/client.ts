@@ -16,6 +16,10 @@ import type {
   Notification,
   PaginatedResult,
   ApiErrorBody,
+  TimeLog,
+  TaskDependency,
+  ApprovalStep,
+  SLAPolicy,
 } from '@taskapp/shared-types';
 
 export class ApiError extends Error {
@@ -113,6 +117,7 @@ export function createApiClient(config: ApiClientConfig) {
     me: {
       get: () => request<CurrentUser & { roles: { id: string; name: string }[] }>('GET', '/me'),
       update: (data: { full_name?: string; avatar_url?: string }) => request('PATCH', '/me', data),
+      registerPushToken: (pushToken: string) => request<{ success: boolean }>('POST', '/me/push-token', { push_token: pushToken }),
     },
     departments: {
       list: () => request<Department[]>('GET', '/departments'),
@@ -182,10 +187,34 @@ export function createApiClient(config: ApiClientConfig) {
       update: (id: string, data: Record<string, unknown>) => request<TaskWithDetails>('PATCH', `/tasks/${id}`, data),
       remove: (id: string) => request<{ success: boolean }>('DELETE', `/tasks/${id}`),
       assign: (id: string, assigneeId: string | null) => request<Task>('POST', `/tasks/${id}/assign`, { assignee_id: assigneeId }),
-      transition: (id: string, toStatusId: string) => request<Task>('POST', `/tasks/${id}/transition`, { to_status_id: toStatusId }),
+      transition: (id: string, toStatusId: string) =>
+        request<(Task & { warnings?: { open_blockers: { task_id: string; task_title: string }[] } }) | { pending_approval: true; approval_step: ApprovalStep }>(
+          'POST',
+          `/tasks/${id}/transition`,
+          { to_status_id: toStatusId },
+        ),
       activity: (id: string) => request<ActivityLogEntry[]>('GET', `/tasks/${id}/activity`),
       comments: (id: string) => request<TaskComment[]>('GET', `/tasks/${id}/comments`),
       addComment: (id: string, body: string) => request<TaskComment>('POST', `/tasks/${id}/comments`, { body }),
+      // v1.1
+      timeLogs: (id: string) => request<TimeLog[]>('GET', `/tasks/${id}/time-logs`),
+      addTimeLog: (id: string, minutes: number, note?: string) =>
+        request<TimeLog>('POST', `/tasks/${id}/time-logs`, { minutes, note }),
+      dependencies: (id: string) => request<(TaskDependency & { depends_on_task: { id: string; title: string } })[]>('GET', `/tasks/${id}/dependencies`),
+      addDependency: (id: string, dependsOnTaskId: string, type: 'blocks' | 'relates_to') =>
+        request<TaskDependency>('POST', `/tasks/${id}/dependencies`, { depends_on_task_id: dependsOnTaskId, type }),
+      removeDependency: (id: string, depId: string) => request<{ success: boolean }>('DELETE', `/tasks/${id}/dependencies/${depId}`),
+      approvalSteps: (id: string) => request<ApprovalStep[]>('GET', `/tasks/${id}/approval-steps`),
+    },
+    approvalSteps: {
+      decide: (id: string, decision: 'approved' | 'rejected', comment?: string) =>
+        request<ApprovalStep>('POST', `/approval-steps/${id}/decide`, { decision, comment }),
+    },
+    slaPolicies: {
+      list: (departmentId?: string) => request<SLAPolicy[]>('GET', `/sla-policies${qs({ department_id: departmentId })}`),
+      create: (data: Omit<SLAPolicy, 'id' | 'is_active' | 'created_at' | 'updated_at'>) => request<SLAPolicy>('POST', '/sla-policies', data),
+      update: (id: string, data: Partial<SLAPolicy>) => request<SLAPolicy>('PATCH', `/sla-policies/${id}`, data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/sla-policies/${id}`),
     },
     comments: {
       edit: (id: string, body: string) => request<TaskComment>('PATCH', `/comments/${id}`, { body }),

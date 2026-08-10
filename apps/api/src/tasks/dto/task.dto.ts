@@ -53,6 +53,19 @@ export class CreateTaskDto {
   @IsOptional()
   @IsObject()
   custom_field_values?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsBoolean()
+  is_recurring?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  recurrence_rule?: string; // iCal RRULE, e.g. "FREQ=WEEKLY;BYDAY=MO"
+
+  @IsOptional()
+  @IsUUID()
+  sla_policy_id?: string | null;
 }
 
 export class UpdateTaskDto {
@@ -86,6 +99,10 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsObject()
   custom_field_values?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsUUID()
+  sla_policy_id?: string | null;
 }
 
 export class AssignTaskDto {
@@ -144,4 +161,27 @@ export class TaskListQueryDto {
   @IsOptional()
   @IsString()
   cursor?: string;
+}
+
+export class CreateTimeLogDto {
+  @IsInt()
+  @Min(1)
+  minutes!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+
+  @IsOptional()
+  @IsDateString()
+  logged_at?: string;
+}
+
+export class CreateTaskDependencyDto {
+  @IsUUID()
+  depends_on_task_id!: string;
+
+  @IsString()
+  type!: 'blocks' | 'relates_to';
 }

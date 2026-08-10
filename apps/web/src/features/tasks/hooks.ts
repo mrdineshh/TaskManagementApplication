@@ -124,3 +124,55 @@ export function useDepartmentDashboard(departmentId: string | undefined) {
     enabled: !!departmentId,
   });
 }
+
+// --- v1.1: time tracking, dependencies, approvals ---
+
+export function useTimeLogs(id: string | undefined) {
+  return useQuery({ queryKey: ['tasks', id, 'time-logs'], queryFn: () => apiClient.tasks.timeLogs(id!), enabled: !!id });
+}
+
+export function useAddTimeLog(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ minutes, note }: { minutes: number; note?: string }) => apiClient.tasks.addTimeLog(id, minutes, note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'time-logs'] }),
+  });
+}
+
+export function useTaskDependencies(id: string | undefined) {
+  return useQuery({ queryKey: ['tasks', id, 'dependencies'], queryFn: () => apiClient.tasks.dependencies(id!), enabled: !!id });
+}
+
+export function useAddDependency(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ dependsOnTaskId, type }: { dependsOnTaskId: string; type: 'blocks' | 'relates_to' }) =>
+      apiClient.tasks.addDependency(id, dependsOnTaskId, type),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'dependencies'] }),
+  });
+}
+
+export function useRemoveDependency(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (depId: string) => apiClient.tasks.removeDependency(id, depId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'dependencies'] }),
+  });
+}
+
+export function useApprovalSteps(id: string | undefined) {
+  return useQuery({ queryKey: ['tasks', id, 'approval-steps'], queryFn: () => apiClient.tasks.approvalSteps(id!), enabled: !!id });
+}
+
+export function useDecideApprovalStep(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ stepId, decision, comment }: { stepId: string; decision: 'approved' | 'rejected'; comment?: string }) =>
+      apiClient.approvalSteps.decide(stepId, decision, comment),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', taskId] });
+      qc.invalidateQueries({ queryKey: ['tasks', taskId, 'approval-steps'] });
+      qc.invalidateQueries({ queryKey: ['tasks', taskId, 'activity'] });
+    },
+  });
+}

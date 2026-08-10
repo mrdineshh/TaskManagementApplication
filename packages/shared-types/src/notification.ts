@@ -8,6 +8,7 @@ export const notificationTypes = [
   'comment_mention',
   'status_changed',
   'sla_breach', // v1.1
+  'approval_requested', // v1.1
 ] as const;
 export type NotificationType = (typeof notificationTypes)[number];
 

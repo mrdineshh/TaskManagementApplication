@@ -47,6 +47,11 @@ in. Items are grouped by how urgently they need an answer.
   developer accounts, etc.)** — you have these ready; Claude Code should ask
   for them directly when it reaches the step that needs them, rather than
   this being a pre-build blocker.
+- **Dependency blocking (B2 below)** — confirmed: soft warning, not a hard
+  block. Moving a task into a 'done'-category status succeeds even with open
+  'blocks' dependencies; the API response includes `warnings.open_blockers`
+  for the UI to surface (see `apps/api/src/tasks/tasks.service.ts`
+  `getOpenBlockers()`). Moved out of the "Needed before" section below.
 
 ## A. Needs an answer early (low urgency, safe defaults exist)
 
@@ -67,16 +72,6 @@ in. Items are grouped by how urgently they need an answer.
 - **Default if unanswered:** optional everywhere.
 - **Why it matters:** only relevant when v1.1 is being built; no impact on
   v1.
-
-### B2. Dependency blocking: hard block vs. soft warning
-- **Where raised:** `05-FEATURES.md` §2.4 (v1.1 scope)
-- **Plain language:** if Task B depends on Task A, and A isn't done yet,
-  should the system block you from marking B as done, or just warn and let
-  you proceed anyway?
-- **Default if unanswered:** no safe default assumed — a hard block and a
-  soft warning are genuinely different UX with no obviously-correct middle
-  ground. The build agent should ask again when it reaches this specific
-  v1.1 feature if still unanswered.
 
 ### B3. Additional roles pre-seeded at launch
 - **Where raised:** `03-RBAC-AUTH.md` §2.2
@@ -108,6 +103,38 @@ in. Items are grouped by how urgently they need an answer.
 - **Default if unanswered:** keep it — negligible cost, keeps a future
   multi-tenant path open without a migration. No response needed unless you
   want it removed.
+
+## D. Assumptions logged during the v1.1 build (not previously flagged as Open)
+
+These weren't called out as `[Open]` in the doc set, but the build hit real
+gaps that needed a decision to keep moving. Flagging per the "log the
+assumption and continue" guidance at the top of this file.
+
+### D1. `sla.view` / `sla.manage` permission keys
+`03-RBAC-AUTH.md` §2.1's permission list doesn't include an `sla.*` key even
+though `05-FEATURES.md` §2.2 has Admins defining SLA policies. Added
+`sla.view`/`sla.manage` following the same pattern as every other admin
+resource. Only Admin holds them by default.
+
+### D2. "Notify assignee's manager" escalation target has no reports-to field
+`SLAPolicy.escalation_rules` supports a `notify: "assignee_manager"` target,
+but the data model has no manager/reports-to relationship on `User`. Resolved
+as "anyone holding `task.assign` within the task's department" — a
+reasonable stand-in given the schema, not a literal org-chart manager. A real
+reports-to field would be a cleaner fix if this matters in practice.
+
+### D3. Approval chains are single-step in this build
+`05-FEATURES.md` §2.5 mentions multi-step approval chains (`step_order`) but
+doesn't specify how approvers are assigned per step. Built as single-step
+(`step_order = 1`, decidable by anyone holding `approval.approve` in the
+task's department) — the schema keeps `step_order` for a future multi-step
+extension, but the assignment-per-step logic isn't built.
+
+### D4. Kanban board columns use the org-wide default workflow only
+A department running its own `WorkflowDefinition` would need its Kanban
+columns resolved from that department's workflow instead of the org-wide
+default. Not built since the seeded data only has one org-wide workflow —
+flagged as a follow-up once a department-specific workflow actually exists.
 
 ---
 

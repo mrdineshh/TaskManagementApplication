@@ -8,6 +8,7 @@ const sections = [
   { to: 'custom-fields', label: 'Custom Fields' },
   { to: 'workflows', label: 'Workflows' },
   { to: 'priorities', label: 'Priorities' },
+  { to: 'sla', label: 'SLA Policies' },
   { to: 'integrations', label: 'Integrations' },
   { to: 'settings', label: 'Org Settings' },
 ];

@@ -29,6 +29,11 @@ export const permissionKeys = [
   // (docs/06-FRONTEND-WEB.md §3 /admin/settings) per docs/00-OVERVIEW.md §5's guidance that
   // gaps get a reasonable default rather than blocking the build.
   'organization.manage',
+  // Not explicitly listed either — 05-FEATURES.md §2.2 describes Admins defining SLA
+  // policies but 03-RBAC-AUTH.md §2.1's list doesn't enumerate an sla.* key. Same
+  // reasonable-default-over-blocking treatment as organization.manage above.
+  'sla.view',
+  'sla.manage',
   'report.view',
   'report.create',
   'report.export',

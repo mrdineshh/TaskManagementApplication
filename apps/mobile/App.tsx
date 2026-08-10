@@ -3,11 +3,13 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Navigation } from './src/app/Navigation';
 import { useBootstrapSession } from './src/features/auth/useBootstrapSession';
+import { usePushNotifications } from './src/features/notifications/usePushNotifications';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
 
 function Root() {
   const ready = useBootstrapSession();
+  usePushNotifications();
 
   if (!ready) {
     return (

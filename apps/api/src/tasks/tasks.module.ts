@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TasksController } from './tasks.controller';
 import { CommentsController } from './comments.controller';
+import { ApprovalStepsController } from './approval-steps.controller';
 import {
   AttachmentsController,
   MockStorageController,
@@ -15,6 +16,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
   controllers: [
     TasksController,
     CommentsController,
+    ApprovalStepsController,
     TaskAttachmentsController,
     AttachmentsController,
     MockStorageController,

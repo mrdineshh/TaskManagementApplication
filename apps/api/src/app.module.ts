@@ -20,6 +20,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { IntegrationSettingsModule } from './integration-settings/integration-settings.module';
 import { OrganizationModule } from './organization/organization.module';
 import { DashboardsModule } from './dashboards/dashboards.module';
+import { SLAModule } from './sla/sla.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { DashboardsModule } from './dashboards/dashboards.module';
     IntegrationSettingsModule,
     OrganizationModule,
     DashboardsModule,
+    SLAModule,
   ],
   controllers: [AppController],
   providers: [

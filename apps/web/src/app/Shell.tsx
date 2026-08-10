@@ -6,6 +6,7 @@ import { apiClient } from '../lib/api-client/client';
 const navItems = [
   { to: '/', label: 'My Tasks', end: true },
   { to: '/tasks', label: 'All Tasks' },
+  { to: '/tasks/board', label: 'Kanban' },
   { to: '/team', label: 'Team' },
   { to: '/notifications', label: 'Notifications' },
 ];

@@ -9,3 +9,7 @@ export * from './task';
 export * from './notification';
 export * from './integrationSetting';
 export * from './organization';
+export * from './timeLog';
+export * from './taskDependency';
+export * from './approvalStep';
+export * from './slaPolicy';

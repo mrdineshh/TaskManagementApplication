@@ -1,7 +1,7 @@
-// Prisma schema — v1 data model per docs/02-DATA-MODEL.md.
-// v1.1/v1.2-only tables (SLAPolicy, TimeLog, ApprovalStep, TaskDependency,
-// SavedReport, ReportSchedule) are intentionally NOT modeled yet; they are
-// added when those phases are built, per the doc's own phasing guidance.
+// Prisma schema — v1 + v1.1 data model per docs/02-DATA-MODEL.md.
+// v1.2-only tables (SavedReport, ReportSchedule, materialized aggregates) are
+// intentionally NOT modeled yet; they are added when that phase is built,
+// per the doc's own phasing guidance.
 
 generator client {
   provider = "prisma-client-js"
@@ -29,13 +29,13 @@ model OrganizationSettings {
 }
 
 model IntegrationSetting {
-  id               String   @id @default(uuid())
-  key              String   @unique
-  config           Json     @default("{}")
-  encryptedConfig  Bytes?   @map("encrypted_config")
-  updatedById      String?  @map("updated_by_id")
-  updatedBy        User?    @relation(fields: [updatedById], references: [id])
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid())
+  key             String   @unique
+  config          Json     @default("{}")
+  encryptedConfig Bytes?   @map("encrypted_config")
+  updatedById     String?  @map("updated_by_id")
+  updatedBy       User?    @relation(fields: [updatedById], references: [id])
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("integration_settings")
 }
@@ -53,13 +53,14 @@ model Department {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  primaryUsers        User[]                @relation("PrimaryDepartment")
-  userDepartments      UserDepartment[]
-  roles               Role[]
-  tasks               Task[]
-  workflows           WorkflowDefinition[]
-  priorities          PriorityDefinition[]
-  customFieldDefs     CustomFieldDefinition[]
+  primaryUsers    User[]                  @relation("PrimaryDepartment")
+  userDepartments UserDepartment[]
+  roles           Role[]
+  tasks           Task[]
+  workflows       WorkflowDefinition[]
+  priorities      PriorityDefinition[]
+  customFieldDefs CustomFieldDefinition[]
+  slaPolicies     SLAPolicy[]
 
   @@map("departments")
 }
@@ -70,29 +71,35 @@ enum AuthProviderType {
 }
 
 model User {
-  id                   String            @id @default(uuid())
-  email                String            @unique
-  fullName             String            @map("full_name")
-  avatarUrl            String?           @map("avatar_url")
-  primaryDepartmentId  String            @map("primary_department_id")
-  primaryDepartment    Department        @relation("PrimaryDepartment", fields: [primaryDepartmentId], references: [id])
-  authProvider         AuthProviderType  @default(google) @map("auth_provider")
+  id                  String           @id @default(uuid())
+  email               String           @unique
+  fullName            String           @map("full_name")
+  avatarUrl           String?          @map("avatar_url")
+  primaryDepartmentId String           @map("primary_department_id")
+  primaryDepartment   Department       @relation("PrimaryDepartment", fields: [primaryDepartmentId], references: [id])
+  authProvider        AuthProviderType @default(google) @map("auth_provider")
   /// Null until the user's first successful sign-in — Admins can invite/create a user record ahead of that.
-  authProviderId       String?           @map("auth_provider_id")
-  isActive             Boolean           @default(true) @map("is_active")
-  lastLoginAt          DateTime?         @map("last_login_at")
-  createdAt            DateTime          @default(now()) @map("created_at")
-  updatedAt            DateTime          @updatedAt @map("updated_at")
+  authProviderId      String?          @map("auth_provider_id")
+  isActive            Boolean          @default(true) @map("is_active")
+  lastLoginAt         DateTime?        @map("last_login_at")
+  /// Expo push token (v1.1, docs/05-FEATURES.md §2.6) — single token per user; a user signed
+  /// in on multiple devices only receives push on whichever registered most recently. A
+  /// per-device join table is the natural upgrade if that turns out to matter.
+  pushToken           String?          @map("push_token")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
 
-  departments          UserDepartment[]
-  roles                UserRole[]
-  createdTasks         Task[]            @relation("TaskCreatedBy")
-  assignedTasks        Task[]            @relation("TaskAssignee")
-  comments             TaskComment[]
-  attachments          TaskAttachment[]
-  activityLogEntries   ActivityLogEntry[]
-  notifications        Notification[]
-  updatedIntegrations  IntegrationSetting[]
+  departments         UserDepartment[]
+  roles               UserRole[]
+  createdTasks        Task[]               @relation("TaskCreatedBy")
+  assignedTasks       Task[]               @relation("TaskAssignee")
+  comments            TaskComment[]
+  attachments         TaskAttachment[]
+  activityLogEntries  ActivityLogEntry[]
+  notifications       Notification[]
+  updatedIntegrations IntegrationSetting[]
+  timeLogs            TimeLog[]
+  approvalSteps       ApprovalStep[]
 
   @@unique([authProvider, authProviderId])
   @@map("users")
@@ -114,17 +121,17 @@ model UserDepartment {
 // ---------------------------------------------------------------------------
 
 model Role {
-  id           String   @id @default(uuid())
+  id           String      @id @default(uuid())
   name         String
   description  String?
-  isSystemRole Boolean  @default(false) @map("is_system_role")
-  departmentId String?  @map("department_id")
+  isSystemRole Boolean     @default(false) @map("is_system_role")
+  departmentId String?     @map("department_id")
   department   Department? @relation(fields: [departmentId], references: [id])
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
 
-  permissions  RolePermission[]
-  userRoles    UserRole[]
+  permissions RolePermission[]
+  userRoles   UserRole[]
 
   @@map("roles")
 }
@@ -169,12 +176,12 @@ model UserRole {
 // ---------------------------------------------------------------------------
 
 model WorkflowDefinition {
-  id           String   @id @default(uuid())
+  id           String      @id @default(uuid())
   name         String
-  departmentId String?  @map("department_id")
+  departmentId String?     @map("department_id")
   department   Department? @relation(fields: [departmentId], references: [id])
-  isDefault    Boolean  @default(false) @map("is_default")
-  isActive     Boolean  @default(true) @map("is_active")
+  isDefault    Boolean     @default(false) @map("is_default")
+  isActive     Boolean     @default(true) @map("is_active")
 
   statuses    WorkflowStatus[]
   transitions WorkflowTransition[]
@@ -200,24 +207,26 @@ model WorkflowStatus {
   displayOrder Int                    @default(0) @map("display_order")
   color        String?
 
-  tasksAsCurrentStatus  Task[] @relation("TaskStatus")
-  transitionsFrom       WorkflowTransition[] @relation("TransitionFrom")
-  transitionsTo         WorkflowTransition[] @relation("TransitionTo")
+  tasksAsCurrentStatus Task[]               @relation("TaskStatus")
+  transitionsFrom      WorkflowTransition[] @relation("TransitionFrom")
+  transitionsTo        WorkflowTransition[] @relation("TransitionTo")
 
   @@unique([workflowId, key])
   @@map("workflow_statuses")
 }
 
 model WorkflowTransition {
-  id                  String             @id @default(uuid())
-  workflowId          String             @map("workflow_id")
-  workflow            WorkflowDefinition @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  fromStatusId        String             @map("from_status_id")
-  fromStatus          WorkflowStatus     @relation("TransitionFrom", fields: [fromStatusId], references: [id], onDelete: Cascade)
-  toStatusId          String             @map("to_status_id")
-  toStatus            WorkflowStatus     @relation("TransitionTo", fields: [toStatusId], references: [id], onDelete: Cascade)
-  requiredPermission  String?            @map("required_permission")
-  requiresApproval    Boolean            @default(false) @map("requires_approval") // v1.1
+  id                 String             @id @default(uuid())
+  workflowId         String             @map("workflow_id")
+  workflow           WorkflowDefinition @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  fromStatusId       String             @map("from_status_id")
+  fromStatus         WorkflowStatus     @relation("TransitionFrom", fields: [fromStatusId], references: [id], onDelete: Cascade)
+  toStatusId         String             @map("to_status_id")
+  toStatus           WorkflowStatus     @relation("TransitionTo", fields: [toStatusId], references: [id], onDelete: Cascade)
+  requiredPermission String?            @map("required_permission")
+  requiresApproval   Boolean            @default(false) @map("requires_approval") // v1.1
+
+  approvalSteps ApprovalStep[]
 
   @@unique([workflowId, fromStatusId, toStatusId])
   @@map("workflow_transitions")
@@ -228,15 +237,15 @@ model WorkflowTransition {
 // ---------------------------------------------------------------------------
 
 model PriorityDefinition {
-  id           String  @id @default(uuid())
-  departmentId String? @map("department_id")
+  id           String      @id @default(uuid())
+  departmentId String?     @map("department_id")
   department   Department? @relation(fields: [departmentId], references: [id])
   key          String
   label        String
-  displayOrder Int     @default(0) @map("display_order")
+  displayOrder Int         @default(0) @map("display_order")
   color        String?
-  isDefault    Boolean @default(false) @map("is_default")
-  isActive     Boolean @default(true) @map("is_active")
+  isDefault    Boolean     @default(false) @map("is_default")
+  isActive     Boolean     @default(true) @map("is_active")
 
   tasks Task[]
 
@@ -277,12 +286,12 @@ model CustomFieldDefinition {
 }
 
 model TaskCustomFieldValue {
-  id                 String                 @id @default(uuid())
-  taskId             String                 @map("task_id")
-  task               Task                   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  fieldDefinitionId  String                 @map("field_definition_id")
-  fieldDefinition    CustomFieldDefinition  @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
-  value              Json
+  id                String                @id @default(uuid())
+  taskId            String                @map("task_id")
+  task              Task                  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  fieldDefinitionId String                @map("field_definition_id")
+  fieldDefinition   CustomFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+  value             Json
 
   @@unique([taskId, fieldDefinitionId])
   @@map("task_custom_field_values")
@@ -293,44 +302,141 @@ model TaskCustomFieldValue {
 // ---------------------------------------------------------------------------
 
 model Task {
-  id               String              @id @default(uuid())
-  title            String
-  description      String?
-  departmentId     String              @map("department_id")
-  department       Department          @relation(fields: [departmentId], references: [id])
-  workflowId       String              @map("workflow_id")
-  workflow         WorkflowDefinition  @relation(fields: [workflowId], references: [id])
-  statusId         String              @map("status_id")
-  status           WorkflowStatus      @relation("TaskStatus", fields: [statusId], references: [id])
-  priorityId       String              @map("priority_id")
-  priority         PriorityDefinition  @relation(fields: [priorityId], references: [id])
-  assigneeId       String?             @map("assignee_id")
-  assignee         User?               @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  createdById      String              @map("created_by_id")
-  createdBy        User                @relation("TaskCreatedBy", fields: [createdById], references: [id])
-  parentTaskId     String?             @map("parent_task_id")
-  parentTask       Task?               @relation("Subtasks", fields: [parentTaskId], references: [id])
-  subtasks         Task[]              @relation("Subtasks")
-  dueDate          DateTime?           @map("due_date")
-  startDate        DateTime?           @map("start_date")
-  completedAt      DateTime?           @map("completed_at")
-  isRecurring      Boolean             @default(false) @map("is_recurring") // v1.1
-  recurrenceRule   String?             @map("recurrence_rule") // v1.1, iCal RRULE
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
-  deletedAt        DateTime?           @map("deleted_at")
+  id             String             @id @default(uuid())
+  title          String
+  description    String?
+  departmentId   String             @map("department_id")
+  department     Department         @relation(fields: [departmentId], references: [id])
+  workflowId     String             @map("workflow_id")
+  workflow       WorkflowDefinition @relation(fields: [workflowId], references: [id])
+  statusId       String             @map("status_id")
+  status         WorkflowStatus     @relation("TaskStatus", fields: [statusId], references: [id])
+  priorityId     String             @map("priority_id")
+  priority       PriorityDefinition @relation(fields: [priorityId], references: [id])
+  assigneeId     String?            @map("assignee_id")
+  assignee       User?              @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById    String             @map("created_by_id")
+  createdBy      User               @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  parentTaskId   String?            @map("parent_task_id")
+  parentTask     Task?              @relation("Subtasks", fields: [parentTaskId], references: [id])
+  subtasks       Task[]             @relation("Subtasks")
+  dueDate        DateTime?          @map("due_date")
+  startDate      DateTime?          @map("start_date")
+  completedAt    DateTime?          @map("completed_at")
+  isRecurring    Boolean            @default(false) @map("is_recurring") // v1.1
+  recurrenceRule String?            @map("recurrence_rule") // v1.1, iCal RRULE
+  slaPolicyId    String?            @map("sla_policy_id") // v1.1
+  slaPolicy      SLAPolicy?         @relation(fields: [slaPolicyId], references: [id])
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  deletedAt      DateTime?          @map("deleted_at")
 
-  comments        TaskComment[]
-  attachments     TaskAttachment[]
+  comments          TaskComment[]
+  attachments       TaskAttachment[]
   customFieldValues TaskCustomFieldValue[]
-  activityLog     ActivityLogEntry[]
+  activityLog       ActivityLogEntry[]
+  timeLogs          TimeLog[]
+  approvalSteps     ApprovalStep[]
+  dependenciesFrom  TaskDependency[]       @relation("DependencyFromTask") // this task depends on others
+  dependenciesTo    TaskDependency[]       @relation("DependencyToTask") // other tasks depend on this one
 
   @@index([departmentId])
   @@index([assigneeId])
   @@index([statusId])
   @@index([dueDate])
   @@index([parentTaskId])
+  @@index([slaPolicyId])
   @@map("tasks")
+}
+
+// ---------------------------------------------------------------------------
+// v1.1 — Time tracking (docs/05-FEATURES.md §2.1)
+// ---------------------------------------------------------------------------
+
+model TimeLog {
+  id       String   @id @default(uuid())
+  taskId   String   @map("task_id")
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId   String   @map("user_id")
+  user     User     @relation(fields: [userId], references: [id])
+  minutes  Int
+  note     String?
+  loggedAt DateTime @default(now()) @map("logged_at")
+
+  @@index([taskId])
+  @@map("time_logs")
+}
+
+// ---------------------------------------------------------------------------
+// v1.1 — Task dependencies (docs/02-DATA-MODEL.md §3, 05-FEATURES.md §2.4)
+// ---------------------------------------------------------------------------
+
+enum TaskDependencyType {
+  blocks
+  relates_to
+}
+
+model TaskDependency {
+  id              String             @id @default(uuid())
+  taskId          String             @map("task_id")
+  task            Task               @relation("DependencyFromTask", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnTaskId String             @map("depends_on_task_id")
+  dependsOnTask   Task               @relation("DependencyToTask", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+  type            TaskDependencyType
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  @@unique([taskId, dependsOnTaskId])
+  @@map("task_dependencies")
+}
+
+// ---------------------------------------------------------------------------
+// v1.1 — Approval workflows (docs/02-DATA-MODEL.md §5, 05-FEATURES.md §2.5)
+// ---------------------------------------------------------------------------
+
+enum ApprovalStepStatus {
+  pending
+  approved
+  rejected
+}
+
+model ApprovalStep {
+  id           String             @id @default(uuid())
+  taskId       String             @map("task_id")
+  task         Task               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  transitionId String             @map("transition_id")
+  transition   WorkflowTransition @relation(fields: [transitionId], references: [id])
+  approverId   String?            @map("approver_id") // null until claimed/decided by whoever holds approval.approve in scope
+  approver     User?              @relation(fields: [approverId], references: [id])
+  status       ApprovalStepStatus @default(pending)
+  stepOrder    Int                @default(1) @map("step_order")
+  comment      String?
+  decidedAt    DateTime?          @map("decided_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  @@index([taskId])
+  @@map("approval_steps")
+}
+
+// ---------------------------------------------------------------------------
+// v1.1 — SLA & escalation (docs/02-DATA-MODEL.md §5, 05-FEATURES.md §2.2)
+// ---------------------------------------------------------------------------
+
+model SLAPolicy {
+  id                    String      @id @default(uuid())
+  name                  String
+  departmentId          String?     @map("department_id")
+  department            Department? @relation(fields: [departmentId], references: [id])
+  responseTimeMinutes   Int         @map("response_time_minutes")
+  resolutionTimeMinutes Int         @map("resolution_time_minutes")
+  /// Escalation thresholds/targets, e.g. [{ "percent_elapsed": 80, "notify": "assignee" }, { "percent_elapsed": 100, "notify": "assignee_manager" }]
+  escalationRules       Json        @default("[]") @map("escalation_rules")
+  isActive              Boolean     @default(true) @map("is_active")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  tasks Task[]
+
+  @@map("sla_policies")
 }
 
 model TaskComment {
@@ -348,16 +454,16 @@ model TaskComment {
 }
 
 model TaskAttachment {
-  id            String   @id @default(uuid())
-  taskId        String   @map("task_id")
-  task          Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  uploadedById  String   @map("uploaded_by_id")
-  uploadedBy    User     @relation(fields: [uploadedById], references: [id])
-  fileName      String   @map("file_name")
-  storagePath   String   @map("storage_path")
-  mimeType      String   @map("mime_type")
-  sizeBytes     BigInt   @map("size_bytes")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id           String   @id @default(uuid())
+  taskId       String   @map("task_id")
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedById String   @map("uploaded_by_id")
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  fileName     String   @map("file_name")
+  storagePath  String   @map("storage_path")
+  mimeType     String   @map("mime_type")
+  sizeBytes    BigInt   @map("size_bytes")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@map("task_attachments")
 }
@@ -366,8 +472,9 @@ model ActivityLogEntry {
   id        String   @id @default(uuid())
   taskId    String?  @map("task_id")
   task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  actorId   String   @map("actor_id")
-  actor     User     @relation(fields: [actorId], references: [id])
+  /// Nullable for system-triggered entries (e.g. SLA escalation checks) with no human actor.
+  actorId   String?  @map("actor_id")
+  actor     User?    @relation(fields: [actorId], references: [id])
   action    String
   metadata  Json     @default("{}")
   createdAt DateTime @default(now()) @map("created_at")

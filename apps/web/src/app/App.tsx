@@ -9,6 +9,8 @@ import { MyTasksPage } from '../pages/dashboard/MyTasksPage';
 import { TeamDashboardPage } from '../pages/dashboard/TeamDashboardPage';
 import { TaskListPage } from '../pages/tasks/TaskListPage';
 import { TaskDetailPage } from '../pages/tasks/TaskDetailPage';
+import { KanbanBoardPage } from '../pages/tasks/KanbanBoardPage';
+import { SLAAdminPage } from '../pages/admin/SLAAdminPage';
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { AdminLayout } from '../pages/admin/AdminLayout';
 import { AdminHomePage } from '../pages/admin/AdminHomePage';
@@ -40,7 +42,7 @@ function AppRoutes() {
           <Route index element={<MyTasksPage />} />
           <Route path="tasks" element={<TaskListPage />} />
           <Route path="tasks/:id" element={<TaskDetailPage />} />
-          <Route path="tasks/board" element={<ComingSoon title="Kanban board" phase="v1.1" />} />
+          <Route path="tasks/board" element={<KanbanBoardPage />} />
           <Route path="tasks/timeline" element={<ComingSoon title="Gantt / timeline" phase="v1.1" />} />
           <Route path="team" element={<TeamDashboardPage />} />
           <Route path="reports" element={<ComingSoon title="Reports" phase="v1.2" />} />
@@ -55,6 +57,7 @@ function AppRoutes() {
             <Route path="workflows" element={<WorkflowsAdminPage />} />
             <Route path="priorities" element={<PrioritiesAdminPage />} />
             <Route path="integrations" element={<IntegrationsAdminPage />} />
+            <Route path="sla" element={<SLAAdminPage />} />
             <Route path="settings" element={<OrgSettingsAdminPage />} />
           </Route>
         </Route>

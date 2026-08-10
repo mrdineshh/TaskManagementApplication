@@ -1,11 +1,18 @@
 import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { IsString, MinLength } from 'class-validator';
 import { AuthService, type AccessTokenPayload } from './auth.service';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ExchangeTokenDto, RefreshTokenDto } from './dto/auth.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { updateOwnProfileSchema } from '@taskapp/shared-types';
+
+class RegisterPushTokenDto {
+  @IsString()
+  @MinLength(1)
+  push_token!: string;
+}
 
 @ApiTags('auth')
 @Controller('auth')
@@ -78,5 +85,12 @@ export class MeController {
       data: { fullName: input.full_name, avatarUrl: input.avatar_url },
     });
     return { id: updated.id, full_name: updated.fullName, avatar_url: updated.avatarUrl };
+  }
+
+  /** Mobile push registration (v1.1, docs/05-FEATURES.md §2.6) — stores an Expo push token for this user. */
+  @Post('push-token')
+  async registerPushToken(@CurrentUser() user: AccessTokenPayload, @Body() dto: RegisterPushTokenDto) {
+    await this.prisma.user.update({ where: { id: user.sub }, data: { pushToken: dto.push_token } });
+    return { success: true };
   }
 }

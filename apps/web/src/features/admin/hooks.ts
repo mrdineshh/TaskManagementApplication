@@ -233,3 +233,29 @@ export function useUpdateOrganizationSettings() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['organization-settings'] }),
   });
 }
+
+// --- v1.1: SLA policies ---
+export function useSLAPolicies() {
+  return useQuery({ queryKey: ['sla-policies'], queryFn: () => apiClient.slaPolicies.list() });
+}
+export function useCreateSLAPolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Record<string, unknown>) => apiClient.slaPolicies.create(data as never),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sla-policies'] }),
+  });
+}
+export function useUpdateSLAPolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiClient.slaPolicies.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sla-policies'] }),
+  });
+}
+export function useDeleteSLAPolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.slaPolicies.remove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sla-policies'] }),
+  });
+}
