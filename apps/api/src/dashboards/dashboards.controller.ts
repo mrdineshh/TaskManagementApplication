@@ -41,31 +41,42 @@ export class DashboardsController {
     return { open_tasks: openTasks, overdue_count: overdueCount, due_this_week_count: dueThisWeek, recently_completed: recentlyCompleted };
   }
 
+  /**
+   * Migrated to read from ReportAggregateCache (docs/05-FEATURES.md §3.6) instead of live
+   * Task queries: department-level counts tolerate the aggregate refresh interval's staleness
+   * window (default 15min) since near-real-time isn't required here, and reusing the same
+   * cache the reporting engine already maintains avoids running two aggregation strategies
+   * side by side. `recently_created` is a real task list, not an aggregate metric, so it
+   * still reads live — there's no cached equivalent to reconstruct it from.
+   */
   @Get('department')
   @RequirePermission('task.view')
   async department(@CurrentUser() user: AccessTokenPayload, @Query('department_id') departmentId: string) {
     assertDepartmentScope(user, departmentId);
-    const now = new Date();
-    const base = { departmentId, deletedAt: null as null };
+    const today = startOfDay(new Date());
 
-    const [byStatus, overdue, byAssignee, recentlyCreated] = await Promise.all([
-      this.prisma.task.groupBy({ by: ['statusId'], where: base, _count: true }),
-      this.prisma.task.count({
-        where: { ...base, dueDate: { lt: now }, status: { category: { in: ['todo', 'in_progress'] } } },
+    const [statusRows, overdueRow, assigneeRows, recentlyCreated] = await Promise.all([
+      this.prisma.reportAggregateCache.findMany({
+        where: { metricKey: 'task_counts_by_status', departmentId, periodDate: today },
       }),
-      this.prisma.task.groupBy({
-        by: ['assigneeId'],
-        where: { ...base, status: { category: { in: ['todo', 'in_progress'] } } },
-        _count: true,
+      this.prisma.reportAggregateCache.findFirst({
+        where: { metricKey: 'overdue_count', departmentId, periodDate: today },
       }),
-      this.prisma.task.findMany({ where: base, orderBy: { createdAt: 'desc' }, take: 10 }),
+      this.prisma.reportAggregateCache.findMany({
+        where: { metricKey: 'workload_distribution', departmentId, periodDate: today },
+      }),
+      this.prisma.task.findMany({ where: { departmentId, deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 10 }),
     ]);
 
     return {
-      counts_by_status: byStatus.map((s) => ({ status_id: s.statusId, count: s._count })),
-      overdue_count: overdue,
-      workload_by_assignee: byAssignee.map((a) => ({ assignee_id: a.assigneeId, count: a._count })),
+      counts_by_status: statusRows.map((r) => ({ status_id: r.dimensionValue, count: r.value })),
+      overdue_count: overdueRow?.value ?? 0,
+      workload_by_assignee: assigneeRows.map((r) => ({ assignee_id: r.dimensionValue === 'unassigned' ? null : r.dimensionValue, count: r.value })),
       recently_created: recentlyCreated,
     };
   }
+}
+
+function startOfDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }

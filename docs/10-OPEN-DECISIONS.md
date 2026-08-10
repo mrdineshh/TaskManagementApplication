@@ -136,6 +136,53 @@ columns resolved from that department's workflow instead of the org-wide
 default. Not built since the seeded data only has one org-wide workflow —
 flagged as a follow-up once a department-specific workflow actually exists.
 
+## E. Assumptions logged during the v1.2 build
+
+### E1. Materialized aggregates are an app-level cache table, not a Postgres `MATERIALIZED VIEW`
+`05-FEATURES.md` §3.6 says "refreshes materialized aggregate tables/views."
+Built as `ReportAggregateCache`, a normal table upserted by
+`ReportAggregationService` on an interval, rather than a real Postgres
+`MATERIALIZED VIEW` + `REFRESH MATERIALIZED VIEW`. Reasons: the metrics need
+per-department, per-dimension, per-day rows with independent refresh/retention
+semantics (see E2), which is straightforward with an app-level upsert loop
+and awkward to express as a single SQL view definition; and it keeps the
+refresh job swappable for a real Cloud Scheduler-triggered endpoint at deploy
+time without touching the schema. Functionally equivalent for the stated
+goal (reads hit a cheap precomputed table, not live `Task`/`TimeLog`
+queries).
+
+### E2. Report date-range semantics: snapshot vs. flow metrics
+`ReportAggregateCache` keeps one row per metric/department/dimension/day
+rather than overwriting a single "current" row, which incidentally gives
+every metric a daily history for free. The report run engine
+(`reports.service.ts`) splits metrics into two kinds when resolving a
+`date_range`: **flow** metrics (`completion_throughput`,
+`time_tracked_minutes`) are summed across the range; everything else is
+treated as a **snapshot** and reads the latest day's value on or before the
+range end. Not spelled out in the doc set — this is the most reasonable
+reading of "periodic aggregation" applied to a date-range picker in the
+report builder.
+
+### E3. `report.export` isn't granted to the seeded Manager role by default
+The seeded Manager role gets `report.view` + `report.create` (§3.1's
+"Managers... see reports scoped to their department(s)") but not
+`report.export`, which only Admin holds via the full permission set. Not
+specified in the doc; since permissions are Admin-configurable at runtime,
+this is a starting default, not a hard limitation — an Admin can grant
+`report.export` to any role via the existing Roles admin UI.
+
+### E4. Department dashboard's `recently_created` list stays live
+Migrating the v1 department dashboard (§1.6) to the aggregate cache per
+§3.6's suggestion only applies to the count/aggregate fields
+(`counts_by_status`, `overdue_count`, `workload_by_assignee`) — the
+`recently_created` task list is real row data, not a metric, and has no
+cached equivalent to reconstruct it from, so it still queries `Task` live.
+The personal dashboard (§1.6) wasn't migrated at all: it's inherently a
+per-user list view (open tasks, due this week, recently completed), not
+aggregate counts, so there's nothing in it that the aggregate cache could
+serve — migrating it would just add a cache-staleness window to an
+already-cheap, single-user query with no benefit.
+
 ---
 
 ## How to keep this log current
