@@ -40,16 +40,22 @@ provide them on request, per `docs/10-OPEN-DECISIONS.md`.
 
 ## 1. One-time bootstrap (per environment)
 
-The Terraform state bucket must exist before Terraform can manage its own backend:
+The Terraform state bucket must exist before Terraform can manage its own backend, and
+Terraform itself needs a service account with the right (least-privilege, not Owner) roles.
+Run `environments/<env>/bootstrap-terraform-sa.sh` from a machine authenticated as a project
+owner/editor — this is the human-authority step `docs/08-INFRA-DEPLOYMENT.md` §9 calls out,
+not something Terraform or a build agent does for itself:
 
 ```bash
-PROJECT_ID=econz-taskapp-dev   # or -staging / -prod
-gcloud config set project "$PROJECT_ID"
-gcloud services enable storage.googleapis.com
-
-gsutil mb -l asia-south1 "gs://${PROJECT_ID}-tfstate"
-gsutil versioning set on "gs://${PROJECT_ID}-tfstate"
+cd infra/environments/dev
+PROJECT_ID=econz-taskapp-dev REGION=us-central1 ./bootstrap-terraform-sa.sh
 ```
+
+This enables the required APIs, creates a `terraform-dev` service account scoped to just the
+roles this config touches (IAM, KMS, Secret Manager, Cloud SQL, Storage, Cloud Run), writes
+its key to `./terraform-dev-key.json` (gitignored — never commit it), and creates + versions
+the `gs://<project-id>-tfstate` state bucket. Delete or rotate the key once you're done with
+it (`gcloud iam service-accounts keys delete`) — a standing key is a standing risk.
 
 ## 2. Apply an environment
 

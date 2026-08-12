@@ -29,3 +29,6 @@ infra/**/*.tfstate.*
 infra/**/.terraform.lock.hcl
 infra/**/*.tfvars
 !infra/**/*.tfvars.example
+infra/**/*key.json
+infra/**/*-key.json
+infra/**/service-account*.json

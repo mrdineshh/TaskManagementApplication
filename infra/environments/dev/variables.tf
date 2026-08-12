@@ -5,7 +5,7 @@ variable "project_id" {
 
 variable "region" {
   type    = string
-  default = "asia-south1"
+  default = "us-central1" # lowest-cost GCP region — no real-user latency to optimize for in dev
 }
 
 variable "api_image" {
