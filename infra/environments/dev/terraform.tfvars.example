@@ -1,8 +1,8 @@
 # Copy to terraform.tfvars and fill in. Non-secret values only — see infra/README.md.
-project_id = "econz-taskapp-dev"
+project_id = "econz-task-management-app"
 # us-central1: GCP's lowest-cost tier for Cloud Run/Cloud SQL/Storage, used for dev since
 # there's no real-user latency to optimize for here. Revisit for staging/prod, where
 # asia-south1 (or wherever actual users are) is the right tradeoff instead.
 region    = "us-central1"
-api_image = "us-central1-docker.pkg.dev/econz-taskapp-dev/taskapp/api:latest"
+api_image = "us-central1-docker.pkg.dev/econz-task-management-app/taskapp/api:latest"
 # google_oauth_client_secret is intentionally NOT set here — pass via -var or CI secret store.

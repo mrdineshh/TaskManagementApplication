@@ -4,7 +4,7 @@
 # somewhere to store state before it can manage its own backend.
 terraform {
   backend "gcs" {
-    bucket = "econz-taskapp-dev-tfstate"
+    bucket = "econz-task-management-app-tfstate"
     prefix = "terraform/state"
   }
 }

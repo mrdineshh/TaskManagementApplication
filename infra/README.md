@@ -29,8 +29,9 @@ These require a human with account/billing authority and cannot be created by Te
 (or any build agent) — see `docs/08-INFRA-DEPLOYMENT.md` §9:
 
 - GCP billing account, linked to the three projects
-- The three GCP projects themselves (`econz-taskapp-dev/staging/prod`) and enabling their APIs
-  (Cloud Run, Cloud SQL, Secret Manager, Cloud KMS, Cloud Scheduler, Artifact Registry, Cloud Build)
+- The three GCP projects themselves and enabling their APIs (Cloud Run, Cloud SQL, Secret
+  Manager, Cloud KMS, Cloud Scheduler, Artifact Registry, Cloud Build). Dev exists as
+  `econz-task-management-app`; staging/prod aren't created yet.
 - Google OAuth client / Firebase project (for Sign-In with Google)
 - Apple Developer + Google Play Console accounts (mobile distribution)
 - GitHub repo access with permission to configure Cloud Build triggers
@@ -48,7 +49,7 @@ not something Terraform or a build agent does for itself:
 
 ```bash
 cd infra/environments/dev
-PROJECT_ID=econz-taskapp-dev REGION=us-central1 ./bootstrap-terraform-sa.sh
+PROJECT_ID=econz-task-management-app REGION=us-central1 ./bootstrap-terraform-sa.sh
 ```
 
 This enables the required APIs, creates a `terraform-dev` service account scoped to just the

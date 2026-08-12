@@ -5,10 +5,10 @@
 # run by Terraform or any agent, it's the human-authority step docs/08-INFRA-DEPLOYMENT.md
 # §9 and infra/README.md §0 call out as required before Terraform can do anything.
 #
-# Usage: PROJECT_ID=econz-taskapp-dev REGION=us-central1 ./bootstrap-terraform-sa.sh
+# Usage: PROJECT_ID=econz-task-management-app REGION=us-central1 ./bootstrap-terraform-sa.sh
 set -euo pipefail
 
-PROJECT_ID="${PROJECT_ID:?Set PROJECT_ID, e.g. econz-taskapp-dev}"
+PROJECT_ID="${PROJECT_ID:?Set PROJECT_ID, e.g. econz-task-management-app}"
 REGION="${REGION:-us-central1}"
 SA_NAME="terraform-dev"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"

@@ -1,6 +1,6 @@
 variable "project_id" {
   type    = string
-  default = "econz-taskapp-dev"
+  default = "econz-task-management-app"
 }
 
 variable "region" {
