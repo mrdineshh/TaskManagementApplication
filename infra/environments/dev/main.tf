@@ -7,6 +7,15 @@ resource "google_service_account" "api_runtime" {
   display_name = "Task Management API runtime (Cloud Run)"
 }
 
+# Deliberately separate from api_runtime and granted no roles at all: the static web server
+# has no reason to touch the DB, KMS, or any secret, so it shouldn't be able to even if
+# compromised — least privilege, not the API's identity reused out of convenience.
+resource "google_service_account" "web_runtime" {
+  project      = var.project_id
+  account_id   = "taskapp-web-runtime"
+  display_name = "Task Management web runtime (Cloud Run)"
+}
+
 # --- KMS: envelope-encryption key for Admin-UI-configured secrets (docs/01-ARCHITECTURE.md §2.9a) ---
 # The DB stores ciphertext; only the API's own service account can decrypt. This is the one
 # resource type not in a dedicated module (the doc's module list doesn't call one out) since
@@ -160,27 +169,25 @@ module "api" {
   }
 }
 
-# --- Web (static SPA — Cloud Storage, per docs/08-INFRA-DEPLOYMENT.md §5 Default) ---
-# NOTE: this provisions the storage bucket only. Fronting it with Cloud CDN + a custom domain
-# requires an HTTPS Load Balancer (backend bucket + URL map + forwarding rule) — deliberately
-# not added yet since docs/08-INFRA-DEPLOYMENT.md §7 confirms launch on default GCP URLs with
-# no custom domain, and the bucket's own public URL is sufficient until that's needed.
-resource "google_storage_bucket" "web" {
-  name          = "${var.project_id}-web"
-  project       = var.project_id
-  location      = var.region
-  force_destroy = true # dev only — safe to recreate the static build
-
-  uniform_bucket_level_access = true
-
-  website {
-    main_page_suffix = "index.html"
-    not_found_page   = "index.html" # SPA client-side routing fallback
-  }
-}
-
-resource "google_storage_bucket_iam_member" "web_public_read" {
-  bucket = google_storage_bucket.web.name
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
+# --- Web (static SPA — Cloud Run, per docs/08-INFRA-DEPLOYMENT.md §5's Cloud Run alternative) ---
+# The Cloud Storage + public-bucket Default from the docs doesn't work here: this project
+# enforces Public Access Prevention (an org policy), which rejects any allUsers/
+# allAuthenticatedUsers IAM binding outright ("public access prevention is enforced", hit
+# live) — not a bug to work around, a security control almost certainly set deliberately by
+# whoever administers this org. Fronting the bucket with an HTTPS Load Balancer + Cloud CDN
+# would preserve that policy, but pulls in real added infra (backend bucket, URL map, a
+# managed SSL cert that wants a real domain) that contradicts docs/08-INFRA-DEPLOYMENT.md §7's
+# "no custom domain at launch" decision. Cloud Run needs neither: same deploy pattern as the
+# API, automatic HTTPS on its own *.run.app URL, and it was already named as an equally valid
+# Default in the docs for exactly this reason.
+module "web" {
+  source                = "../../modules/cloud-run-service"
+  project_id            = var.project_id
+  region                = var.region
+  service_name          = "taskapp-web"
+  image                 = var.web_image
+  service_account_email = google_service_account.web_runtime.email
+  min_instances         = 0 # scale-to-zero in dev, same as the API
+  max_instances         = 3
+  allow_unauthenticated = true # static assets — public by definition
 }

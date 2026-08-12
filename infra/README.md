@@ -76,9 +76,16 @@ terraform apply -var="google_oauth_client_secret=$GOOGLE_OAUTH_CLIENT_SECRET"
 
 ## 3. What's deliberately not built yet
 
-- **Cloud CDN / custom domain**: the web static bucket is provisioned, but fronting it
-  with an HTTPS Load Balancer + Cloud CDN is skipped until a custom domain is actually
-  wanted — `docs/08-INFRA-DEPLOYMENT.md` §7 confirms launch on default GCP URLs.
+- **Web hosting: Cloud Run, not Cloud Storage + CDN.** `docs/08-INFRA-DEPLOYMENT.md` §5 names
+  Cloud Storage + Cloud CDN as the Default, with Cloud Run serving the static build as an
+  equally valid, explicitly-named alternative — dev actually uses the Cloud Run path.
+  `econz-task-management-app` enforces Public Access Prevention (an org policy), which rejects
+  any `allUsers`/`allAuthenticatedUsers` bucket IAM binding outright — not something to route
+  around, since it's almost certainly there deliberately. An HTTPS Load Balancer + backend
+  bucket would preserve the policy too, but pulls in real infra (backend bucket, URL map, a
+  managed SSL cert that wants a real domain) that contradicts §7's "no custom domain at
+  launch" — Cloud Run needs neither, and already has automatic HTTPS on its own `*.run.app`
+  URL like the API does. Revisit if a custom domain + CDN is wanted later.
 - **Cloud Scheduler jobs**: the `scheduler-job` module is ready, but no jobs are wired up
   yet since the v1 backend doesn't have any scheduled endpoints to call (SLA checks,
   report aggregation, etc. are v1.1/v1.2 features per `docs/05-FEATURES.md`).

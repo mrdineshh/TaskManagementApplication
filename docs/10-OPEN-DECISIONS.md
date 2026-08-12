@@ -183,6 +183,41 @@ aggregate counts, so there's nothing in it that the aggregate cache could
 serve — migrating it would just add a cache-staleness window to an
 already-cheap, single-user query with no benefit.
 
+## F. Decisions made while applying dev infrastructure
+
+### F1. Web app hosts on Cloud Run, not Cloud Storage + CDN
+`08-INFRA-DEPLOYMENT.md` §5 names Cloud Storage + Cloud CDN as the Default
+and Cloud Run as an equally valid alternative for hosting the static SPA.
+The real dev project (`econz-task-management-app`) enforces Public Access
+Prevention (an org policy), which rejects any public bucket IAM binding
+outright — best practice here is to respect that policy rather than ask an
+org admin to relax it just for this bucket, and an HTTPS Load Balancer
+workaround would preserve the policy but pulls in real infra (backend
+bucket, URL map, a managed SSL cert wanting a real domain) that contradicts
+§7's "no custom domain at launch." Switched to Cloud Run: same deploy
+pattern as the API, automatic HTTPS on its own URL, no org policy touched.
+See `infra/README.md` §3.
+
+### F2. Cloud SQL public IP enabled for dev, with no authorized networks yet
+Requested directly, overriding §3's "no public IP" default for this one
+environment. Implemented as an `enable_public_ip` module variable (default
+false, so staging/prod keep the documented no-public-IP posture) plus an
+`authorized_networks` variable, left empty for now — a public IP with zero
+authorized networks exists but is not reachable from anywhere until
+specific CIDRs are added once it's known what needs to connect directly
+(Cloud Run itself always uses the Auth Proxy/connector regardless of this
+setting).
+
+### F3. JWT signing secrets are Terraform-generated, not human-supplied
+`01-ARCHITECTURE.md` §2.9a's "bootstrap secrets" framing implies a human
+populates these, matching the OAuth client secret's real credential. But a
+JWT signing secret is just an arbitrary random string with no external
+source of truth — generating it via `random_password` (same as the DB
+password already was) removes a manual step with no downside, and avoids a
+real chicken-and-egg problem: Cloud Run's deploy validates that every
+referenced secret has at least one version at deploy time, so leaving these
+null (as originally written) made the very first deploy fail outright.
+
 ---
 
 ## How to keep this log current
