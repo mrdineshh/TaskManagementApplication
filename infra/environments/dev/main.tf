@@ -114,6 +114,17 @@ resource "google_secret_manager_secret_iam_member" "db_connection_accessor" {
   member    = "serviceAccount:${google_service_account.api_runtime.email}"
 }
 
+# DATABASE_URL (above) connects via the /cloudsql unix socket that Cloud Run's built-in Cloud
+# SQL Auth Proxy sidecar exposes when cloudsql_instance_connection_name is set (see
+# modules/cloud-run-service/main.tf). That sidecar can't authenticate without this role on the
+# runtime SA — without it, `prisma migrate deploy` hangs waiting on the DB connection until
+# Cloud Run's startup probe times out ("failed to start and listen on the port"), hit live.
+resource "google_project_iam_member" "api_runtime_cloudsql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.api_runtime.email}"
+}
+
 # --- File storage (attachments, exports) ---
 module "attachments_bucket" {
   source                  = "../../modules/storage-bucket"
