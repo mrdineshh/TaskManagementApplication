@@ -1,0 +1,10 @@
+{
+  "name": "@taskapp/config",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "eslint-preset.cjs",
+    "prettier-preset.json",
+    "tsconfig.base.json"
+  ]
+}

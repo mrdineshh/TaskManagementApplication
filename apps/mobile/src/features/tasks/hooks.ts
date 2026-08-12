@@ -1,0 +1,85 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../../lib/api-client/client';
+
+export function useTasks(params?: Record<string, string | undefined>) {
+  return useQuery({ queryKey: ['tasks', params], queryFn: () => apiClient.tasks.list(params) });
+}
+
+export function useTask(id: string | undefined) {
+  return useQuery({ queryKey: ['tasks', id], queryFn: () => apiClient.tasks.get(id!), enabled: !!id });
+}
+
+export function useTaskComments(id: string | undefined) {
+  return useQuery({ queryKey: ['tasks', id, 'comments'], queryFn: () => apiClient.tasks.comments(id!), enabled: !!id });
+}
+
+export function useAddComment(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) => apiClient.tasks.addComment(id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'comments'] }),
+  });
+}
+
+export function useWorkflowStatuses(workflowId: string | undefined) {
+  return useQuery({
+    queryKey: ['workflows', workflowId, 'statuses'],
+    queryFn: () => apiClient.workflows.statuses(workflowId!),
+    enabled: !!workflowId,
+  });
+}
+
+export function useWorkflowTransitions(workflowId: string | undefined) {
+  return useQuery({
+    queryKey: ['workflows', workflowId, 'transitions'],
+    queryFn: () => apiClient.workflows.transitions(workflowId!),
+    enabled: !!workflowId,
+  });
+}
+
+export function useTransitionTask(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (toStatusId: string) => apiClient.tasks.transition(id, toStatusId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', id] });
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
+
+export function usePersonalDashboard() {
+  return useQuery({ queryKey: ['dashboards', 'personal'], queryFn: () => apiClient.dashboards.personal() });
+}
+
+export function useDepartmentDashboard(departmentId: string | undefined) {
+  return useQuery({
+    queryKey: ['dashboards', 'department', departmentId],
+    queryFn: () => apiClient.dashboards.department(departmentId!),
+    enabled: !!departmentId,
+  });
+}
+
+export function useDepartments() {
+  return useQuery({ queryKey: ['departments'], queryFn: () => apiClient.departments.list() });
+}
+
+export function useNotifications() {
+  return useQuery({ queryKey: ['notifications'], queryFn: () => apiClient.notifications.list() });
+}
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.notifications.markRead(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.notifications.markAllRead(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}

@@ -1,0 +1,325 @@
+import type {
+  Task,
+  TaskWithDetails,
+  TaskComment,
+  ActivityLogEntry,
+  Department,
+  CurrentUser,
+  Role,
+  RoleWithPermissions,
+  Permission,
+  WorkflowDefinition,
+  WorkflowStatus,
+  WorkflowTransition,
+  PriorityDefinition,
+  CustomFieldDefinition,
+  Notification,
+  PaginatedResult,
+  ApiErrorBody,
+  TimeLog,
+  TaskDependency,
+  ApprovalStep,
+  SLAPolicy,
+  SavedReport,
+  ReportConfig,
+  ReportMetricDefinition,
+  ReportDimension,
+  ReportChartType,
+  ReportRunResult,
+  ReportSchedule,
+  ReportExportFormat,
+  NotificationPreference,
+} from '@taskapp/shared-types';
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+    public details?: Record<string, unknown>,
+  ) {
+    super(message);
+  }
+}
+
+export interface ApiClientConfig {
+  baseUrl: string;
+  getAccessToken: () => string | null;
+  getRefreshToken: () => string | null;
+  onTokensRefreshed: (accessToken: string, refreshToken: string) => void;
+  /** Called when the refresh token is also invalid/expired — caller should redirect to /login. */
+  onAuthFailure: () => void;
+}
+
+/**
+ * Platform-agnostic typed API client shared by web and mobile (docs/01-ARCHITECTURE.md §4) —
+ * both call the same functions (e.g. `tasksApi.list(filters)`); only how tokens are stored
+ * differs per platform, injected via ApiClientConfig.
+ */
+export function createApiClient(config: ApiClientConfig) {
+  let refreshInFlight: Promise<string | null> | null = null;
+
+  async function refreshAccessToken(): Promise<string | null> {
+    const refreshToken = config.getRefreshToken();
+    if (!refreshToken) return null;
+
+    const res = await fetch(`${config.baseUrl}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return null;
+
+    const body = (await res.json()) as { access_token: string; refresh_token: string };
+    config.onTokensRefreshed(body.access_token, body.refresh_token);
+    return body.access_token;
+  }
+
+  async function request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    opts: { skipAuthRetry?: boolean } = {},
+  ): Promise<T> {
+    const accessToken = config.getAccessToken();
+    const res = await fetch(`${config.baseUrl}/api/v1${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+    if (res.status === 401 && !opts.skipAuthRetry) {
+      refreshInFlight ??= refreshAccessToken().finally(() => {
+        refreshInFlight = null;
+      });
+      const newToken = await refreshInFlight;
+      if (newToken) {
+        return request<T>(method, path, body, { skipAuthRetry: true });
+      }
+      config.onAuthFailure();
+      throw new ApiError(401, 'UNAUTHENTICATED', 'Session expired');
+    }
+
+    if (!res.ok) {
+      const errBody = (await res.json().catch(() => null)) as ApiErrorBody | null;
+      throw new ApiError(
+        res.status,
+        errBody?.error.code ?? 'UNKNOWN_ERROR',
+        errBody?.error.message ?? res.statusText,
+        errBody?.error.details,
+      );
+    }
+
+    if (res.status === 204) return undefined as T;
+    return res.json() as Promise<T>;
+  }
+
+  /** For binary downloads (report export) — same auth/refresh handling as `request`, but resolves a Blob instead of JSON. */
+  async function requestBlob(method: string, path: string, body?: unknown, opts: { skipAuthRetry?: boolean } = {}): Promise<Blob> {
+    const accessToken = config.getAccessToken();
+    const res = await fetch(`${config.baseUrl}/api/v1${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+    if (res.status === 401 && !opts.skipAuthRetry) {
+      refreshInFlight ??= refreshAccessToken().finally(() => {
+        refreshInFlight = null;
+      });
+      const newToken = await refreshInFlight;
+      if (newToken) return requestBlob(method, path, body, { skipAuthRetry: true });
+      config.onAuthFailure();
+      throw new ApiError(401, 'UNAUTHENTICATED', 'Session expired');
+    }
+
+    if (!res.ok) {
+      const errBody = (await res.json().catch(() => null)) as ApiErrorBody | null;
+      throw new ApiError(res.status, errBody?.error.code ?? 'UNKNOWN_ERROR', errBody?.error.message ?? res.statusText, errBody?.error.details);
+    }
+    return res.blob();
+  }
+
+  return {
+    auth: {
+      google: (token: string) => request<{ access_token: string; refresh_token: string }>('POST', '/auth/google', { token }),
+      dev: (token: string) => request<{ access_token: string; refresh_token: string }>('POST', '/auth/dev', { token }),
+      logout: () => request<{ success: boolean }>('POST', '/auth/logout'),
+    },
+    me: {
+      get: () => request<CurrentUser & { roles: { id: string; name: string }[] }>('GET', '/me'),
+      update: (data: { full_name?: string; avatar_url?: string }) => request('PATCH', '/me', data),
+      registerPushToken: (pushToken: string) => request<{ success: boolean }>('POST', '/me/push-token', { push_token: pushToken }),
+      notificationPreferences: () => request<NotificationPreference[]>('GET', '/me/notification-preferences'),
+      updateNotificationPreferences: (preferences: NotificationPreference[]) =>
+        request<{ success: boolean }>('PUT', '/me/notification-preferences', { preferences }),
+    },
+    departments: {
+      list: () => request<Department[]>('GET', '/departments'),
+      create: (data: { name: string; slug: string; description?: string }) =>
+        request<Department>('POST', '/departments', data),
+      update: (id: string, data: Partial<{ name: string; description: string; is_active: boolean }>) =>
+        request<Department>('PATCH', `/departments/${id}`, data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/departments/${id}`),
+    },
+    roles: {
+      list: () => request<RoleWithPermissions[]>('GET', '/roles'),
+      get: (id: string) => request<RoleWithPermissions>('GET', `/roles/${id}`),
+      create: (data: { name: string; description?: string; department_id?: string | null; permission_keys?: string[] }) =>
+        request<RoleWithPermissions>('POST', '/roles', data),
+      update: (id: string, data: Partial<{ name: string; description: string; department_id: string | null; permission_keys: string[] }>) =>
+        request<RoleWithPermissions>('PATCH', `/roles/${id}`, data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/roles/${id}`),
+      permissions: () => request<Permission[]>('GET', '/permissions'),
+      assignToUser: (userId: string, roleId: string, departmentId?: string) =>
+        request('POST', `/users/${userId}/roles`, { role_id: roleId, department_id: departmentId }),
+      removeFromUser: (userId: string, roleId: string) =>
+        request<{ success: boolean }>('DELETE', `/users/${userId}/roles/${roleId}`),
+    },
+    users: {
+      list: (params?: { department_id?: string; is_active?: boolean }) =>
+        request<unknown[]>(
+          'GET',
+          `/users${qs({ department_id: params?.department_id, is_active: params?.is_active === undefined ? undefined : String(params.is_active) })}`,
+        ),
+      get: (id: string) => request<unknown>('GET', `/users/${id}`),
+      invite: (data: { email: string; full_name: string; primary_department_id: string; role_ids?: string[] }) =>
+        request('POST', '/users', data),
+      update: (id: string, data: Record<string, unknown>) => request('PATCH', `/users/${id}`, data),
+      deactivate: (id: string) => request<{ success: boolean }>('DELETE', `/users/${id}`),
+    },
+    workflows: {
+      list: () => request<WorkflowDefinition[]>('GET', '/workflows'),
+      create: (data: { name: string; department_id?: string | null; is_default?: boolean }) =>
+        request<WorkflowDefinition>('POST', '/workflows', data),
+      update: (id: string, data: Partial<WorkflowDefinition>) => request<WorkflowDefinition>('PATCH', `/workflows/${id}`, data),
+      statuses: (id: string) => request<WorkflowStatus[]>('GET', `/workflows/${id}/statuses`),
+      addStatus: (workflowId: string, data: Omit<WorkflowStatus, 'id' | 'workflow_id'>) =>
+        request<WorkflowStatus>('POST', `/workflows/${workflowId}/statuses`, data),
+      updateStatus: (id: string, data: Partial<WorkflowStatus>) => request<WorkflowStatus>('PATCH', `/statuses/${id}`, data),
+      removeStatus: (id: string) => request<{ success: boolean }>('DELETE', `/statuses/${id}`),
+      transitions: (workflowId: string) => request<WorkflowTransition[]>('GET', `/workflows/${workflowId}/transitions`),
+      addTransition: (workflowId: string, data: { from_status_id: string; to_status_id: string; required_permission?: string | null }) =>
+        request<WorkflowTransition>('POST', `/workflows/${workflowId}/transitions`, data),
+      removeTransition: (id: string) => request<{ success: boolean }>('DELETE', `/transitions/${id}`),
+    },
+    priorities: {
+      list: (departmentId?: string) => request<PriorityDefinition[]>('GET', `/priorities${qs({ department_id: departmentId })}`),
+      create: (data: Omit<PriorityDefinition, 'id' | 'is_active'>) => request<PriorityDefinition>('POST', '/priorities', data),
+      update: (id: string, data: Partial<PriorityDefinition>) => request<PriorityDefinition>('PATCH', `/priorities/${id}`, data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/priorities/${id}`),
+    },
+    customFields: {
+      list: (departmentId?: string) => request<CustomFieldDefinition[]>('GET', `/custom-fields${qs({ department_id: departmentId })}`),
+      create: (data: Omit<CustomFieldDefinition, 'id' | 'is_active'>) => request<CustomFieldDefinition>('POST', '/custom-fields', data),
+      update: (id: string, data: Partial<CustomFieldDefinition>) => request<CustomFieldDefinition>('PATCH', `/custom-fields/${id}`, data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/custom-fields/${id}`),
+    },
+    tasks: {
+      list: (params?: Record<string, string | undefined>) => request<PaginatedResult<Task>>('GET', `/tasks${qs(params)}`),
+      get: (id: string) => request<TaskWithDetails>('GET', `/tasks/${id}`),
+      create: (data: Record<string, unknown>) => request<TaskWithDetails>('POST', '/tasks', data),
+      update: (id: string, data: Record<string, unknown>) => request<TaskWithDetails>('PATCH', `/tasks/${id}`, data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/tasks/${id}`),
+      assign: (id: string, assigneeId: string | null) => request<Task>('POST', `/tasks/${id}/assign`, { assignee_id: assigneeId }),
+      transition: (id: string, toStatusId: string) =>
+        request<(Task & { warnings?: { open_blockers: { task_id: string; task_title: string }[] } }) | { pending_approval: true; approval_step: ApprovalStep }>(
+          'POST',
+          `/tasks/${id}/transition`,
+          { to_status_id: toStatusId },
+        ),
+      activity: (id: string) => request<ActivityLogEntry[]>('GET', `/tasks/${id}/activity`),
+      comments: (id: string) => request<TaskComment[]>('GET', `/tasks/${id}/comments`),
+      addComment: (id: string, body: string) => request<TaskComment>('POST', `/tasks/${id}/comments`, { body }),
+      // v1.1
+      timeLogs: (id: string) => request<TimeLog[]>('GET', `/tasks/${id}/time-logs`),
+      addTimeLog: (id: string, minutes: number, note?: string) =>
+        request<TimeLog>('POST', `/tasks/${id}/time-logs`, { minutes, note }),
+      dependencies: (id: string) => request<(TaskDependency & { depends_on_task: { id: string; title: string } })[]>('GET', `/tasks/${id}/dependencies`),
+      addDependency: (id: string, dependsOnTaskId: string, type: 'blocks' | 'relates_to') =>
+        request<TaskDependency>('POST', `/tasks/${id}/dependencies`, { depends_on_task_id: dependsOnTaskId, type }),
+      removeDependency: (id: string, depId: string) => request<{ success: boolean }>('DELETE', `/tasks/${id}/dependencies/${depId}`),
+      approvalSteps: (id: string) => request<ApprovalStep[]>('GET', `/tasks/${id}/approval-steps`),
+    },
+    approvalSteps: {
+      decide: (id: string, decision: 'approved' | 'rejected', comment?: string) =>
+        request<ApprovalStep>('POST', `/approval-steps/${id}/decide`, { decision, comment }),
+    },
+    slaPolicies: {
+      list: (departmentId?: string) => request<SLAPolicy[]>('GET', `/sla-policies${qs({ department_id: departmentId })}`),
+      create: (data: Omit<SLAPolicy, 'id' | 'is_active' | 'created_at' | 'updated_at'>) => request<SLAPolicy>('POST', '/sla-policies', data),
+      update: (id: string, data: Partial<SLAPolicy>) => request<SLAPolicy>('PATCH', `/sla-policies/${id}`, data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/sla-policies/${id}`),
+    },
+    comments: {
+      edit: (id: string, body: string) => request<TaskComment>('PATCH', `/comments/${id}`, { body }),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/comments/${id}`),
+    },
+    notifications: {
+      list: (unreadOnly?: boolean) => request<Notification[]>('GET', `/notifications${qs({ unread: unreadOnly ? 'true' : undefined })}`),
+      markRead: (id: string) => request<{ success: boolean }>('PATCH', `/notifications/${id}/read`),
+      markAllRead: () => request<{ success: boolean }>('PATCH', '/notifications/read-all'),
+    },
+    dashboards: {
+      personal: () => request<Record<string, unknown>>('GET', '/dashboards/personal'),
+      department: (departmentId: string) => request<Record<string, unknown>>('GET', `/dashboards/department${qs({ department_id: departmentId })}`),
+    },
+    integrationSettings: {
+      get: (key: string) => request<Record<string, unknown>>('GET', `/integration-settings/${key}`),
+      upsert: (key: string, config: Record<string, unknown>, secret?: string) =>
+        request('PUT', `/integration-settings/${key}`, { config, secret }),
+      test: (key: string) => request<{ success: boolean; message: string }>('POST', `/integration-settings/${key}/test`),
+    },
+    organization: {
+      get: () => request<Record<string, unknown> | null>('GET', '/organization-settings'),
+      update: (data: Record<string, unknown>) => request('PATCH', '/organization-settings', data),
+    },
+    // v1.2
+    reportMetrics: {
+      list: () =>
+        request<{ metrics: ReportMetricDefinition[]; dimensions: readonly ReportDimension[]; chart_types: readonly ReportChartType[] }>(
+          'GET',
+          '/report-metrics',
+        ),
+    },
+    reports: {
+      list: () => request<SavedReport[]>('GET', '/reports'),
+      get: (id: string) => request<SavedReport>('GET', `/reports/${id}`),
+      create: (data: { name: string; config: ReportConfig; visibility?: SavedReport['visibility']; shared_with_role_ids?: string[] }) =>
+        request<SavedReport>('POST', '/reports', data),
+      update: (id: string, data: Partial<{ name: string; config: ReportConfig; visibility: SavedReport['visibility']; shared_with_role_ids: string[] }>) =>
+        request<SavedReport>('PATCH', `/reports/${id}`, data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/reports/${id}`),
+      preview: (config: ReportConfig) => request<ReportRunResult[]>('POST', '/reports/preview', { config }),
+      run: (id: string) => request<ReportRunResult[]>('GET', `/reports/${id}/run`),
+      exportSaved: (id: string, format: ReportExportFormat) => requestBlob('GET', `/reports/${id}/export?format=${format}`),
+      exportPreview: (config: ReportConfig, format: ReportExportFormat) =>
+        requestBlob('POST', `/reports/preview/export?format=${format}`, { config }),
+    },
+    reportSchedules: {
+      list: (reportId: string) => request<ReportSchedule[]>('GET', `/reports/${reportId}/schedules`),
+      create: (
+        reportId: string,
+        data: Omit<ReportSchedule, 'id' | 'saved_report_id' | 'is_active' | 'last_run_at'>,
+      ) => request<ReportSchedule>('POST', `/reports/${reportId}/schedules`, data),
+      update: (reportId: string, scheduleId: string, data: Partial<Omit<ReportSchedule, 'id' | 'saved_report_id' | 'last_run_at'>>) =>
+        request<ReportSchedule>('PATCH', `/reports/${reportId}/schedules/${scheduleId}`, data),
+      remove: (reportId: string, scheduleId: string) => request<{ success: boolean }>('DELETE', `/reports/${reportId}/schedules/${scheduleId}`),
+    },
+  };
+}
+
+function qs(params?: Record<string, string | undefined>): string {
+  if (!params) return '';
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined) as [string, string][];
+  if (!entries.length) return '';
+  return `?${new URLSearchParams(entries).toString()}`;
+}
+
+export type ApiClient = ReturnType<typeof createApiClient>;

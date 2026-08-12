@@ -1,0 +1,18 @@
+{
+  "extends": "../../packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@taskapp/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@taskapp/api-client": ["../../packages/api-client/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

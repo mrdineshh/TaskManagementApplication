@@ -1,0 +1,12 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@taskapp/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@taskapp/api-client": ["../../packages/api-client/src/index.ts"]
+    }
+  },
+  "include": ["src", "App.tsx"]
+}

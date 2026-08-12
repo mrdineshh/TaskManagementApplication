@@ -1,0 +1,31 @@
+node_modules/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage/
+.vscode/
+.idea/
+
+# Prisma
+apps/api/prisma/dev.db
+
+# Mock Cloud Storage (local dev stand-in — see apps/api/src/storage/mock-storage.service.ts)
+apps/api/.mock-storage/
+
+# Expo / React Native
+apps/mobile/.expo/
+apps/mobile/.expo-shared/
+
+# Terraform
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/.terraform.lock.hcl
+infra/**/*.tfvars
+!infra/**/*.tfvars.example
