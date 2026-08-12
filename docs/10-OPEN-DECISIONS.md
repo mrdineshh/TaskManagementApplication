@@ -218,6 +218,33 @@ real chicken-and-egg problem: Cloud Run's deploy validates that every
 referenced secret has at least one version at deploy time, so leaving these
 null (as originally written) made the very first deploy fail outright.
 
+### F4. "dev" mock auth provider temporarily enabled on the deployed dev API — SECURITY EXPOSURE, revert once Firebase is set up
+`AUTH_PROVIDERS` on the deployed `taskapp-api` Cloud Run service is
+currently `"google,dev"`, not `"google"` alone as originally deployed. Real
+Google Sign-In (`GoogleAuthProvider`, `docs/03-RBAC-AUTH.md` §1.1) is Firebase
+Auth-backed and needs a Firebase project added to `econz-task-management-app`
+plus a Google sign-in provider enabled in it — the account applying this infra
+does not have permission to create that Firebase project. Explicitly chosen
+(over the alternative of locking down Cloud Run ingress) as the fastest way to
+get the freshly-deployed app reachable at all.
+
+**This is a real, live security exposure, not just a dev-convenience trade-off**:
+`DevAuthProvider` (`apps/api/src/auth/providers/dev-auth.provider.ts`) accepts
+*any* string containing "@" as a fully-trusted identity token — no password, no
+verification, nothing. Since `taskapp-api` is `allow_unauthenticated = true`
+(network-level; the app's own JWT auth is what's supposed to gate access) and
+is reachable at a public `*.run.app` URL, anyone who has that URL can sign in
+as *any* `@econz.net` user, including admins, just by typing their email into
+the web login form's "dev sign-in" field.
+
+**Revert as soon as a Firebase project is available**: create/link a Firebase
+project (someone with the right GCP org permission), enable Google as a
+sign-in provider, add the deployed web URL to Firebase Auth's authorized
+domains, wire the frontend's disabled "Sign in with Google" button up to the
+Firebase JS SDK, set `FIREBASE_PROJECT_ID` on the API service, then change
+`AUTH_PROVIDERS` back to `"google"` only in
+`infra/environments/dev/main.tf` and redeploy.
+
 ---
 
 ## How to keep this log current

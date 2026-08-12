@@ -176,7 +176,13 @@ module "api" {
     # already reads process.env.PORT with a 3000 fallback only for local dev, so this needs
     # no code change — Cloud Run's own value just flows straight through.
     ALLOWED_EMAIL_DOMAIN = "econz.net"
-    AUTH_PROVIDERS       = "google" # "dev" mock provider is local-only, never deployed
+    # "dev" temporarily enabled here (docs/10-OPEN-DECISIONS.md §F4) — no real Firebase project
+    # is available yet to wire up "google" end-to-end, and this is the only way to reach the
+    # app at all right now. SECURITY: the dev provider accepts ANY email as a bare token with
+    # zero verification, and this Cloud Run service is allow_unauthenticated — anyone with the
+    # URL can sign in as any @econz.net user, including admins, until this is reverted to
+    # "google" only once real Firebase credentials are set up.
+    AUTH_PROVIDERS = "google,dev"
     ATTACHMENTS_BUCKET   = module.attachments_bucket.bucket_name
     DEV_KMS_KEY_ID       = google_kms_crypto_key.integration_settings.id
   }
