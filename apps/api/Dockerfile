@@ -15,8 +15,13 @@ RUN npm ci
 
 FROM deps AS build
 COPY . .
-RUN npx turbo run build --filter=@taskapp/api
+# Must run BEFORE the build below: `nest build` (tsc) imports @prisma/client's generated types
+# (enums, Prisma.InputJsonValue, WhereInput types, etc.), which don't exist until this runs.
+# Hit this live as 54 TS errors ("no exported member ...") — the reverse order compiles fine
+# only in environments where node_modules/.prisma/client was already populated by some earlier
+# `prisma migrate dev` side effect, which is why this never surfaced in local dev.
 RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
+RUN npx turbo run build --filter=@taskapp/api
 
 FROM node:20-slim AS runtime
 WORKDIR /repo
