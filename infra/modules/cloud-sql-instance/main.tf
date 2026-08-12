@@ -17,6 +17,10 @@ resource "google_sql_database_instance" "this" {
 
   settings {
     tier = var.tier
+    # ENTERPRISE (not the newer ENTERPRISE_PLUS, now the GCP default for new instances) is
+    # required for shared-core tiers like db-f1-micro — ENTERPRISE_PLUS only supports
+    # db-perf-optimized-* tiers, which cost meaningfully more than this dev sizing needs.
+    edition = "ENTERPRISE"
 
     availability_type = var.availability_type
 
@@ -25,10 +29,20 @@ resource "google_sql_database_instance" "this" {
       point_in_time_recovery_enabled = var.backup_enabled
     }
 
-    # No public IP — Cloud Run connects via the Cloud SQL Auth Proxy/connector
-    # (docs/08-INFRA-DEPLOYMENT.md §3), so no VPC peering is required for this setup.
+    # Cloud Run itself always connects via the Cloud SQL Auth Proxy/connector regardless of
+    # this setting (docs/08-INFRA-DEPLOYMENT.md §3) — enable_public_ip is only for direct
+    # external access (e.g. a local client), gated by authorized_networks below since a
+    # public IP alone doesn't open access to anything.
     ip_configuration {
-      ipv4_enabled = false
+      ipv4_enabled = var.enable_public_ip
+
+      dynamic "authorized_networks" {
+        for_each = var.authorized_networks
+        content {
+          name  = authorized_networks.value.name
+          value = authorized_networks.value.cidr
+        }
+      }
     }
   }
 }

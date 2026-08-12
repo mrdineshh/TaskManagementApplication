@@ -65,6 +65,9 @@ module "db" {
   availability_type   = "ZONAL"
   backup_enabled      = false # dev data is freely resettable — skip backup cost
   deletion_protection = false
+  enable_public_ip    = true # no authorized_networks passed below, so nothing can actually
+  # reach it yet — add entries here once you know which IP(s) need to connect, e.g.:
+  # authorized_networks = [{ name = "office", cidr = "203.0.113.4/32" }]
 }
 
 resource "google_secret_manager_secret_iam_member" "db_connection_accessor" {
