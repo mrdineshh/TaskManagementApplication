@@ -34,6 +34,18 @@ gcloud iam service-accounts create "$SA_NAME" \
   --display-name="Terraform (dev environment)" \
   --project="$PROJECT_ID" || echo "  (already exists, continuing)"
 
+# IAM propagation lag: the service account can take a few seconds to become visible to the
+# IAM policy-binding API right after creation, even though "create" already returned success.
+# Poll for it instead of a fixed sleep, so this isn't flaky on a slow day (or unnecessarily
+# slow on a fast one).
+echo "Waiting for the service account to propagate..."
+for i in $(seq 1 10); do
+  if gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT_ID" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 3
+done
+
 echo "Granting least-privilege roles (not Owner/Editor)..."
 for ROLE in \
   roles/iam.serviceAccountAdmin \
@@ -46,11 +58,24 @@ for ROLE in \
   roles/serviceusage.serviceUsageAdmin \
   roles/resourcemanager.projectIamAdmin
 do
-  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="$ROLE" \
-    --condition=None \
-    --quiet
+  # Retry each binding a few times too — propagation can still lag transiently here.
+  bound=false
+  for attempt in 1 2 3 4 5; do
+    if gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+      --member="serviceAccount:${SA_EMAIL}" \
+      --role="$ROLE" \
+      --condition=None \
+      --quiet; then
+      bound=true
+      break
+    fi
+    echo "  retrying $ROLE ($attempt/5)..."
+    sleep 5
+  done
+  if [ "$bound" != true ]; then
+    echo "Failed to grant $ROLE after 5 attempts — rerun this script, it's safe to repeat." >&2
+    exit 1
+  fi
 done
 
 echo "Creating key file at $KEY_FILE — treat this as a live credential..."
