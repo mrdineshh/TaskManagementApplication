@@ -4,5 +4,9 @@ project_id = "econz-task-management-app"
 # there's no real-user latency to optimize for here. Revisit for staging/prod, where
 # asia-south1 (or wherever actual users are) is the right tradeoff instead.
 region    = "us-central1"
-api_image = "us-central1-docker.pkg.dev/econz-task-management-app/taskapp/api:latest"
+# Leave as the module default (gcr.io/cloudrun/hello, a known-good public placeholder) until
+# CI pushes a real image — pointing at an Artifact Registry path with nothing pushed there yet
+# fails Cloud Run deploy outright (it validates the image is pullable at deploy time). Switch
+# to us-central1-docker.pkg.dev/<project_id>/taskapp/api:latest once that repo has an image.
+api_image = "gcr.io/cloudrun/hello"
 # google_oauth_client_secret is intentionally NOT set here — pass via -var or CI secret store.

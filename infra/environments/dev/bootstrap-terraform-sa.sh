@@ -55,6 +55,7 @@ for ROLE in \
   roles/cloudsql.admin \
   roles/storage.admin \
   roles/run.admin \
+  roles/artifactregistry.admin \
   roles/serviceusage.serviceUsageAdmin \
   roles/resourcemanager.projectIamAdmin
 do

@@ -86,6 +86,27 @@ module "attachments_bucket" {
   cold_storage_after_days = 90
 }
 
+# --- Artifact Registry (docs/08-INFRA-DEPLOYMENT.md §2/§4) ---
+# Empty until CI pushes an image — costs ~$0 until then. Without this, Cloud Run deploy fails
+# outright at apply time (not just at request time) since it validates the image is pullable:
+# hit this live pointing api_image at a repo that didn't exist yet ("Permission
+# artifactregistry.repositories.downloadArtifacts denied ... or it may not exist").
+resource "google_artifact_registry_repository" "taskapp" {
+  project       = var.project_id
+  location      = var.region
+  repository_id = "taskapp"
+  format        = "DOCKER"
+  description   = "Docker images for the Task Management API, published by CI."
+}
+
+resource "google_artifact_registry_repository_iam_member" "api_runtime_reader" {
+  project    = var.project_id
+  location   = google_artifact_registry_repository.taskapp.location
+  repository = google_artifact_registry_repository.taskapp.name
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${google_service_account.api_runtime.email}"
+}
+
 # --- API (Cloud Run) ---
 module "api" {
   source                            = "../../modules/cloud-run-service"
@@ -100,8 +121,12 @@ module "api" {
   cloudsql_instance_connection_name = module.db.connection_name
 
   env_vars = {
-    NODE_ENV             = "development"
-    PORT                 = "3000"
+    NODE_ENV = "development"
+    # PORT is deliberately not set here — Cloud Run reserves and injects it itself (defaults
+    # to 8080), rejecting the deploy outright if a container tries to set it explicitly ("The
+    # following reserved env names were provided: PORT", hit live). apps/api/src/main.ts
+    # already reads process.env.PORT with a 3000 fallback only for local dev, so this needs
+    # no code change — Cloud Run's own value just flows straight through.
     ALLOWED_EMAIL_DOMAIN = "econz.net"
     AUTH_PROVIDERS       = "google" # "dev" mock provider is local-only, never deployed
     ATTACHMENTS_BUCKET   = module.attachments_bucket.bucket_name
