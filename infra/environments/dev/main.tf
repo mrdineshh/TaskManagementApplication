@@ -1,6 +1,15 @@
 # dev — active development, freely resettable data (docs/08-INFRA-DEPLOYMENT.md §1).
 # Scale-to-zero everywhere possible; smallest viable Cloud SQL tier; no HA replica.
 
+# Not enabled by the bootstrap script (that only covers what Terraform itself calls) — needed
+# for `gcloud builds submit` (apps/api/cloudbuild.yaml, apps/web/cloudbuild.yaml) to build and
+# push real images once there's actual application code to deploy, not just the placeholder.
+resource "google_project_service" "cloudbuild" {
+  project            = var.project_id
+  service            = "cloudbuild.googleapis.com"
+  disable_on_destroy = false
+}
+
 resource "google_service_account" "api_runtime" {
   project      = var.project_id
   account_id   = "taskapp-api-runtime"

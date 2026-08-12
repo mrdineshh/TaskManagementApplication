@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/build
+**/.turbo
+**/.expo
+**/.expo-shared
+**/*.tsbuildinfo
+.git
+.github
+infra
+docs
+apps/mobile
+apps/api/prisma/dev.db
+apps/api/.mock-storage
+**/*.log
+.DS_Store

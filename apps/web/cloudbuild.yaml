@@ -1,0 +1,14 @@
+# Manual/CI build for the web image. Context MUST be the repo root (npm workspaces) — run from
+# the repo root: gcloud builds submit --config=apps/web/cloudbuild.yaml --substitutions=_API_URL=<real API URL> .
+# _API_URL gets baked into the JS bundle at build time (Vite env vars aren't runtime-configurable)
+# — see apps/web/Dockerfile.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-f', 'apps/web/Dockerfile', '--build-arg', 'VITE_API_BASE_URL=${_API_URL}', '-t', '${_IMAGE}', '.']
+images:
+  - '${_IMAGE}'
+substitutions:
+  _IMAGE: us-central1-docker.pkg.dev/econz-task-management-app/taskapp/web:latest
+  _API_URL: https://taskapp-api-2r35mnxdmq-uc.a.run.app
+options:
+  logging: CLOUD_LOGGING_ONLY
