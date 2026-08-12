@@ -5,6 +5,12 @@
 
 FROM node:20-slim AS deps
 WORKDIR /repo
+# node:20-slim ships no OpenSSL at all, so Prisma's engine binaries can't detect which version
+# to link against ("Prisma failed to detect the libssl/openssl version ... Defaulting to
+# openssl-1.1.x") and the schema engine fails outright at runtime — hit live as `prisma migrate
+# deploy` erroring out before the app ever starts listening, which Cloud Run then reports as a
+# generic startup timeout. Installing it explicitly, as Prisma's own warning recommends.
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json turbo.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
@@ -26,6 +32,9 @@ RUN npx turbo run build --filter=@taskapp/api
 FROM node:20-slim AS runtime
 WORKDIR /repo
 ENV NODE_ENV=production
+# Same reason as the deps stage above — this is a separate base image layer, so it needs its
+# own OpenSSL install for the engine binaries copied in below to actually run.
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 # Keeps devDependencies (prisma CLI, needed at startup below) rather than a --omit=dev prune —
 # correctness over image size for this first working deploy; a pruned multi-stage copy is a
 # reasonable later optimization once the app is actually running.
