@@ -14,7 +14,12 @@ resource "google_secret_manager_secret" "this" {
 }
 
 resource "google_secret_manager_secret_version" "this" {
-  count       = var.secret_value != null ? 1 : 0
+  # var.create_version, not `var.secret_value != null`: when secret_value comes from a
+  # resource that doesn't exist yet (e.g. random_password.result), its nullness is unknown
+  # until apply, and Terraform can't evaluate `count` from an unknown value ("Invalid count
+  # argument", hit live generating JWT secrets this way). An explicit, always-plan-time-known
+  # boolean sidesteps that regardless of where secret_value's actual value comes from.
+  count       = local.create_version ? 1 : 0
   secret      = google_secret_manager_secret.this.id
   secret_data = var.secret_value
 }

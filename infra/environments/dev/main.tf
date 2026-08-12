@@ -33,10 +33,27 @@ resource "google_kms_crypto_key_iam_member" "api_runtime_decrypt" {
 }
 
 # --- Bootstrap secrets (docs/01-ARCHITECTURE.md §2.9a — the narrow deployment-only set) ---
+# JWT signing secrets are arbitrary random strings, not a human-chosen value — nothing to wait
+# on, so generate them the same way random_password.db_password already does, rather than
+# leaving them null. A null secret_value means the Secret Manager container has zero versions,
+# which made the Cloud Run deploy itself fail outright ("Secret .../versions/latest was not
+# found") since a secretKeyRef needs an actual version to reference, not just a container.
+resource "random_password" "jwt_access_secret" {
+  length  = 64
+  special = false
+}
+
+resource "random_password" "jwt_refresh_secret" {
+  length  = 64
+  special = false
+}
+
 module "jwt_access_secret" {
   source                         = "../../modules/secret"
   project_id                     = var.project_id
   secret_id                      = "taskapp-jwt-access-secret"
+  secret_value                   = random_password.jwt_access_secret.result
+  create_version                 = true # literal, not inferred — see modules/secret/variables.tf
   accessor_service_account_email = google_service_account.api_runtime.email
 }
 
@@ -44,6 +61,8 @@ module "jwt_refresh_secret" {
   source                         = "../../modules/secret"
   project_id                     = var.project_id
   secret_id                      = "taskapp-jwt-refresh-secret"
+  secret_value                   = random_password.jwt_refresh_secret.result
+  create_version                 = true # literal, not inferred — see modules/secret/variables.tf
   accessor_service_account_email = google_service_account.api_runtime.email
 }
 
