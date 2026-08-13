@@ -55,7 +55,7 @@ export class SLAEscalationService implements OnModuleInit, OnModuleDestroy {
         });
         if (alreadyNotified) continue;
 
-        await this.escalate(task.id, task.title, task.departmentId, task.assigneeId, rule);
+        await this.escalate(task.id, task.title, task.assigneeId, rule);
       }
     }
   }
@@ -63,11 +63,10 @@ export class SLAEscalationService implements OnModuleInit, OnModuleDestroy {
   private async escalate(
     taskId: string,
     taskTitle: string,
-    departmentId: string,
     assigneeId: string | null,
     rule: EscalationRule,
   ) {
-    const targets = await this.resolveNotifyTargets(rule.notify, departmentId, assigneeId);
+    const targets = await this.resolveNotifyTargets(rule.notify, assigneeId);
     for (const userId of targets) {
       await this.notifications.notify(userId, 'sla_breach', { taskId, taskTitle, percentElapsed: rule.percent_elapsed });
     }
@@ -82,26 +81,18 @@ export class SLAEscalationService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * "assignee_manager" has no explicit reports-to field in the data model (docs/02-DATA-MODEL.md
-   * doesn't define one) — resolved here as anyone holding task.assign in the task's department,
-   * a reasonable stand-in for "the assignee's manager" given the schema, logged as an assumption.
+   * "assignee_manager" originally had no real reports-to field to resolve against and fell
+   * back to anyone holding task.assign in the department. Phase 1 (docs/10-OPEN-DECISIONS.md
+   * §G1) added User.managerId — the actual field this was standing in for — so this now
+   * resolves to the assignee's real Manager instead of that department-wide approximation.
    */
-  private async resolveNotifyTargets(
-    notify: EscalationRule['notify'],
-    departmentId: string,
-    assigneeId: string | null,
-  ): Promise<string[]> {
+  private async resolveNotifyTargets(notify: EscalationRule['notify'], assigneeId: string | null): Promise<string[]> {
     if (notify === 'assignee') {
       return assigneeId ? [assigneeId] : [];
     }
 
-    const candidates = await this.prisma.userRole.findMany({
-      where: { role: { permissions: { some: { permission: { key: 'task.assign' } } } } },
-      include: { role: true },
-    });
-    const managerIds = candidates
-      .filter((ur) => ur.role.departmentId === null || ur.role.departmentId === departmentId || ur.departmentOverride === departmentId)
-      .map((ur) => ur.userId);
-    return [...new Set(managerIds)];
+    if (!assigneeId) return [];
+    const assignee = await this.prisma.user.findUnique({ where: { id: assigneeId } });
+    return assignee?.managerId ? [assignee.managerId] : [];
   }
 }

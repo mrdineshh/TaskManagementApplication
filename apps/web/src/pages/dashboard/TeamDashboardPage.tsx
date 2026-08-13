@@ -31,10 +31,14 @@ export function TeamDashboardPage() {
 
       {d && (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border border-slate-200 bg-white p-4">
               <p className="text-xs font-medium uppercase text-slate-400">Overdue</p>
               <p className="mt-1 text-2xl font-semibold text-red-600">{d.overdue_count}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="text-xs font-medium uppercase text-slate-400">Over budget</p>
+              <p className="mt-1 text-2xl font-semibold text-orange-600">{d.over_budget_count}</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4">
               <p className="text-xs font-medium uppercase text-slate-400">Statuses tracked</p>

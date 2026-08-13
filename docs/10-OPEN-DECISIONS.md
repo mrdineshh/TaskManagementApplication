@@ -376,6 +376,52 @@ there without this. Caught before push by re-running seed against a local
 DB that already had Phase-1-era rows and checking the actual column values,
 not just a fresh install.
 
+## I. Phase 3 — overdue vs. over-budget tracking, business-day math, Manager escalation
+
+### I1. Business-day overdue: `countBusinessDaysBetween`, not a raw calendar-date comparison
+Confirmed directly with the user: due dates/overdue status skip weekends
+and the assignee's regional holidays entirely — a task isn't "later" for a
+weekend or holiday sitting between its due date and today, since no work
+was expected then. Implemented as `isOverdueOnBusinessDay()`
+(`apps/api/src/common/business-days.util.ts`): a task is overdue once at
+least one full business day has elapsed *after* its due date, computed
+against the **assignee's** region (`HolidayCalendarsService`, Phase 1's
+`workCountry`/`workState`) — not the viewer's, since lateness is about
+where the work happens. Verified live: a task due 5 days ago correctly
+shows as overdue (multiple business days elapsed); the department-level
+aggregate cache and the personal dashboard both agree.
+
+Overdue and over-budget (logged hours > estimate, from Phase 2) are
+computed together in the aggregation job since they need the same
+open-task fetch, but stay two fully independent counts/rates
+(`overdue_count`/`overdue_rate` vs. `over_budget_count`/`over_budget_rate`)
+— confirmed with the user these should never merge into one "at risk"
+flag. Both are now registered in the report metrics catalog, so Head and
+Management (who hold `report.view`/`report.create`) can build reports
+against them without any further backend work — satisfies "should be in
+the report for all the other stakeholders" from the original ask.
+
+### I2. New `OverdueEscalationService`, separate from the pre-existing SLA escalation job
+`SLAEscalationService` only fires for tasks with an `SLAPolicy` attached,
+based on percent-of-resolution-time elapsed — a different, narrower
+mechanism than "this task has a due date and it's passed." Added a
+sibling service, same `OnModuleInit`/`setInterval` pattern, that checks
+every open task with a due date (SLA policy or not), and notifies the
+assignee's Manager (`User.managerId`) the first time it goes business-day
+overdue — deduped via an `overdue_escalated` activity log entry so it
+fires once, not every check cycle. Verified live including the dedup: a
+second escalation cycle produced no additional notification.
+
+### I3. Fixed a pre-existing workaround now that Phase 1 built the field it was waiting on
+`SLAEscalationService`'s `"assignee_manager"` notify target had no real
+reports-to field to resolve against when it was built, and fell back to
+"anyone holding `task.assign` in the department" with a comment flagging
+it as an approximation. Phase 1 added `User.managerId` — the actual field
+that comment was waiting on — so this now resolves to the assignee's real
+Manager directly. Found while building §I2's escalation job right next to
+it; fixed rather than leaving two different "who's the manager"
+approximations side by side in the same module.
+
 ---
 
 ## How to keep this log current

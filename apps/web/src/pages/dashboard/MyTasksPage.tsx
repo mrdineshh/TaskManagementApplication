@@ -13,8 +13,9 @@ export function MyTasksPage() {
     <div className="space-y-6">
       <h1 className="text-lg font-semibold text-slate-900">My Tasks</h1>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <StatCard label="Overdue" value={d.overdue_count} tone="text-red-600" />
+        <StatCard label="Over budget" value={d.over_budget_count} tone="text-orange-600" />
         <StatCard label="Due this week" value={d.due_this_week_count} tone="text-amber-600" />
         <StatCard label="Open" value={d.open_tasks.length} tone="text-brand-600" />
       </div>

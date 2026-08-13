@@ -5,12 +5,17 @@ import { RequirePermission } from '../common/decorators/require-permission.decor
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AccessTokenPayload } from '../auth/auth.service';
 import { assertDepartmentScope } from '../common/scope.util';
+import { HolidayCalendarsService } from '../holiday-calendars/holiday-calendars.service';
+import { isOverdueOnBusinessDay } from '../common/business-days.util';
 
 /** Basic v1 dashboards (docs/05-FEATURES.md §1.6) — precursors to the full v1.2 reporting engine. */
 @ApiTags('dashboards')
 @Controller('dashboards')
 export class DashboardsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly holidayCalendars: HolidayCalendarsService,
+  ) {}
 
   @Get('personal')
   @RequirePermission('task.view')
@@ -19,14 +24,12 @@ export class DashboardsController {
     const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const base = { assigneeId: user.sub, deletedAt: null as null };
 
-    const [openTasks, overdueCount, dueThisWeek, recentlyCompleted] = await Promise.all([
+    const [me, openTasks, dueThisWeek, recentlyCompleted] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({ where: { id: user.sub } }),
       this.prisma.task.findMany({
         where: { ...base, status: { category: { in: ['todo', 'in_progress'] } } },
-        include: { status: true, priority: true },
+        include: { status: true, priority: true, timeLogs: { select: { minutes: true } } },
         orderBy: { dueDate: 'asc' },
-      }),
-      this.prisma.task.count({
-        where: { ...base, dueDate: { lt: now }, status: { category: { in: ['todo', 'in_progress'] } } },
       }),
       this.prisma.task.count({
         where: { ...base, dueDate: { gte: now, lte: weekEnd }, status: { category: { in: ['todo', 'in_progress'] } } },
@@ -38,7 +41,28 @@ export class DashboardsController {
       }),
     ]);
 
-    return { open_tasks: openTasks, overdue_count: overdueCount, due_this_week_count: dueThisWeek, recently_completed: recentlyCompleted };
+    // Overdue and over-budget (docs/10-OPEN-DECISIONS.md §I1) — independent metrics, never
+    // merged. Overdue is business-day-aware per this user's own region; a task appearing in
+    // both counts is possible and expected.
+    const holidays = await this.holidayCalendars.getHolidayDateKeys(me.workCountry, me.workState);
+    let overdueCount = 0;
+    let overBudgetCount = 0;
+    for (const task of openTasks) {
+      if (task.dueDate && isOverdueOnBusinessDay(task.dueDate, now, holidays)) overdueCount++;
+      if (task.estimateValue !== null && task.estimateUnit !== null) {
+        const estimateMinutes = task.estimateUnit === 'days' ? task.estimateValue * 8 * 60 : task.estimateValue * 60;
+        const loggedMinutes = task.timeLogs.reduce((sum, l) => sum + l.minutes, 0);
+        if (loggedMinutes > estimateMinutes) overBudgetCount++;
+      }
+    }
+
+    return {
+      open_tasks: openTasks,
+      overdue_count: overdueCount,
+      over_budget_count: overBudgetCount,
+      due_this_week_count: dueThisWeek,
+      recently_completed: recentlyCompleted,
+    };
   }
 
   /**
@@ -55,12 +79,15 @@ export class DashboardsController {
     assertDepartmentScope(user, departmentId);
     const today = startOfDay(new Date());
 
-    const [statusRows, overdueRow, assigneeRows, recentlyCreated] = await Promise.all([
+    const [statusRows, overdueRow, overBudgetRow, assigneeRows, recentlyCreated] = await Promise.all([
       this.prisma.reportAggregateCache.findMany({
         where: { metricKey: 'task_counts_by_status', departmentId, periodDate: today },
       }),
       this.prisma.reportAggregateCache.findFirst({
         where: { metricKey: 'overdue_count', departmentId, periodDate: today },
+      }),
+      this.prisma.reportAggregateCache.findFirst({
+        where: { metricKey: 'over_budget_count', departmentId, periodDate: today },
       }),
       this.prisma.reportAggregateCache.findMany({
         where: { metricKey: 'workload_distribution', departmentId, periodDate: today },
@@ -71,6 +98,7 @@ export class DashboardsController {
     return {
       counts_by_status: statusRows.map((r) => ({ status_id: r.dimensionValue, count: r.value })),
       overdue_count: overdueRow?.value ?? 0,
+      over_budget_count: overBudgetRow?.value ?? 0,
       workload_by_assignee: assigneeRows.map((r) => ({ assignee_id: r.dimensionValue === 'unassigned' ? null : r.dimensionValue, count: r.value })),
       recently_created: recentlyCreated,
     };
