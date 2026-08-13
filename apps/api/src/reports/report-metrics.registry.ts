@@ -50,6 +50,20 @@ export const REPORT_METRIC_DEFINITIONS: ReportMetricDefinition[] = [
     requires_v11_data: false,
   },
   {
+    key: 'over_budget_count',
+    label: 'Over-Budget Tasks',
+    description: 'Count of open tasks whose logged hours exceed their effort estimate — independent of overdue status.',
+    supported_dimensions: ['department'],
+    requires_v11_data: true,
+  },
+  {
+    key: 'over_budget_rate',
+    label: 'Over-Budget Rate',
+    description: 'Percentage of estimated, open tasks that are over budget.',
+    supported_dimensions: ['department'],
+    requires_v11_data: true,
+  },
+  {
     key: 'avg_time_to_completion_hours',
     label: 'Avg. Time to Completion',
     description: 'Average hours from task creation to completion, last 30 days.',

@@ -65,13 +65,30 @@ export function useAssignTask(id: string) {
 export function useTransitionTask(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (toStatusId: string) => apiClient.tasks.transition(id, toStatusId),
+    mutationFn: ({ toStatusId, onHoldReasonId }: { toStatusId: string; onHoldReasonId?: string }) =>
+      apiClient.tasks.transition(id, toStatusId, onHoldReasonId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks', id] });
       qc.invalidateQueries({ queryKey: ['tasks', id, 'activity'] });
       qc.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
+}
+
+// --- Phase 2: effort estimation (docs/10-OPEN-DECISIONS.md §H2) ---
+export function useSubmitEstimate(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ value, unit }: { value: number; unit: 'hours' | 'days' }) => apiClient.tasks.submitEstimate(id, value, unit),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', id] });
+      qc.invalidateQueries({ queryKey: ['tasks', id, 'activity'] });
+    },
+  });
+}
+
+export function useOnHoldReasons() {
+  return useQuery({ queryKey: ['on-hold-reasons'], queryFn: () => apiClient.onHoldReasons.list() });
 }
 
 export function useAddComment(id: string) {
@@ -125,6 +142,51 @@ export function useDepartmentDashboard(departmentId: string | undefined) {
   });
 }
 
+/** Role-adaptive team view (docs/10-OPEN-DECISIONS.md §K) — same query, different shape per active role. */
+export function useTeamDashboard(departmentId?: string) {
+  return useQuery({
+    queryKey: ['dashboards', 'team', departmentId],
+    queryFn: () => apiClient.dashboards.team(departmentId),
+  });
+}
+
+// --- Phase 4: employee scorecard + department leaderboard ---
+
+export function useMyScorecard(start: string, end: string) {
+  return useQuery({
+    queryKey: ['scorecards', 'me', start, end],
+    queryFn: () => apiClient.scorecards.me(start, end),
+  });
+}
+
+export function useUserScorecard(userId: string | undefined, start: string, end: string) {
+  return useQuery({
+    queryKey: ['scorecards', 'users', userId, start, end],
+    queryFn: () => apiClient.scorecards.forUser(userId!, start, end),
+    enabled: !!userId,
+  });
+}
+
+export function useLeaderboard(departmentId: string | undefined, start: string, end: string) {
+  return useQuery({
+    queryKey: ['scorecards', 'leaderboard', departmentId, start, end],
+    queryFn: () => apiClient.scorecards.leaderboard(departmentId!, start, end),
+    enabled: !!departmentId,
+  });
+}
+
+export function useScorecardConfig() {
+  return useQuery({ queryKey: ['scorecards', 'config'], queryFn: () => apiClient.scorecards.getConfig() });
+}
+
+export function useUpdateScorecardConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (weights: Parameters<typeof apiClient.scorecards.updateConfig>[0]) => apiClient.scorecards.updateConfig(weights),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['scorecards', 'config'] }),
+  });
+}
+
 // --- v1.1: time tracking, dependencies, approvals ---
 
 export function useTimeLogs(id: string | undefined) {
@@ -134,7 +196,18 @@ export function useTimeLogs(id: string | undefined) {
 export function useAddTimeLog(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ minutes, note }: { minutes: number; note?: string }) => apiClient.tasks.addTimeLog(id, minutes, note),
+    mutationFn: ({ minutes, note, loggedAt }: { minutes: number; note?: string; loggedAt?: string }) =>
+      apiClient.tasks.addTimeLog(id, minutes, note, loggedAt),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'time-logs'] }),
+  });
+}
+
+/** 30-minute self-edit window + Admin override, enforced server-side (docs/10-OPEN-DECISIONS.md §H3). */
+export function useUpdateTimeLog(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ logId, data }: { logId: string; data: { minutes?: number; note?: string; logged_at?: string } }) =>
+      apiClient.tasks.updateTimeLog(id, logId, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'time-logs'] }),
   });
 }

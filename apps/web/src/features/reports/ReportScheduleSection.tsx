@@ -37,13 +37,13 @@ export function ReportScheduleSection({ reportId }: { reportId: string }) {
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <h2 className="mb-3 text-sm font-medium text-slate-700">Scheduled delivery</h2>
+    <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+      <h2 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">Scheduled delivery</h2>
 
       <div className="mb-4 space-y-2">
         {schedules?.map((s) => (
-          <div key={s.id} className="flex items-center justify-between rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
-            <span className="text-slate-700">
+          <div key={s.id} className="flex items-center justify-between rounded-md border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm">
+            <span className="text-slate-700 dark:text-slate-300">
               {s.frequency} at {s.send_at} UTC
               {s.frequency === 'weekly' && s.day_of_week !== null ? ` (${WEEKDAYS[s.day_of_week]})` : ''}
               {s.frequency === 'monthly' && s.day_of_month !== null ? ` (day ${s.day_of_month})` : ''} · {s.export_format.toUpperCase()} ·{' '}
@@ -52,23 +52,23 @@ export function ReportScheduleSection({ reportId }: { reportId: string }) {
             <div className="flex gap-3">
               <button
                 onClick={() => updateSchedule.mutate({ scheduleId: s.id, data: { is_active: !s.is_active } })}
-                className="text-xs text-brand-700 hover:underline"
+                className="text-xs text-brand-700 dark:text-brand-300 hover:underline"
               >
                 {s.is_active ? 'Active' : 'Paused'}
               </button>
-              <button onClick={() => deleteSchedule.mutate(s.id)} className="text-xs text-red-600 hover:underline">
+              <button onClick={() => deleteSchedule.mutate(s.id)} className="text-xs text-red-600 dark:text-red-400 hover:underline">
                 Remove
               </button>
             </div>
           </div>
         ))}
-        {schedules?.length === 0 && <p className="text-xs text-slate-400">No scheduled delivery configured.</p>}
+        {schedules?.length === 0 && <p className="text-xs text-slate-400 dark:text-slate-500">No scheduled delivery configured.</p>}
       </div>
 
-      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3">
+      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Frequency</label>
-          <select value={frequency} onChange={(e) => setFrequency(e.target.value as ReportFrequency)} className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Frequency</label>
+          <select value={frequency} onChange={(e) => setFrequency(e.target.value as ReportFrequency)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
             {FREQUENCIES.map((f) => (
               <option key={f} value={f}>
                 {f}
@@ -77,13 +77,13 @@ export function ReportScheduleSection({ reportId }: { reportId: string }) {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Send at (UTC)</label>
-          <input type="time" value={sendAt} onChange={(e) => setSendAt(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Send at (UTC)</label>
+          <input type="time" value={sendAt} onChange={(e) => setSendAt(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm" />
         </div>
         {frequency === 'weekly' && (
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Day</label>
-            <select value={dayOfWeek} onChange={(e) => setDayOfWeek(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Day</label>
+            <select value={dayOfWeek} onChange={(e) => setDayOfWeek(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
               {WEEKDAYS.map((label, i) => (
                 <option key={label} value={i}>
                   {label}
@@ -94,20 +94,20 @@ export function ReportScheduleSection({ reportId }: { reportId: string }) {
         )}
         {frequency === 'monthly' && (
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Day of month</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Day of month</label>
             <input
               type="number"
               min={1}
               max={31}
               value={dayOfMonth}
               onChange={(e) => setDayOfMonth(e.target.value)}
-              className="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+              className="w-20 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
             />
           </div>
         )}
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Format</label>
-          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as ReportExportFormat)} className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Format</label>
+          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as ReportExportFormat)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
             {FORMATS.map((f) => (
               <option key={f} value={f}>
                 {f.toUpperCase()}
@@ -116,12 +116,12 @@ export function ReportScheduleSection({ reportId }: { reportId: string }) {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Recipient roles</label>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Recipient roles</label>
           <select
             multiple
             value={roleIds}
             onChange={(e) => setRoleIds(Array.from(e.target.selectedOptions, (o) => o.value))}
-            className="h-16 w-40 rounded-md border border-slate-300 px-2 py-1 text-sm"
+            className="h-16 w-40 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
           >
             {roles?.map((r) => (
               <option key={r.id} value={r.id}>

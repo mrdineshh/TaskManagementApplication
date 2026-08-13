@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { HolidayCalendarsService } from '../holiday-calendars/holiday-calendars.service';
+import { isOverdueOnBusinessDay } from '../common/business-days.util';
 import type { ReportMetricKey } from '@taskapp/shared-types';
 
 interface AggregateRow {
@@ -30,6 +32,7 @@ export class ReportAggregationService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly holidayCalendars: HolidayCalendarsService,
   ) {}
 
   onModuleInit() {
@@ -55,8 +58,7 @@ export class ReportAggregationService implements OnModuleInit, OnModuleDestroy {
       rows.push(...(await this.taskCountsByStatus(dept.id)));
       rows.push(...(await this.taskCountsByAssignee(dept.id)));
       rows.push(...(await this.taskCountsByPriority(dept.id)));
-      rows.push(await this.overdueCount(dept.id));
-      rows.push(await this.overdueRate(dept.id));
+      rows.push(...(await this.overdueAndOverBudget(dept.id)));
       rows.push(await this.avgTimeToCompletion(dept.id));
       rows.push(await this.slaComplianceRate(dept.id));
       rows.push(...(await this.workloadDistribution(dept.id)));
@@ -137,21 +139,53 @@ export class ReportAggregationService implements OnModuleInit, OnModuleDestroy {
     return grouped.map((g) => ({ metricKey: 'task_counts_by_priority', departmentId, dimensionValue: g.priorityId, value: g._count }));
   }
 
-  private async overdueCount(departmentId: string): Promise<AggregateRow> {
-    const value = await this.prisma.task.count({
-      where: { departmentId, deletedAt: null, dueDate: { lt: new Date() }, status: { category: { in: ['todo', 'in_progress'] } } },
+  /**
+   * Overdue and over-budget (docs/10-OPEN-DECISIONS.md §I1) are computed together since both
+   * need the same open-task fetch, but tracked as two fully independent metrics — a task can
+   * be either, both, or neither, never merged into one "at risk" flag (confirmed with the
+   * user). Overdue is business-day-aware per the *assignee's* region (not the viewer's) via
+   * HolidayCalendarsService; over-budget compares summed TimeLog minutes against the
+   * assignee-submitted estimate, converting days to hours at 1 day = 8 hours.
+   */
+  private async overdueAndOverBudget(departmentId: string): Promise<AggregateRow[]> {
+    const openTasks = await this.prisma.task.findMany({
+      where: { departmentId, deletedAt: null, status: { category: { in: ['todo', 'in_progress'] } } },
+      select: {
+        id: true,
+        dueDate: true,
+        estimateValue: true,
+        estimateUnit: true,
+        assignee: { select: { workCountry: true, workState: true } },
+        timeLogs: { select: { minutes: true } },
+      },
     });
-    return { metricKey: 'overdue_count', departmentId, dimensionValue: 'all', value };
-  }
 
-  private async overdueRate(departmentId: string): Promise<AggregateRow> {
-    const [overdue, open] = await Promise.all([
-      this.prisma.task.count({
-        where: { departmentId, deletedAt: null, dueDate: { lt: new Date() }, status: { category: { in: ['todo', 'in_progress'] } } },
-      }),
-      this.prisma.task.count({ where: { departmentId, deletedAt: null, status: { category: { in: ['todo', 'in_progress'] } } } }),
-    ]);
-    return { metricKey: 'overdue_rate', departmentId, dimensionValue: 'all', value: open > 0 ? (overdue / open) * 100 : 0 };
+    const now = new Date();
+    let overdueCount = 0;
+    let overBudgetCount = 0;
+    let estimatedCount = 0;
+
+    for (const task of openTasks) {
+      if (task.dueDate && task.assignee) {
+        const holidays = await this.holidayCalendars.getHolidayDateKeys(task.assignee.workCountry, task.assignee.workState);
+        if (isOverdueOnBusinessDay(task.dueDate, now, holidays)) overdueCount++;
+      }
+
+      if (task.estimateValue !== null && task.estimateUnit !== null) {
+        estimatedCount++;
+        const estimateMinutes = task.estimateUnit === 'days' ? task.estimateValue * 8 * 60 : task.estimateValue * 60;
+        const loggedMinutes = task.timeLogs.reduce((sum, l) => sum + l.minutes, 0);
+        if (loggedMinutes > estimateMinutes) overBudgetCount++;
+      }
+    }
+
+    const openCount = openTasks.length;
+    return [
+      { metricKey: 'overdue_count', departmentId, dimensionValue: 'all', value: overdueCount },
+      { metricKey: 'overdue_rate', departmentId, dimensionValue: 'all', value: openCount > 0 ? (overdueCount / openCount) * 100 : 0 },
+      { metricKey: 'over_budget_count', departmentId, dimensionValue: 'all', value: overBudgetCount },
+      { metricKey: 'over_budget_rate', departmentId, dimensionValue: 'all', value: estimatedCount > 0 ? (overBudgetCount / estimatedCount) * 100 : 0 },
+    ];
   }
 
   private async avgTimeToCompletion(departmentId: string): Promise<AggregateRow> {

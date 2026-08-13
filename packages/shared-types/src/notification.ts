@@ -9,6 +9,8 @@ export const notificationTypes = [
   'status_changed',
   'sla_breach', // v1.1
   'approval_requested', // v1.1
+  'task_on_hold', // Phase 2, docs/10-OPEN-DECISIONS.md §H1 — notifies the task creator
+  'effort_budget_exceeded', // Phase 2, §H3 — notifies the assignee when logged hours pass the estimate
 ] as const;
 export type NotificationType = (typeof notificationTypes)[number];
 

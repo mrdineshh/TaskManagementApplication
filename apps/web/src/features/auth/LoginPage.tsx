@@ -34,24 +34,35 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-1 text-xl font-semibold text-slate-900">Task Management</h1>
-        <p className="mb-6 text-sm text-slate-500">Sign in with your @econz.net account</p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 dark:bg-slate-950">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-brand-400/20 blur-3xl dark:bg-brand-500/20"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-[-8rem] right-[-6rem] h-72 w-72 rounded-full bg-accent-400/20 blur-3xl dark:bg-accent-500/10"
+      />
+      <div className="relative w-full max-w-sm animate-pop-in rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-lg shadow-slate-200/50 dark:shadow-none">
+        <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 text-lg font-bold text-white">
+          T
+        </div>
+        <h1 className="mb-1 text-xl font-semibold text-slate-900 dark:text-slate-100">Task Management</h1>
+        <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">Sign in with your @econz.net account</p>
 
         <button
           type="button"
           disabled
           title="Enabled once Firebase/Google OAuth credentials are configured"
-          className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-400 opacity-60"
+          className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-400 dark:text-slate-500 opacity-60"
         >
           Sign in with Google (pending GCP setup)
         </button>
 
-        <div className="mb-4 flex items-center gap-2 text-xs text-slate-400">
-          <div className="h-px flex-1 bg-slate-200" />
+        <div className="mb-4 flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+          <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
           dev sign-in (mock)
-          <div className="h-px flex-1 bg-slate-200" />
+          <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
         </div>
 
         <form onSubmit={handleDevLogin} className="space-y-3">
@@ -60,9 +71,9 @@ export function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@econz.net"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm focus:border-brand-500 dark:focus:border-brand-400 focus:outline-none"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button
             type="submit"
             disabled={loading}

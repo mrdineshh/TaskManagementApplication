@@ -16,7 +16,7 @@ export function TaskListPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-slate-900">All Tasks</h1>
+        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">All Tasks</h1>
         <button
           onClick={() => setShowNewTask((v) => !v)}
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
@@ -35,7 +35,7 @@ export function TaskListPage() {
         <select
           value={departmentId ?? ''}
           onChange={(e) => setParams(e.target.value ? { department_id: e.target.value } : {})}
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
         >
           <option value="">All departments</option>
           {departments?.map((d) => (
@@ -46,9 +46,9 @@ export function TaskListPage() {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
+          <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             <tr>
               <th className="px-4 py-2">Title</th>
               <th className="px-4 py-2">Department</th>
@@ -61,30 +61,30 @@ export function TaskListPage() {
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
                   Loading…
                 </td>
               </tr>
             )}
             {!isLoading && data?.items.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
                   No tasks found.
                 </td>
               </tr>
             )}
             {data?.items.map((t: any) => (
-              <tr key={t.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+              <tr key={t.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-950">
                 <td className="px-4 py-2">
-                  <Link to={`/tasks/${t.id}`} className="font-medium text-brand-700 hover:underline">
+                  <Link to={`/tasks/${t.id}`} className="font-medium text-brand-700 dark:text-brand-300 hover:underline">
                     {t.title}
                   </Link>
                 </td>
-                <td className="px-4 py-2 text-slate-500">{t.department?.name}</td>
+                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{t.department?.name}</td>
                 <td className="px-4 py-2">{t.status && <Badge label={t.status.label} color={t.status.color} />}</td>
                 <td className="px-4 py-2">{t.priority && <Badge label={t.priority.label} color={t.priority.color} />}</td>
-                <td className="px-4 py-2 text-slate-500">{t.assignee?.full_name ?? '—'}</td>
-                <td className="px-4 py-2 text-slate-500">{t.due_date ? new Date(t.due_date).toLocaleDateString() : '—'}</td>
+                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{t.assignee?.full_name ?? '—'}</td>
+                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{t.due_date ? new Date(t.due_date).toLocaleDateString() : '—'}</td>
               </tr>
             ))}
           </tbody>

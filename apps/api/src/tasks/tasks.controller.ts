@@ -10,9 +10,11 @@ import {
   CreateTaskDependencyDto,
   CreateTaskDto,
   CreateTimeLogDto,
+  SubmitEstimateDto,
   TaskListQueryDto,
   TransitionTaskDto,
   UpdateTaskDto,
+  UpdateTimeLogDto,
 } from './dto/task.dto';
 
 @ApiTags('tasks')
@@ -60,7 +62,15 @@ export class TasksController {
   transition(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string, @Body() dto: TransitionTaskDto) {
     // Permission is per-transition (WorkflowTransition.required_permission), checked in the service —
     // no single @RequirePermission fits here, per 03-RBAC-AUTH.md §2.3.
-    return this.tasks.transition(user, id, dto.to_status_id);
+    return this.tasks.transition(user, id, dto.to_status_id, dto.on_hold_reason_id);
+  }
+
+  /** Effort estimation (docs/10-OPEN-DECISIONS.md §H2) — self-service by the assignee, own
+   * permission gate lives inside the service (assignee-only, or task.override_locked_edits). */
+  @Post(':id/estimate')
+  @RequirePermission('task.edit')
+  submitEstimate(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string, @Body() dto: SubmitEstimateDto) {
+    return this.tasks.submitEstimate(user, id, dto.value, dto.unit);
   }
 
   @Get(':id/activity')
@@ -93,6 +103,18 @@ export class TasksController {
   @RequirePermission('task.edit')
   addTimeLog(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string, @Body() dto: CreateTimeLogDto) {
     return this.tasks.addTimeLog(user, id, dto.minutes, dto.note, dto.logged_at);
+  }
+
+  /** 30-minute self-edit window + Admin override (docs/10-OPEN-DECISIONS.md §H3) — enforced in the service. */
+  @Patch(':id/time-logs/:logId')
+  @RequirePermission('task.edit')
+  updateTimeLog(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Param('logId') logId: string,
+    @Body() dto: UpdateTimeLogDto,
+  ) {
+    return this.tasks.updateTimeLog(user, id, logId, { minutes: dto.minutes, note: dto.note, loggedAt: dto.logged_at });
   }
 
   // --- v1.1: Task dependencies ---

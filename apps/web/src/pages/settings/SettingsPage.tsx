@@ -49,31 +49,31 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <h1 className="text-lg font-semibold text-slate-900">Settings</h1>
+      <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Settings</h1>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-medium text-slate-700">Profile</h2>
+      <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <h2 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">Profile</h2>
         <form onSubmit={handleSaveProfile} className="space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Full name</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Full name</label>
             <input
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full max-w-sm rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+              className="w-full max-w-sm rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Avatar URL</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Avatar URL</label>
             <input
               value={avatarUrl}
               onChange={(e) => setAvatarUrl(e.target.value)}
               placeholder="https://…"
-              className="w-full max-w-sm rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+              className="w-full max-w-sm rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Email</label>
-            <p className="text-sm text-slate-500">{currentUser?.email}</p>
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Email</label>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{currentUser?.email}</p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -83,17 +83,17 @@ export function SettingsPage() {
             >
               {updateProfile.isPending ? 'Saving…' : 'Save profile'}
             </button>
-            {savedMessage && <span className="text-xs text-green-600">{savedMessage}</span>}
+            {savedMessage && <span className="text-xs text-green-600 dark:text-green-400">{savedMessage}</span>}
           </div>
         </form>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-1 text-sm font-medium text-slate-700">Notification preferences</h2>
-        <p className="mb-3 text-xs text-slate-400">Toggle which channels you receive each event on. Unchecked = off.</p>
+      <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <h2 className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">Notification preferences</h2>
+        <p className="mb-3 text-xs text-slate-400 dark:text-slate-500">Toggle which channels you receive each event on. Unchecked = off.</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-slate-200 text-left text-xs font-medium uppercase text-slate-500">
+            <thead className="border-b border-slate-200 dark:border-slate-800 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="py-2 pr-4">Event</th>
                 {notificationChannels.map((channel) => (
@@ -105,8 +105,8 @@ export function SettingsPage() {
             </thead>
             <tbody>
               {notificationTypes.map((type) => (
-                <tr key={type} className="border-b border-slate-100 last:border-0">
-                  <td className="py-2 pr-4 text-slate-700">{TYPE_LABELS[type] ?? type}</td>
+                <tr key={type} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                  <td className="py-2 pr-4 text-slate-700 dark:text-slate-300">{TYPE_LABELS[type] ?? type}</td>
                   {notificationChannels.map((channel) => {
                     const enabled = prefMap.get(`${type}:${channel}`) ?? true;
                     return (

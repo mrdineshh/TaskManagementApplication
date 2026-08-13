@@ -10,6 +10,8 @@ const sections = [
   { to: 'priorities', label: 'Priorities' },
   { to: 'sla', label: 'SLA Policies' },
   { to: 'holiday-calendars', label: 'Holiday Calendars' },
+  { to: 'on-hold-reasons', label: 'On-Hold Reasons' },
+  { to: 'scorecard-weights', label: 'Scorecard Weights' },
   { to: 'integrations', label: 'Integrations' },
   { to: 'settings', label: 'Org Settings' },
 ];
@@ -18,7 +20,7 @@ const sections = [
 export function AdminLayout() {
   return (
     <div>
-      <h1 className="mb-4 text-lg font-semibold text-slate-900">Admin</h1>
+      <h1 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">Admin</h1>
       <div className="flex gap-6">
         <nav className="w-48 shrink-0 space-y-1">
           {sections.map((s) => (
@@ -28,7 +30,7 @@ export function AdminLayout() {
               end={s.end}
               className={({ isActive }) =>
                 `block rounded-md px-3 py-1.5 text-sm ${
-                  isActive ? 'bg-brand-50 font-medium text-brand-700' : 'text-slate-600 hover:bg-slate-100'
+                  isActive ? 'bg-brand-50 dark:bg-brand-950/40 font-medium text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`
               }
             >

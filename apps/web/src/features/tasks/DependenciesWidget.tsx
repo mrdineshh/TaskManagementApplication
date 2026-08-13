@@ -25,29 +25,29 @@ export function DependenciesWidget({ taskId, departmentId }: { taskId: string; d
   const options = (candidateTasks?.items ?? []).filter((t: any) => t.id !== taskId);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="mb-3 text-sm font-semibold text-slate-700">Dependencies</h2>
+    <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+      <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Dependencies</h2>
       <ul className="mb-3 space-y-1">
         {dependencies?.map((d: any) => (
           <li key={d.id} className="flex items-center justify-between text-sm">
-            <span className="text-slate-600">
-              <span className="mr-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs uppercase text-slate-500">{d.type}</span>
-              <Link to={`/tasks/${d.depends_on_task.id}`} className="text-brand-700 hover:underline">
+            <span className="text-slate-600 dark:text-slate-400">
+              <span className="mr-2 rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs uppercase text-slate-500 dark:text-slate-400">{d.type}</span>
+              <Link to={`/tasks/${d.depends_on_task.id}`} className="text-brand-700 dark:text-brand-300 hover:underline">
                 {d.depends_on_task.title}
               </Link>
             </span>
-            <button onClick={() => removeDependency.mutate(d.id)} className="text-xs text-red-600 hover:underline">
+            <button onClick={() => removeDependency.mutate(d.id)} className="text-xs text-red-600 dark:text-red-400 hover:underline">
               Remove
             </button>
           </li>
         ))}
-        {dependencies?.length === 0 && <li className="text-sm text-slate-400">No dependencies.</li>}
+        {dependencies?.length === 0 && <li className="text-sm text-slate-400 dark:text-slate-500">No dependencies.</li>}
       </ul>
       <form onSubmit={handleAdd} className="flex gap-2">
         <select
           value={selectedTaskId}
           onChange={(e) => setSelectedTaskId(e.target.value)}
-          className="flex-1 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          className="flex-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
         >
           <option value="">Depends on…</option>
           {options.map((t: any) => (
@@ -56,7 +56,7 @@ export function DependenciesWidget({ taskId, departmentId }: { taskId: string; d
             </option>
           ))}
         </select>
-        <select value={type} onChange={(e) => setType(e.target.value as typeof type)} className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+        <select value={type} onChange={(e) => setType(e.target.value as typeof type)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
           <option value="blocks">blocks</option>
           <option value="relates_to">relates to</option>
         </select>

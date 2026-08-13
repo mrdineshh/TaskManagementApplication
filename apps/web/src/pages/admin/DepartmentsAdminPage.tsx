@@ -20,18 +20,18 @@ export function DepartmentsAdminPage() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleCreate} className="flex gap-2 rounded-lg border border-slate-200 bg-white p-4">
+      <form onSubmit={handleCreate} className="flex gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Department name"
-          className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className="flex-1 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
         />
         <input
           value={slug}
           onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
           placeholder="slug"
-          className="w-40 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className="w-40 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
         />
         <button
           type="submit"
@@ -42,9 +42,9 @@ export function DepartmentsAdminPage() {
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
+          <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             <tr>
               <th className="px-4 py-2">Name</th>
               <th className="px-4 py-2">Slug</th>
@@ -56,7 +56,7 @@ export function DepartmentsAdminPage() {
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
                   Loading…
                 </td>
               </tr>
@@ -67,15 +67,15 @@ export function DepartmentsAdminPage() {
               const deptMembers = (users as any[])?.filter((u) => u.primary_department_id === d.id) ?? [];
               const currentHead = (users as any[])?.find((u) => u.id === d.head_user_id);
               return (
-                <tr key={d.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2 font-medium text-slate-800">{d.name}</td>
-                  <td className="px-4 py-2 text-slate-500">{d.slug}</td>
+                <tr key={d.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                  <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{d.name}</td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{d.slug}</td>
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-1">
                       <select
                         value={headToAssign[d.id] ?? d.head_user_id ?? ''}
                         onChange={(e) => setHeadToAssign((prev) => ({ ...prev, [d.id]: e.target.value }))}
-                        className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+                        className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs"
                       >
                         <option value="">{currentHead ? currentHead.full_name : 'No Head assigned'}</option>
                         {deptMembers.map((u) => (
@@ -87,17 +87,17 @@ export function DepartmentsAdminPage() {
                       <button
                         disabled={!headToAssign[d.id] || headToAssign[d.id] === d.head_user_id}
                         onClick={() => updateDept.mutate({ id: d.id, data: { head_user_id: headToAssign[d.id] } })}
-                        className="text-xs text-brand-700 hover:underline disabled:text-slate-300"
+                        className="text-xs text-brand-700 dark:text-brand-300 hover:underline disabled:text-slate-300 dark:disabled:text-slate-600"
                       >
                         Set
                       </button>
                     </div>
                   </td>
-                  <td className="px-4 py-2 text-slate-500">{d.is_active ? 'Yes' : 'No'}</td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{d.is_active ? 'Yes' : 'No'}</td>
                   <td className="px-4 py-2 text-right">
                     <button
                       onClick={() => updateDept.mutate({ id: d.id, data: { is_active: !d.is_active } })}
-                      className="text-xs text-brand-700 hover:underline"
+                      className="text-xs text-brand-700 dark:text-brand-300 hover:underline"
                     >
                       {d.is_active ? 'Deactivate' : 'Activate'}
                     </button>

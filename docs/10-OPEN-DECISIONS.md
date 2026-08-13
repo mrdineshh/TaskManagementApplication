@@ -307,6 +307,350 @@ flow. This also fully resolves §G2's region gap: since there's no more
 self-service path, `workCountry`/`workState` are always supplied by the
 Admin who creates the account, never defaulted.
 
+## H. Phase 2 — task mechanics (subtasks, on-hold reasons, effort estimates, time-log rules)
+
+### H1. On-Hold reasons via a per-status admin flag, not a hardcoded status key
+Subtasks were already fully supported at the schema level from the original
+v1 build (`Task.parentTaskId` self-relation, creation already accepted
+`parent_task_id`) — the only genuinely new piece was the **hard rule**: a
+parent cannot transition into a `done`-category status while any subtask is
+still open (`tasks.service.ts`'s `transition()`), verified live end-to-end
+(create parent+subtask → blocked at Done → close subtask → parent Done
+succeeds). This is a hard block, distinct from the existing task-dependency
+soft warning.
+
+Added a new `WorkflowStatus.requiresHoldReason` boolean (admin-configurable
+per status, not tied to any specific status key, since workflows themselves
+are admin-configurable per department) plus a new admin-configurable
+`OnHoldReason` list (org-wide, seeded with Waiting for Customer/Waiting for
+Third-Party/Other). A new "On Hold" status was seeded distinct from the
+pre-existing "Blocked" — Blocked has no reason-tracking and its meaning is
+unchanged; On Hold specifically means waiting on something external, with a
+mandatory reason. Resuming from On Hold requires no reason (transition-free,
+confirmed with the user).
+
+### H2. Effort estimate gate: a dedicated `requiresEstimateBeforeEntry` flag, not `category === 'in_progress'`
+**Caught and fixed live before shipping**: the first implementation gated
+the "estimate mandatory before starting work" rule on
+`WorkflowStatusCategory.in_progress`, which also covers On Hold, Blocked,
+and In Review — so pausing a task via On Hold, or blocking it, incorrectly
+also demanded an estimate. Fixed by adding a second admin-configurable
+`WorkflowStatus` boolean, `requiresEstimateBeforeEntry`, seeded `true` only
+on the literal "In Progress" status. Same reasoning as `requiresHoldReason`
+in §H1 — one category covers several distinct semantic states, so gates
+need their own explicit flag rather than reusing the category.
+
+Estimate mechanics per direct discussion: set by the assignee (not the
+creator), value + unit (hours or days, 1 day = 8 hours for reporting),
+self-service editable for 30 minutes after `estimateSubmittedAt`, Admin can
+override anytime via the new `task.override_locked_edits` permission
+(deliberately not granted to Manager/Head despite them holding
+`task.moderate` — the user was explicit this is Admin-only). Every change
+is logged to the activity log, including Admin overrides, with an
+`is_override` flag — verified live.
+
+### H3. Time-log rules: hours + date only, same 30-minute window, fires-once crossing notification
+`TimeLog` gained `createdAt`/`updatedAt` (distinct from the pre-existing
+`loggedAt`, which is the date work happened on and can be backdated) to
+drive the same 30-minute self-edit window as estimates. The web form takes
+hours + a date picker, converting to `minutes` internally — no raw
+timestamps, per the user's explicit "time stamp will be very granular and
+it will be tough for them."
+
+Crossing the estimate notifies the assignee once — compares total logged
+minutes before/after each add or edit against the estimate (converted to
+minutes), only firing when the total crosses from at-or-under to over, so
+continuing to log time after the estimate is already blown doesn't
+re-notify on every entry.
+
+### H4. Seed-script upgrade safety: new WorkflowStatus flags backfill on re-seed, unlike everything else in seed.ts
+Every other `upsert` in `prisma/seed.ts` uses `update: {}` deliberately —
+existing labels/colors/display-orders are Admin-owned and re-running the
+script must never clobber real customization. `requiresHoldReason` and
+`requiresEstimateBeforeEntry` are the one exception: they're new Phase 2
+system behavior with no Admin UI ever exposing them for editing, so
+`update: {}` would have silently left every already-seeded status (e.g. the
+live dev environment's pre-existing "In Progress" row) at `false` forever —
+the mandatory-estimate/on-hold-reason gates would never actually activate
+there without this. Caught before push by re-running seed against a local
+DB that already had Phase-1-era rows and checking the actual column values,
+not just a fresh install.
+
+## I. Phase 3 — overdue vs. over-budget tracking, business-day math, Manager escalation
+
+### I1. Business-day overdue: `countBusinessDaysBetween`, not a raw calendar-date comparison
+Confirmed directly with the user: due dates/overdue status skip weekends
+and the assignee's regional holidays entirely — a task isn't "later" for a
+weekend or holiday sitting between its due date and today, since no work
+was expected then. Implemented as `isOverdueOnBusinessDay()`
+(`apps/api/src/common/business-days.util.ts`): a task is overdue once at
+least one full business day has elapsed *after* its due date, computed
+against the **assignee's** region (`HolidayCalendarsService`, Phase 1's
+`workCountry`/`workState`) — not the viewer's, since lateness is about
+where the work happens. Verified live: a task due 5 days ago correctly
+shows as overdue (multiple business days elapsed); the department-level
+aggregate cache and the personal dashboard both agree.
+
+Overdue and over-budget (logged hours > estimate, from Phase 2) are
+computed together in the aggregation job since they need the same
+open-task fetch, but stay two fully independent counts/rates
+(`overdue_count`/`overdue_rate` vs. `over_budget_count`/`over_budget_rate`)
+— confirmed with the user these should never merge into one "at risk"
+flag. Both are now registered in the report metrics catalog, so Head and
+Management (who hold `report.view`/`report.create`) can build reports
+against them without any further backend work — satisfies "should be in
+the report for all the other stakeholders" from the original ask.
+
+### I2. New `OverdueEscalationService`, separate from the pre-existing SLA escalation job
+`SLAEscalationService` only fires for tasks with an `SLAPolicy` attached,
+based on percent-of-resolution-time elapsed — a different, narrower
+mechanism than "this task has a due date and it's passed." Added a
+sibling service, same `OnModuleInit`/`setInterval` pattern, that checks
+every open task with a due date (SLA policy or not), and notifies the
+assignee's Manager (`User.managerId`) the first time it goes business-day
+overdue — deduped via an `overdue_escalated` activity log entry so it
+fires once, not every check cycle. Verified live including the dedup: a
+second escalation cycle produced no additional notification.
+
+### I3. Fixed a pre-existing workaround now that Phase 1 built the field it was waiting on
+`SLAEscalationService`'s `"assignee_manager"` notify target had no real
+reports-to field to resolve against when it was built, and fell back to
+"anyone holding `task.assign` in the department" with a comment flagging
+it as an approximation. Phase 1 added `User.managerId` — the actual field
+that comment was waiting on — so this now resolves to the assignee's real
+Manager directly. Found while building §I2's escalation job right next to
+it; fixed rather than leaving two different "who's the manager"
+approximations side by side in the same module.
+
+---
+
+## J. Phase 4 — employee scorecard + department leaderboard
+
+### J1. Six sub-scores normalized to 0-100, blended into one overall score via admin-tunable weights
+Each of the six confirmed parameters (on-time completion rate, estimate
+accuracy, volume, overdue count, over-budget count, rework/reopened count)
+is computed as its own 0-100 sub-score so they stay individually meaningful
+("having separate metrics is good to understand the bifurcation") while
+also combining into one `overall_score` for the leaderboard. Weights live
+in a new singleton `ScorecardConfig` model (JSON, same pattern as
+`OrganizationSettings`) rather than hardcoded — defaults chosen by us per
+the user's explicit instruction ("lets configure what we think... is best
+and let the admin change and reconfigure it later"):
+
+| Sub-metric | Weight | Rationale |
+|---|---|---|
+| on_time_rate | 0.25 | Primary reliability signal |
+| estimate_accuracy | 0.20 | Directly enables appraisal use — mandatory estimates only pay off if scored |
+| volume | 0.15 | Throughput matters but shouldn't dominate quality |
+| overdue | 0.15 | Overlaps in spirit with on-time but catches currently-open liabilities too |
+| over_budget | 0.15 | Independent failure mode — a task can be on-time yet over-budget |
+| rework | 0.10 | Smallest weight: no dedicated "reopened" state exists yet, so this is the least precise signal (see J3) |
+
+Gated by a new `scorecard.manage` permission (Admin-only); every role that
+holds `task.view` can read `/scorecards/*` — no `scorecard.view` key exists
+because the user was explicit that scorecards are visible to everyone
+("anyone can see... transparent system... healthy competition").
+
+### J2. Computed live per [department, start, end] — not built on ReportAggregateCache
+`ReportAggregateCache` is a fixed-daily-snapshot system; the user
+confirmed scorecards need an arbitrary custom date range ("just a date
+range on the overall report would make sense"), which that cache can't
+serve. `ScorecardsService.computeDepartmentScorecards()` queries
+`Task`/`TimeLog`/`ActivityLogEntry` directly for the requested range,
+computing every department member's six sub-scores in one pass — this
+also keeps `volume` (scored relative to the department's own top
+performer in the same range) consistent between the single-user endpoint
+and the leaderboard, since both read from the same computation. Leaderboard
+is department-scoped only, never company-wide, per the user's explicit
+confirmation ("department based... compete against their department
+users").
+
+### J3. Rework/reopened has no dedicated workflow state — detected via ActivityLogEntry
+The seeded workflow has no transition path out of a `done`-category status
+by default (nothing to "reopen" into), so there's no first-class "this task
+was reopened" event to count directly. Detected instead as any
+`status_changed` activity entry whose `from` status was done-category and
+whose `to` status isn't, attributed to the task's **current** assignee —
+not the assignee at the time of the reopen, since historical
+assignee-per-status-change isn't tracked. This is a known simplification:
+if a task is reassigned after being reopened, the rework charge follows
+the new assignee, not whoever actually caused the rework. Verified live end
+-to-end: created a task, estimated 4h, logged 3h, drove it through
+`in_progress → in_review → done` (`completed_count` went to 1,
+`over_budget` stayed clean since 3h < 4h), then reopened it via an
+admin-added `done → todo` transition — `reworked_count` correctly went to
+1 and the rework sub-score dropped from 100 to 0 (denominator was
+`completed_count(0) + reworked_count(1)` once the reopen zeroed out
+`completedAt`).
+
+### J4. Known gap: Zod validation errors surface as 500, not 400 (pre-existing, not introduced here)
+`ScorecardsController.updateConfig()` calls
+`updateScorecardConfigSchema.parse(body)` the same way
+`OrganizationController.update()` already does — neither is caught by a
+global exception filter, so a validation failure (e.g. weights not summing
+to 1) currently returns `500 INTERNAL_SERVER_ERROR` with the raw Zod issue
+array as the message, not a clean `400`. Confirmed this is systemic, not a
+Phase 4 regression, by reproducing the same 500 against the pre-existing
+`/organization-settings` endpoint with a bad payload. Worth a dedicated
+Zod-to-`BadRequestException` exception filter at some point, but out of
+scope for this feature — logged here rather than silently left unfixed.
+
+---
+
+## K. Phase 5 — role-adaptive navigation + dashboards
+
+### K1. Active-role resolution lives in one place, mirrored (not shared) between API and web
+`RbacService.resolveActiveRoleName(userId)` (new) is the single source of truth: the user's
+explicitly toggled `User.activeRoleId` if it's still a role they hold, else the
+highest-priority role among everything they hold (`Admin > Management > Head > Manager >
+Employee`), else `null`. It is deliberately NOT put in the JWT — the user confirmed the
+toggle is presentation-only and must never require a token reissue, so every role-aware
+endpoint re-resolves it fresh per request from the DB. The web app carries a small mirror,
+`resolveActiveRoleName()` in `apps/web/src/lib/auth/roles.ts`, used only to decide nav
+visibility — it can never grant access the backend wouldn't also grant, since both read the
+same `User.activeRoleId` + `UserRole` rows and apply the same priority order.
+
+### K2. One `GET /dashboards/team` endpoint, four different response shapes by active role
+Rather than building four separate pages/endpoints, a single endpoint switches on
+`resolveActiveRoleName()`:
+- **Manager** → `scope: 'manager'`, `members` = explicit direct reports only
+  (`User.managerId = caller`), never the whole department — confirmed directly: "the manager
+  is restricted to view only his team members details."
+- **Head** → `scope: 'department'`, whole department (`Department.headUserId = caller`, with
+  a `departmentIds[0]` fallback if headUserId was never set) plus a `by_manager` breakdown —
+  "the head should see the entire managers and the whole team's view filtered by managers."
+- **Management/Admin** → `scope: 'org'` (every department's summary, clickable) when no
+  `department_id` is passed, or the same `scope: 'department'` shape as Head's for any single
+  department when one is — "across departments... down to the individual user level."
+- **Employee** (or unresolved) → `scope: 'none'` — no team to show; the nav hides this page
+  for them rather than rendering an empty state.
+
+All four share one `computeTaskStats(assigneeIds)` helper (status breakdown, business-day
+overdue, over-budget) so the same math (§I1) backs every scope instead of four parallel
+reimplementations. Verified live against all four roles with real seeded users (Manager saw
+only their 1 direct report's 5 open tasks; Head saw the whole department broken down by both
+Managers in it, including one with zero reports' worth of tasks; Management saw every
+department's summary and could drill into "Development" for the same department-shape
+response; the Employee call correctly returned `scope: 'none'`).
+
+### K3. Toggling role hides nav items but never blocks a direct URL — matches the "presentation only" decision from §G3
+The `Team` nav item is shown only when the active role is Manager/Head/Management/Admin; the
+`Admin` nav item is shown only when the active role is specifically `Admin` (tightened from
+the previous "show if the user holds any `.manage` permission" — toggling to Employee now
+visibly hides Admin's own admin-area link, so an Admin previewing another role's experience
+sees what that role actually sees). Neither is a real access boundary: typing `/admin/...`
+directly still works precisely as far as the permissions the user's *other* held roles grant
+(e.g. a Manager+Employee dual-role user can still view — not edit — `/admin/departments`,
+since `department.view` is Manager's, not Employee's) — this is the existing, pre-Phase-5
+pattern (`AdminLayout` has no route guard; per-action permission checks are the only real
+enforcement), left as-is rather than introducing a new, inconsistent guarding mechanism just
+for this phase.
+
+### K4. Breadcrumbs are derived from the route tree, not hand-authored per page
+`Breadcrumbs.tsx` splits the URL path and maps each static segment through one label table
+(kept in sync with `App.tsx`'s routes and `AdminLayout.tsx`'s section list) rather than each
+page declaring its own crumb — so a route rename can't silently leave a stale breadcrumb
+behind. The one dynamic case, a task's title on `/tasks/:id`, reuses the same cached
+`useTask()` query the task detail page itself already fires, so the breadcrumb never causes
+an extra request. `/reports/:id` deliberately does NOT resolve a report's name the same way
+(logged as a known, minor gap) — scoped out to keep this phase's surface area contained;
+it shows the raw path segment (the report's UUID) instead of its title.
+
+### K5. Home ("/") stays `MyTasksPage` for every role; only the `Team` page is role-adaptive
+Rather than building distinct landing dashboards for all five roles, personal task ownership
+("my own open tasks, overdue, over budget") is treated as universally relevant regardless of
+which role is active — everyone including Heads/Management/Admin can be a task assignee too.
+The role-differentiated experience lives entirely in `/team` (§K2) and the nav/sidebar itself.
+This is a scope call, not something explicitly confirmed with the user; flagged here in case
+five fully distinct landing dashboards turn out to matter more than assumed once this is in
+front of real users.
+
+---
+
+## L. Phase 6 — full visual redesign (dark mode, design system)
+
+### L1. Richer indigo/teal palette replacing the flat 5-shade blue
+The original `brand` color was five hand-picked shades of a single blue with big gaps
+between them (50/100/500/600/700, nothing else) — functional but exactly the "soulless and
+monotonous" the user called out. Replaced with a full 50-950 indigo scale plus a secondary
+`accent` (teal) scale reserved for sparing highlight use (leaderboard emphasis, positive
+deltas) rather than a second primary color competing with the brand indigo.
+
+### L2. Dark mode via Tailwind's `dark:` class strategy, not a runtime CSS-variable token system
+Considered a CSS-custom-property token layer (`bg-surface`, `text-ink`, etc.) but chose
+plain Tailwind `dark:` variants directly on existing utility classes instead — it required no
+renaming of any existing class across ~40 files (lower regression risk) and is the more
+common, more debuggable approach for an app this size. `<html class="dark">` is toggled by
+`useTheme()` (`apps/web/src/lib/theme/useTheme.ts`); an inline script in `index.html` applies
+the same resolution *before* React mounts, to avoid a flash of the wrong theme. Preference
+(`light`/`dark`/`system`) persists to `localStorage`; `system` is only the pre-first-toggle
+default, matching `prefers-color-scheme` live until the user picks explicitly.
+
+### L3. The dark-mode sweep was scripted, not hand-edited file by file
+With ~40 page/component files each carrying many repeated Tailwind color utilities
+(`border-slate-200`, `text-slate-500`, `bg-white`, …), hand-editing every occurrence
+consistently would have been both slow and error-prone (easy to pick a slightly different
+dark shade for the "same" light color in two different files). Instead, a one-off script
+(not committed — scratch tooling) walked every `.tsx` file and, for a fixed light→dark shade
+mapping, appended the `dark:` companion class immediately after each matching utility,
+correctly preserving any variant prefix chain (`hover:`, `focus:`, etc.) so
+`hover:bg-slate-100` became `hover:bg-slate-100 dark:hover:bg-slate-800` rather than an
+always-on dark background. This guarantees the same light-to-dark shade mapping was applied
+identically everywhere, which hand-editing could not.
+
+### L4. Global base-layer fix for native form controls, found via live dark-mode screenshots
+The scripted sweep only touches classes that literally appear in a file's `className`
+strings — it can't fix an element that has NO explicit background class at all and is
+instead relying on the browser's native white `<input>`/`<select>`/`<textarea>` background.
+Caught this live: a department-filter `<select>` on the Kanban board rendered as a glaring
+white box on an otherwise dark page. Rather than auditing all ~32 `<select>`s and every
+`<input>`/`<textarea>` in the app individually for a missing `bg-white`, added one
+`@layer base` rule in `index.css` (`input, select, textarea { @apply bg-white ... dark:bg-slate-900 ... }`)
+that covers every current and future form control at once; any element with its own explicit
+`bg-*` utility still wins per Tailwind's layer ordering. Also set `color-scheme: dark` on
+`.dark` so native browser chrome (date-picker icon/popup, scrollbars) matches the theme
+instead of always rendering light-mode-native widgets — verified live on the Scorecard page's
+date-range inputs.
+
+### L5. Subtle motion, deliberately minimal — no new dependency added
+"Polished/premium with subtle motion" was interpreted narrowly rather than reaching for an
+animation library: a short `fade-in` keyframe (`Shell.tsx` keys the route-content wrapper by
+`location.pathname` so it replays on navigation), a `pop-in` on the login card, `transition-colors`
+on nav items and the sidebar's `transition-[width]` on collapse/expand, and
+`prefers-reduced-motion` respected globally via a `@media` rule that collapses all
+animation/transition durations to near-zero. No `framer-motion` or similar was added — plain
+CSS covers everything asked for here without a new dependency.
+
+### L6. `Badge` gained a same-color border, for contrast safety across both themes
+`Badge` renders arbitrary Admin-chosen hex colors (per-status, per-priority) at a fixed low
+opacity — a color picked to read well against a white surface has no guarantee of reading
+well against `slate-900`, and vice versa, since Admins never see a dark-mode preview when
+picking it. Added a thin `border` in the same color at higher opacity so every badge has a
+visible edge on both themes even in the rare case the low-opacity fill alone is too faint —
+a robustness fix rather than something tied to one specific page.
+
+### L7. Scope: systematic sweep + representative spot-checks, not a pixel review of every page
+Every `.tsx` file under `apps/web/src` went through the same scripted, consistent
+light→dark mapping (§L3) and the same global form-control fix (§L4), so coverage is
+complete in that sense. What did NOT happen: a manual pixel-level review of all ~30 pages
+individually. Verified live instead — via Playwright screenshots in both themes — on a
+representative spread covering every UI pattern in the app (dense data tables, kanban
+drag-cards, forms with every input type, badges/pills, the leaderboard, breadcrumbs, the
+collapsed sidebar, the role switcher, and the login page): My Tasks, All Tasks, Kanban,
+Timeline, Scorecard, Team (all scopes), Reports, Notifications, Settings, Admin overview,
+Admin Scorecard Weights, and a full Task Detail page. No visual defects found beyond the one
+form-control bug already fixed in §L4. Flagging this as the honest scope boundary rather than
+claiming exhaustive per-page verification.
+
+### L8. Mobile app intentionally untouched in this phase
+The user's "soulless and monotonous" complaint was about the web app specifically (they were
+using it live in a browser); the Expo mobile app already went through its own design-system
+redesign earlier in this project (tasks #42-50: theme + UI primitives, navigation, and a
+per-screen redesign of Login/MyTasks/TaskList/TaskDetail/TeamDashboard/Notifications). Phase 6
+did not touch mobile — no new mobile screens were added since that redesign (Scorecard/Team
+role-adaptive views from Phases 4-5 are web-only so far), so mobile parity with those two new
+web pages is a real, currently-unaddressed gap if mobile parity turns out to matter.
+
 ---
 
 ## How to keep this log current

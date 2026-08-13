@@ -13,6 +13,11 @@ export const reportMetricKeys = [
   'task_counts_by_priority',
   'overdue_count',
   'overdue_rate',
+  // Independent from overdue_* — over budget means logged hours exceeded the estimate,
+  // regardless of due date (docs/10-OPEN-DECISIONS.md §I1: tracked as two separate metrics,
+  // never merged into one "at risk" flag).
+  'over_budget_count',
+  'over_budget_rate',
   'avg_time_to_completion_hours',
   'sla_compliance_rate',
   'workload_distribution',

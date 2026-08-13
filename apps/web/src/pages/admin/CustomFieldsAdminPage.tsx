@@ -39,7 +39,7 @@ export function CustomFieldsAdminPage() {
       <select
         value={departmentId}
         onChange={(e) => setDepartmentId(e.target.value)}
-        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+        className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
       >
         <option value="">Org-wide fields</option>
         {departments?.map((d) => (
@@ -49,10 +49,10 @@ export function CustomFieldsAdminPage() {
         ))}
       </select>
 
-      <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-4">
-        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="key" className="w-32 rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label" className="w-40 rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-        <select value={fieldType} onChange={(e) => setFieldType(e.target.value as typeof fieldType)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
+      <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="key" className="w-32 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label" className="w-40 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
+        <select value={fieldType} onChange={(e) => setFieldType(e.target.value as typeof fieldType)} className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm">
           {FIELD_TYPES.map((t) => (
             <option key={t} value={t}>
               {t}
@@ -64,10 +64,10 @@ export function CustomFieldsAdminPage() {
             value={options}
             onChange={(e) => setOptions(e.target.value)}
             placeholder="Options, comma-separated"
-            className="w-56 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+            className="w-56 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
           />
         )}
-        <label className="flex items-center gap-1 text-sm text-slate-600">
+        <label className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
           <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} />
           Required
         </label>
@@ -76,9 +76,9 @@ export function CustomFieldsAdminPage() {
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
+          <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             <tr>
               <th className="px-4 py-2">Key</th>
               <th className="px-4 py-2">Label</th>
@@ -89,13 +89,13 @@ export function CustomFieldsAdminPage() {
           </thead>
           <tbody>
             {fields?.map((f) => (
-              <tr key={f.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-2 font-mono text-xs text-slate-600">{f.key}</td>
+              <tr key={f.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                <td className="px-4 py-2 font-mono text-xs text-slate-600 dark:text-slate-400">{f.key}</td>
                 <td className="px-4 py-2">{f.label}</td>
-                <td className="px-4 py-2 text-slate-500">{f.field_type}</td>
-                <td className="px-4 py-2 text-slate-500">{f.is_required ? 'Yes' : 'No'}</td>
+                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{f.field_type}</td>
+                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{f.is_required ? 'Yes' : 'No'}</td>
                 <td className="px-4 py-2 text-right">
-                  <button onClick={() => deleteField.mutate(f.id)} className="text-xs text-red-600 hover:underline">
+                  <button onClick={() => deleteField.mutate(f.id)} className="text-xs text-red-600 dark:text-red-400 hover:underline">
                     Remove
                   </button>
                 </td>
@@ -103,7 +103,7 @@ export function CustomFieldsAdminPage() {
             ))}
             {fields?.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
                   No custom fields yet.
                 </td>
               </tr>

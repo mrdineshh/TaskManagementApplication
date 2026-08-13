@@ -63,7 +63,7 @@ export function WorkflowsAdminPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <select value={workflowId} onChange={(e) => setWorkflowId(e.target.value)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
+        <select value={workflowId} onChange={(e) => setWorkflowId(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm">
           <option value="">Select workflow…</option>
           {workflows?.map((w) => (
             <option key={w.id} value={w.id}>
@@ -71,29 +71,29 @@ export function WorkflowsAdminPage() {
             </option>
           ))}
         </select>
-        <button onClick={handleNewWorkflow} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">
+        <button onClick={handleNewWorkflow} className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-950">
           + New workflow
         </button>
       </div>
 
       {workflowId && (
         <>
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">Statuses</h2>
+          <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+            <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">Statuses</h2>
             <div className="mb-3 flex flex-wrap gap-2">
               {statuses?.map((s) => (
                 <div key={s.id} className="flex items-center gap-1">
                   <Badge label={s.label} color={s.color} />
-                  <button onClick={() => removeStatus.mutate(s.id)} className="text-xs text-slate-400 hover:text-red-600">
+                  <button onClick={() => removeStatus.mutate(s.id)} className="text-xs text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400">
                     ×
                   </button>
                 </div>
               ))}
             </div>
             <form onSubmit={handleAddStatus} className="flex flex-wrap gap-2">
-              <input value={statusKey} onChange={(e) => setStatusKey(e.target.value)} placeholder="key" className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm" />
-              <input value={statusLabel} onChange={(e) => setStatusLabel(e.target.value)} placeholder="Label" className="w-36 rounded-md border border-slate-300 px-2 py-1 text-sm" />
-              <select value={statusCategory} onChange={(e) => setStatusCategory(e.target.value as typeof statusCategory)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+              <input value={statusKey} onChange={(e) => setStatusKey(e.target.value)} placeholder="key" className="w-28 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm" />
+              <input value={statusLabel} onChange={(e) => setStatusLabel(e.target.value)} placeholder="Label" className="w-36 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm" />
+              <select value={statusCategory} onChange={(e) => setStatusCategory(e.target.value as typeof statusCategory)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm">
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -106,23 +106,23 @@ export function WorkflowsAdminPage() {
             </form>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">Transitions</h2>
+          <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+            <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">Transitions</h2>
             <ul className="mb-3 space-y-1">
               {transitions?.map((t) => (
                 <li key={t.id} className="flex items-center justify-between text-sm">
                   <span>
                     {statusLabelOf(t.from_status_id)} → {statusLabelOf(t.to_status_id)}
-                    {t.required_permission && <span className="ml-2 text-xs text-slate-400">requires {t.required_permission}</span>}
+                    {t.required_permission && <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">requires {t.required_permission}</span>}
                   </span>
-                  <button onClick={() => removeTransition.mutate(t.id)} className="text-xs text-red-600 hover:underline">
+                  <button onClick={() => removeTransition.mutate(t.id)} className="text-xs text-red-600 dark:text-red-400 hover:underline">
                     Remove
                   </button>
                 </li>
               ))}
             </ul>
             <form onSubmit={handleAddTransition} className="flex flex-wrap gap-2">
-              <select value={fromStatus} onChange={(e) => setFromStatus(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+              <select value={fromStatus} onChange={(e) => setFromStatus(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm">
                 <option value="">From…</option>
                 {statuses?.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -130,7 +130,7 @@ export function WorkflowsAdminPage() {
                   </option>
                 ))}
               </select>
-              <select value={toStatus} onChange={(e) => setToStatus(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+              <select value={toStatus} onChange={(e) => setToStatus(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm">
                 <option value="">To…</option>
                 {statuses?.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -142,7 +142,7 @@ export function WorkflowsAdminPage() {
                 value={requiredPermission}
                 onChange={(e) => setRequiredPermission(e.target.value)}
                 placeholder="required permission (optional)"
-                className="w-56 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                className="w-56 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
               />
               <button type="submit" className="rounded-md bg-brand-600 px-3 py-1 text-sm font-medium text-white hover:bg-brand-700">
                 Add transition

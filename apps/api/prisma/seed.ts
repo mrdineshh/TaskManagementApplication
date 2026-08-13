@@ -127,7 +127,17 @@ async function main() {
   for (const s of SEED_WORKFLOW_STATUSES) {
     const status = await prisma.workflowStatus.upsert({
       where: { workflowId_key: { workflowId: workflow.id, key: s.key } },
-      update: {},
+      // Deliberately NOT `update: {}` like every other upsert in this file — label/color/
+      // display_order stay admin-owned and untouched on re-seed, but requiresHoldReason and
+      // requiresEstimateBeforeEntry are new Phase 2 system behavior, not something an Admin UI
+      // has ever exposed for editing. Without backfilling these two here, re-running this
+      // script against an already-seeded install (e.g. the deployed dev environment, seeded
+      // before Phase 2 existed) would silently leave every existing status at false forever —
+      // the mandatory-estimate/on-hold-reason gates would never actually activate there.
+      update: {
+        requiresHoldReason: s.requires_hold_reason,
+        requiresEstimateBeforeEntry: s.requires_estimate_before_entry,
+      },
       create: {
         workflowId: workflow.id,
         key: s.key,
@@ -135,11 +145,15 @@ async function main() {
         category: s.category as WorkflowStatusCategory,
         displayOrder: s.display_order,
         color: s.color,
+        requiresHoldReason: s.requires_hold_reason,
+        requiresEstimateBeforeEntry: s.requires_estimate_before_entry,
       },
     });
     statusIds.set(s.key, status.id);
   }
-  // Allow forward progress through the happy path, plus escape hatches to Blocked/Cancelled from anywhere active.
+  // Allow forward progress through the happy path, plus escape hatches to Blocked/On
+  // Hold/Cancelled from anywhere active. Resuming from On Hold is transition-free (no reason
+  // required to leave it) per docs/10-OPEN-DECISIONS.md §H1.
   const happyPath: [string, string][] = [
     ['todo', 'in_progress'],
     ['in_progress', 'in_review'],
@@ -149,6 +163,11 @@ async function main() {
     ['in_progress', 'blocked'],
     ['blocked', 'in_progress'],
     ['in_progress', 'cancelled'],
+    ['todo', 'on_hold'],
+    ['in_progress', 'on_hold'],
+    ['in_review', 'on_hold'],
+    ['on_hold', 'in_progress'],
+    ['on_hold', 'cancelled'],
   ];
   for (const [from, to] of happyPath) {
     await prisma.workflowTransition.upsert({
@@ -182,6 +201,14 @@ async function main() {
         },
       }));
     priorityIds.set(p.key, priority.id);
+  }
+
+  console.log('Seeding on-hold reasons...');
+  // Admin-configurable starter list (docs/10-OPEN-DECISIONS.md §H1) — Admins add/edit/remove
+  // from here, this is just a sensible default so the On Hold transition isn't empty on day one.
+  for (const label of ['Waiting for Customer', 'Waiting for Third-Party', 'Other']) {
+    const existing = await prisma.onHoldReason.findFirst({ where: { label } });
+    if (!existing) await prisma.onHoldReason.create({ data: { label } });
   }
 
   console.log('Seeding holiday calendar...');

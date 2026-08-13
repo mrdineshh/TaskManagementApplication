@@ -72,17 +72,17 @@ export function RolesAdminPage() {
         >
           + New Role
         </button>
-        <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <ul className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           {roles?.map((r) => (
             <li key={r.id}>
               <button
                 onClick={() => setSelectedId(r.id)}
                 className={`block w-full px-3 py-2 text-left text-sm ${
-                  selectedId === r.id ? 'bg-brand-50 font-medium text-brand-700' : 'text-slate-700 hover:bg-slate-50'
+                  selectedId === r.id ? 'bg-brand-50 dark:bg-brand-950/40 font-medium text-brand-700 dark:text-brand-300' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950'
                 }`}
               >
                 {r.name}
-                {r.is_system_role && <span className="ml-1 text-xs text-slate-400">(system)</span>}
+                {r.is_system_role && <span className="ml-1 text-xs text-slate-400 dark:text-slate-500">(system)</span>}
               </button>
             </li>
           ))}
@@ -90,17 +90,17 @@ export function RolesAdminPage() {
       </div>
 
       {selected && (
-        <div className="flex-1 space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="flex-1 space-y-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
           <div className="flex gap-3">
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+              className="flex-1 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
             />
             <select
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+              className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
             >
               <option value="">Org-wide</option>
               {departments?.map((d) => (
@@ -114,10 +114,10 @@ export function RolesAdminPage() {
           <div className="space-y-3">
             {[...grouped.entries()].map(([resource, keys]) => (
               <div key={resource}>
-                <p className="mb-1 text-xs font-semibold uppercase text-slate-400">{resource}</p>
+                <p className="mb-1 text-xs font-semibold uppercase text-slate-400 dark:text-slate-500">{resource}</p>
                 <div className="flex flex-wrap gap-3">
                   {keys.map((key) => (
-                    <label key={key} className="flex items-center gap-1.5 text-sm text-slate-700">
+                    <label key={key} className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300">
                       <input
                         type="checkbox"
                         checked={checkedPermissions.has(key)}
@@ -132,7 +132,7 @@ export function RolesAdminPage() {
             ))}
           </div>
 
-          <div className="flex items-center gap-3 border-t border-slate-100 pt-3">
+          <div className="flex items-center gap-3 border-t border-slate-100 dark:border-slate-800 pt-3">
             <button
               onClick={handleSave}
               disabled={updateRole.isPending}
@@ -146,7 +146,7 @@ export function RolesAdminPage() {
                   deleteRole.mutate(selected.id);
                   setSelectedId(null);
                 }}
-                className="text-sm text-red-600 hover:underline"
+                className="text-sm text-red-600 dark:text-red-400 hover:underline"
               >
                 Delete role
               </button>

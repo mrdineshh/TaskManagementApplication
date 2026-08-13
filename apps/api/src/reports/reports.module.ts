@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RbacModule } from '../rbac/rbac.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { HolidayCalendarsModule } from '../holiday-calendars/holiday-calendars.module';
 import { ReportAggregationService } from './report-aggregation.service';
 import { ReportMetricsController } from './report-metrics.controller';
 import { ReportsController } from './reports.controller';
@@ -10,7 +11,7 @@ import { ReportSchedulesService } from './report-schedules.service';
 import { ReportScheduleDeliveryService } from './report-schedule-delivery.service';
 
 @Module({
-  imports: [RbacModule, NotificationsModule],
+  imports: [RbacModule, NotificationsModule, HolidayCalendarsModule],
   controllers: [ReportMetricsController, ReportsController, ReportSchedulesController],
   providers: [ReportAggregationService, ReportsService, ReportSchedulesService, ReportScheduleDeliveryService],
 })

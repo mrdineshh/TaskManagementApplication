@@ -28,12 +28,15 @@ import { PrioritiesAdminPage } from '../pages/admin/PrioritiesAdminPage';
 import { IntegrationsAdminPage } from '../pages/admin/IntegrationsAdminPage';
 import { OrgSettingsAdminPage } from '../pages/admin/OrgSettingsAdminPage';
 import { HolidayCalendarsAdminPage } from '../pages/admin/HolidayCalendarsAdminPage';
+import { OnHoldReasonsAdminPage } from '../pages/admin/OnHoldReasonsAdminPage';
+import { ScorecardWeightsAdminPage } from '../pages/admin/ScorecardWeightsAdminPage';
+import { ScorecardPage } from '../pages/scorecard/ScorecardPage';
 
 function AppRoutes() {
   const ready = useBootstrapSession();
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-slate-400">
+      <div className="flex min-h-screen items-center justify-center text-slate-400 dark:text-slate-500">
         Loading…
       </div>
     );
@@ -50,6 +53,7 @@ function AppRoutes() {
           <Route path="tasks/board" element={<KanbanBoardPage />} />
           <Route path="tasks/timeline" element={<TimelinePage />} />
           <Route path="team" element={<TeamDashboardPage />} />
+          <Route path="scorecard" element={<ScorecardPage />} />
           <Route path="reports" element={<ReportsListPage />} />
           <Route path="reports/builder" element={<ReportBuilderPage />} />
           <Route path="reports/:id" element={<ReportViewerPage />} />
@@ -67,6 +71,8 @@ function AppRoutes() {
             <Route path="integrations" element={<IntegrationsAdminPage />} />
             <Route path="sla" element={<SLAAdminPage />} />
             <Route path="holiday-calendars" element={<HolidayCalendarsAdminPage />} />
+            <Route path="on-hold-reasons" element={<OnHoldReasonsAdminPage />} />
+            <Route path="scorecard-weights" element={<ScorecardWeightsAdminPage />} />
             <Route path="settings" element={<OrgSettingsAdminPage />} />
           </Route>
         </Route>

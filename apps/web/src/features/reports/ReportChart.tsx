@@ -7,13 +7,13 @@ export function ReportChart({ result, chartType }: { result: ReportRunResult; ch
   const data = result.rows.map((r) => ({ name: r.dimension_label, value: r.value }));
 
   if (data.length === 0) {
-    return <p className="py-8 text-center text-sm text-slate-400">No data for the selected range.</p>;
+    return <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">No data for the selected range.</p>;
   }
 
   if (chartType === 'table') {
     return (
       <table className="w-full text-sm">
-        <thead className="border-b border-slate-200 text-left text-xs font-medium uppercase text-slate-500">
+        <thead className="border-b border-slate-200 dark:border-slate-800 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
           <tr>
             <th className="px-3 py-2">Dimension</th>
             <th className="px-3 py-2">Value</th>
@@ -21,9 +21,9 @@ export function ReportChart({ result, chartType }: { result: ReportRunResult; ch
         </thead>
         <tbody>
           {data.map((d) => (
-            <tr key={d.name} className="border-b border-slate-100 last:border-0">
-              <td className="px-3 py-2 text-slate-700">{d.name}</td>
-              <td className="px-3 py-2 font-medium text-slate-900">{formatValue(d.value)}</td>
+            <tr key={d.name} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+              <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{d.name}</td>
+              <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{formatValue(d.value)}</td>
             </tr>
           ))}
         </tbody>

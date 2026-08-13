@@ -25,6 +25,19 @@ model OrganizationSettings {
   @@map("organization_settings")
 }
 
+/// Singleton, same pattern as OrganizationSettings above — admin-tunable sub-metric weights
+/// for the employee scorecard/leaderboard (docs/10-OPEN-DECISIONS.md §J). Weights are stored
+/// as JSON rather than six separate columns so the sub-metric set itself can grow later
+/// without another migration; today's six keys are validated at the application layer
+/// (packages/shared-types/src/scorecard.ts's scorecardWeightsSchema), not the DB.
+model ScorecardConfig {
+  id        String   @id @default(uuid())
+  weights   Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("scorecard_config")
+}
+
 model IntegrationSetting {
   id              String   @id @default(uuid())
   key             String   @unique
@@ -111,6 +124,7 @@ model User {
   roles               UserRole[]
   createdTasks        Task[]               @relation("TaskCreatedBy")
   assignedTasks       Task[]               @relation("TaskAssignee")
+  estimateSubmittedTasks Task[]            @relation("TaskEstimateSubmittedBy")
   comments            TaskComment[]
   attachments         TaskAttachment[]
   activityLogEntries  ActivityLogEntry[]
@@ -259,6 +273,18 @@ model WorkflowStatus {
   category     WorkflowStatusCategory
   displayOrder Int                    @default(0) @map("display_order")
   color        String?
+  /// Admin-configurable per status, not hardcoded to one status key (docs/10-OPEN-DECISIONS.md
+  /// §H1) — since workflows themselves are admin-configurable per department, hardcoding
+  /// "on_hold" as a magic status key would break for any custom workflow. Any status an Admin
+  /// flags this way requires picking an OnHoldReason to transition into it.
+  requiresHoldReason Boolean @default(false) @map("requires_hold_reason")
+  /// Admin-configurable, same reasoning as requiresHoldReason above — the "mandatory estimate
+  /// before starting work" rule (§H2) means entering the ONE status that represents genuinely
+  /// starting active work, not every status sharing WorkflowStatusCategory.in_progress (which
+  /// also covers On Hold, Blocked, and In Review — none of which should demand a fresh
+  /// estimate). Caught live: the category-based check incorrectly blocked entering On Hold on
+  /// a task that hadn't started yet.
+  requiresEstimateBeforeEntry Boolean @default(false) @map("requires_estimate_before_entry")
 
   tasksAsCurrentStatus Task[]               @relation("TaskStatus")
   transitionsFrom      WorkflowTransition[] @relation("TransitionFrom")
@@ -304,6 +330,23 @@ model PriorityDefinition {
 
   @@unique([departmentId, key])
   @@map("priority_definitions")
+}
+
+// ---------------------------------------------------------------------------
+// On-hold reasons (docs/10-OPEN-DECISIONS.md §H1) — admin-configurable, org-wide (not
+// department-scoped like priorities can be — never discussed needing per-department variants).
+// ---------------------------------------------------------------------------
+
+model OnHoldReason {
+  id        String   @id @default(uuid())
+  label     String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tasks Task[]
+
+  @@map("on_hold_reasons")
 }
 
 // ---------------------------------------------------------------------------
@@ -354,6 +397,11 @@ model TaskCustomFieldValue {
 // Tasks (02-DATA-MODEL.md §2.5-2.8, §3, §6)
 // ---------------------------------------------------------------------------
 
+enum EffortUnit {
+  hours
+  days
+}
+
 model Task {
   id             String             @id @default(uuid())
   title          String
@@ -380,6 +428,18 @@ model Task {
   recurrenceRule String?            @map("recurrence_rule") // v1.1, iCal RRULE
   slaPolicyId    String?            @map("sla_policy_id") // v1.1
   slaPolicy      SLAPolicy?         @relation(fields: [slaPolicyId], references: [id])
+  /// Set when transitioning into a WorkflowStatus with requiresHoldReason=true; cleared moving
+  /// to any status that doesn't require one (docs/10-OPEN-DECISIONS.md §H1).
+  onHoldReasonId String?       @map("on_hold_reason_id")
+  onHoldReason   OnHoldReason? @relation(fields: [onHoldReasonId], references: [id])
+  /// Effort estimate (§H2) — set by the assignee, not the creator, and mandatory before a task
+  /// can move into an in_progress-category status. Self-service editable for 30 minutes after
+  /// estimateSubmittedAt; past that, only task.override_locked_edits (Admin) can change it.
+  estimateValue         Float?      @map("estimate_value")
+  estimateUnit          EffortUnit? @map("estimate_unit")
+  estimateSubmittedAt   DateTime?   @map("estimate_submitted_at")
+  estimateSubmittedById String?     @map("estimate_submitted_by_id")
+  estimateSubmittedBy   User?       @relation("TaskEstimateSubmittedBy", fields: [estimateSubmittedById], references: [id])
   createdAt      DateTime           @default(now()) @map("created_at")
   updatedAt      DateTime           @updatedAt @map("updated_at")
   deletedAt      DateTime?          @map("deleted_at")
@@ -414,7 +474,13 @@ model TimeLog {
   user     User     @relation(fields: [userId], references: [id])
   minutes  Int
   note     String?
+  /// Which date the logged work happened on — independent of createdAt below, since an entry
+  /// can be backdated (e.g. logging yesterday's hours today).
   loggedAt DateTime @default(now()) @map("logged_at")
+  /// When this entry was actually created — drives the 30-minute self-edit window
+  /// (docs/10-OPEN-DECISIONS.md §H3), distinct from loggedAt above.
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([taskId])
   @@map("time_logs")

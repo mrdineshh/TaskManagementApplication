@@ -15,3 +15,4 @@ export * from './approvalStep';
 export * from './slaPolicy';
 export * from './report';
 export * from './holidayCalendar';
+export * from './scorecard';

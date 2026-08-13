@@ -17,7 +17,7 @@ export function ReportViewerPage() {
   const currentUser = useSessionStore((s) => s.currentUser);
   const [exporting, setExporting] = useState<ReportExportFormat | null>(null);
 
-  if (!report) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (!report) return <p className="text-sm text-slate-400 dark:text-slate-500">Loading…</p>;
 
   async function handleExport(format: ReportExportFormat) {
     if (!id) return;
@@ -36,14 +36,14 @@ export function ReportViewerPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <Link to="/reports" className="text-xs text-slate-400 hover:text-slate-600">
+          <Link to="/reports" className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400">
             ← Reports
           </Link>
-          <h1 className="text-lg font-semibold text-slate-900">{report.name}</h1>
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{report.name}</h1>
         </div>
         <div className="flex gap-2">
           {isOwner && (
-            <Link to={`/reports/${id}/edit`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+            <Link to={`/reports/${id}/edit`} className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950">
               Edit
             </Link>
           )}
@@ -52,7 +52,7 @@ export function ReportViewerPage() {
               key={format}
               onClick={() => handleExport(format)}
               disabled={exporting !== null}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm uppercase text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm uppercase text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 disabled:opacity-50"
             >
               {exporting === format ? '…' : format}
             </button>
@@ -60,13 +60,13 @@ export function ReportViewerPage() {
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-slate-400">Running report…</p>}
-      {isError && <p className="text-sm text-red-600">{(error as Error)?.message ?? 'Failed to run report.'}</p>}
+      {isLoading && <p className="text-sm text-slate-400 dark:text-slate-500">Running report…</p>}
+      {isError && <p className="text-sm text-red-600 dark:text-red-400">{(error as Error)?.message ?? 'Failed to run report.'}</p>}
 
       <div className="space-y-4">
         {results?.map((result) => (
-          <div key={result.metric} className="rounded-lg border border-slate-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-medium text-slate-700">{metricLabel(result.metric)}</h2>
+          <div key={result.metric} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+            <h2 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">{metricLabel(result.metric)}</h2>
             <ReportChart result={result} chartType={report.config.chart_type} />
           </div>
         ))}

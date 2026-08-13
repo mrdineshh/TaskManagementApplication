@@ -74,7 +74,7 @@ export class TasksService {
       where: { id, deletedAt: null },
       include: {
         customFieldValues: true,
-        subtasks: { where: { deletedAt: null } },
+        subtasks: { where: { deletedAt: null }, include: { status: true } },
         status: true,
         priority: true,
         assignee: { select: { id: true, fullName: true, email: true } },
@@ -197,7 +197,7 @@ export class TasksService {
    *    per docs/10-OPEN-DECISIONS.md B2 — the transition still succeeds, but the response
    *    includes `warnings.open_blockers` for the UI to surface.
    */
-  async transition(user: AccessTokenPayload, id: string, toStatusId: string) {
+  async transition(user: AccessTokenPayload, id: string, toStatusId: string, onHoldReasonId?: string) {
     const existing = await this.get(user, id);
 
     const transition = await this.prisma.workflowTransition.findFirst({
@@ -210,6 +210,42 @@ export class TasksService {
       throw new ForbiddenException(`Transition requires permission: ${transition.requiredPermission}`);
     }
 
+    const toStatus = await this.prisma.workflowStatus.findUniqueOrThrow({ where: { id: toStatusId } });
+
+    // On-Hold reason (docs/10-OPEN-DECISIONS.md §H1) — required entering any status an Admin
+    // has flagged, cleared automatically leaving one (applyStatusChange below).
+    if (toStatus.requiresHoldReason) {
+      if (!onHoldReasonId) {
+        throw new BadRequestException('This status requires selecting a reason.');
+      }
+      const reason = await this.prisma.onHoldReason.findUnique({ where: { id: onHoldReasonId } });
+      if (!reason || !reason.isActive) {
+        throw new BadRequestException('on_hold_reason_id does not reference an active, existing reason');
+      }
+    }
+
+    // Effort estimate gate (§H2) — mandatory before work starts, set by the assignee via
+    // POST /tasks/:id/estimate, never by this endpoint. Gated on requiresEstimateBeforeEntry,
+    // NOT category === 'in_progress' — that category also covers On Hold/Blocked/In Review,
+    // none of which should demand a fresh estimate (hit live: pausing an un-started task via
+    // On Hold was incorrectly blocked by a category-based check).
+    if (toStatus.requiresEstimateBeforeEntry && existing.estimateValue === null) {
+      throw new BadRequestException('An effort estimate is required before starting work on this task.');
+    }
+
+    // Hard block on open subtasks — unlike getOpenBlockers()'s soft warning for task
+    // dependencies below, this is a hard rule the user was explicit about: a parent cannot
+    // close while any subtask is still open. Single level only (no discussion of nested
+    // subtasks-of-subtasks).
+    if (toStatus.category === 'done') {
+      const openSubtasks = existing.subtasks.filter((s) => s.status.category !== 'done');
+      if (openSubtasks.length > 0) {
+        throw new BadRequestException(
+          `Cannot complete this task while ${openSubtasks.length} subtask(s) are still open.`,
+        );
+      }
+    }
+
     if (transition.requiresApproval) {
       const step = await this.prisma.approvalStep.create({
         data: { taskId: id, transitionId: transition.id, stepOrder: 1 },
@@ -220,12 +256,18 @@ export class TasksService {
     }
 
     const openBlockers = await this.getOpenBlockers(id, toStatusId);
-    const task = await this.applyStatusChange(id, toStatusId, user.sub);
+    const task = await this.applyStatusChange(id, toStatusId, user.sub, onHoldReasonId);
     return { ...task, warnings: openBlockers.length ? { open_blockers: openBlockers } : undefined };
   }
 
-  /** Shared by transition() and the approval-decide path — actually moves the task to a new status. */
-  private async applyStatusChange(id: string, toStatusId: string, actorId: string) {
+  /**
+   * Shared by transition() and the approval-decide path — actually moves the task to a new
+   * status. onHoldReasonId is only meaningful when called from transition(); the
+   * approval-decide call site doesn't thread it through (an approval-gated transition into a
+   * hold-reason-required status is an untested edge case — not discussed, and rare enough not
+   * to build out further here, logged in docs/10-OPEN-DECISIONS.md §H1).
+   */
+  private async applyStatusChange(id: string, toStatusId: string, actorId: string, onHoldReasonId?: string) {
     const before = await this.prisma.task.findUniqueOrThrow({ where: { id } });
     const toStatus = await this.prisma.workflowStatus.findUniqueOrThrow({ where: { id: toStatusId } });
     const task = await this.prisma.task.update({
@@ -233,6 +275,7 @@ export class TasksService {
       data: {
         statusId: toStatusId,
         completedAt: toStatus.category === 'done' ? new Date() : null,
+        onHoldReasonId: toStatus.requiresHoldReason ? onHoldReasonId : null,
       },
     });
 
@@ -242,11 +285,56 @@ export class TasksService {
       await this.notifications.notify(task.assigneeId, 'status_changed', { taskId: id, taskTitle: task.title });
     }
 
+    if (toStatus.requiresHoldReason) {
+      await this.notifications.notify(task.createdById, 'task_on_hold', { taskId: id, taskTitle: task.title });
+    }
+
     if (toStatus.category === 'done' && task.isRecurring && task.recurrenceRule) {
       await this.generateNextOccurrence(task);
     }
 
     return task;
+  }
+
+  // --- Phase 2: effort estimation (docs/10-OPEN-DECISIONS.md §H2) ---
+
+  async submitEstimate(user: AccessTokenPayload, taskId: string, value: number, unit: 'hours' | 'days') {
+    const task = await this.get(user, taskId);
+
+    const isOverride = user.permissions.includes('task.override_locked_edits');
+    if (task.estimateValue !== null) {
+      const withinWindow =
+        task.estimateSubmittedAt !== null && Date.now() - task.estimateSubmittedAt.getTime() <= 30 * 60 * 1000;
+      const isOriginalSubmitter = task.estimateSubmittedById === user.sub;
+      if (!isOverride && !isOriginalSubmitter) {
+        throw new ForbiddenException('Only the person who submitted this estimate can change it — ask an Admin.');
+      }
+      if (!isOverride && !withinWindow) {
+        throw new ForbiddenException('This estimate is locked (more than 30 minutes old) — ask an Admin to change it.');
+      }
+    } else if (!isOverride && task.assigneeId !== user.sub) {
+      throw new ForbiddenException('Only the assignee can submit an effort estimate for this task.');
+    }
+
+    const updated = await this.prisma.task.update({
+      where: { id: taskId },
+      data: {
+        estimateValue: value,
+        estimateUnit: unit,
+        estimateSubmittedAt: new Date(),
+        estimateSubmittedById: user.sub,
+      },
+    });
+    // Logged even for the submitter's own edit within the window, not just Admin overrides —
+    // the user was explicit: "we will log the change even the admin does it."
+    await this.logActivity(taskId, user.sub, 'estimate_submitted', {
+      previousValue: task.estimateValue,
+      previousUnit: task.estimateUnit,
+      value,
+      unit,
+      isOverride: isOverride && !(task.estimateSubmittedById === user.sub),
+    });
+    return updated;
   }
 
   /** Soft-warning dependency check (docs/10-OPEN-DECISIONS.md B2) — only relevant moving into 'done'. */
@@ -271,12 +359,88 @@ export class TasksService {
   }
 
   async addTimeLog(user: AccessTokenPayload, taskId: string, minutes: number, note?: string, loggedAt?: string) {
-    await this.get(user, taskId);
+    const task = await this.get(user, taskId);
+    const totalBefore = await this.sumTimeLogMinutes(taskId);
+
     const log = await this.prisma.timeLog.create({
       data: { taskId, userId: user.sub, minutes, note, loggedAt: loggedAt ? new Date(loggedAt) : undefined },
     });
     await this.logActivity(taskId, user.sub, 'time_logged', { minutes, timeLogId: log.id });
+    await this.notifyIfEffortBudgetCrossed(task, totalBefore, totalBefore + minutes);
     return log;
+  }
+
+  /**
+   * Same 30-minute self-edit window + Admin override as submitEstimate() above
+   * (docs/10-OPEN-DECISIONS.md §H3) — the window is measured from createdAt (when the entry
+   * was made), not loggedAt (which date the work happened on; can be backdated).
+   */
+  async updateTimeLog(
+    user: AccessTokenPayload,
+    taskId: string,
+    logId: string,
+    data: { minutes?: number; note?: string; loggedAt?: string },
+  ) {
+    const task = await this.get(user, taskId);
+    const log = await this.prisma.timeLog.findUnique({ where: { id: logId } });
+    if (!log || log.taskId !== taskId) throw new NotFoundException('Time log entry not found');
+
+    const isOverride = user.permissions.includes('task.override_locked_edits');
+    const withinWindow = Date.now() - log.createdAt.getTime() <= 30 * 60 * 1000;
+    const isOriginalLogger = log.userId === user.sub;
+    if (!isOverride && !isOriginalLogger) {
+      throw new ForbiddenException('Only the person who logged this entry can change it — ask an Admin.');
+    }
+    if (!isOverride && !withinWindow) {
+      throw new ForbiddenException('This time log entry is locked (more than 30 minutes old) — ask an Admin to change it.');
+    }
+
+    const totalBefore = await this.sumTimeLogMinutes(taskId);
+    const updated = await this.prisma.timeLog.update({
+      where: { id: logId },
+      data: {
+        minutes: data.minutes,
+        note: data.note,
+        loggedAt: data.loggedAt ? new Date(data.loggedAt) : undefined,
+      },
+    });
+    await this.logActivity(taskId, user.sub, 'time_log_updated', {
+      timeLogId: logId,
+      previousMinutes: log.minutes,
+      minutes: updated.minutes,
+      isOverride: isOverride && !isOriginalLogger,
+    });
+
+    const totalAfter = totalBefore - log.minutes + updated.minutes;
+    await this.notifyIfEffortBudgetCrossed(task, totalBefore, totalAfter);
+    return updated;
+  }
+
+  private async sumTimeLogMinutes(taskId: string): Promise<number> {
+    const agg = await this.prisma.timeLog.aggregate({ where: { taskId }, _sum: { minutes: true } });
+    return agg._sum.minutes ?? 0;
+  }
+
+  /**
+   * Fires once, the moment logged effort first crosses the estimate (docs/10-OPEN-DECISIONS.md
+   * §H3) — comparing totalBefore/totalAfter against the threshold, not just "is it over now",
+   * so re-logging more time after already crossing doesn't notify again and again.
+   */
+  private async notifyIfEffortBudgetCrossed(
+    task: { id: string; title: string; assigneeId: string | null; estimateValue: number | null; estimateUnit: string | null },
+    totalBefore: number,
+    totalAfter: number,
+  ) {
+    if (task.estimateValue === null || task.estimateUnit === null || !task.assigneeId) return;
+    const estimateMinutes = task.estimateUnit === 'days' ? task.estimateValue * 8 * 60 : task.estimateValue * 60;
+    if (totalBefore <= estimateMinutes && totalAfter > estimateMinutes) {
+      await this.notifications.notify(task.assigneeId, 'effort_budget_exceeded', {
+        taskId: task.id,
+        taskTitle: task.title,
+        estimateMinutes,
+        loggedMinutes: totalAfter,
+      });
+    }
   }
 
   // --- v1.1: Task dependencies (docs/02-DATA-MODEL.md §3) ---

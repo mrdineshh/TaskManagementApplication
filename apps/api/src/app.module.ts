@@ -23,6 +23,8 @@ import { DashboardsModule } from './dashboards/dashboards.module';
 import { SLAModule } from './sla/sla.module';
 import { ReportsModule } from './reports/reports.module';
 import { HolidayCalendarsModule } from './holiday-calendars/holiday-calendars.module';
+import { OnHoldReasonsModule } from './on-hold-reasons/on-hold-reasons.module';
+import { ScorecardsModule } from './scorecards/scorecards.module';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { HolidayCalendarsModule } from './holiday-calendars/holiday-calendars.mo
     SLAModule,
     ReportsModule,
     HolidayCalendarsModule,
+    OnHoldReasonsModule,
+    ScorecardsModule,
   ],
   controllers: [AppController],
   providers: [
