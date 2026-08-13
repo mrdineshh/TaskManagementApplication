@@ -274,14 +274,10 @@ Added as **required** fields on `User` — business-day/overdue math has no sane
 fallback without a region. Existing seeded users were backfilled to the
 literal placeholder value `"Unknown"` in the migration (deliberately obvious,
 not a real region, so affected accounts are easy to find). The Admin "invite
-user" endpoint (`POST /api/v1/users`) now requires `work_country`/`work_state`
-as real input — but the auth auto-provisioning path (a brand-new user's first
-SSO login, `auth.service.ts`) has no form to ask on, so it still defaults to
-`"Unknown"`/`"Unknown"` today. **Known gap, not yet resolved**: that
-auto-provisioned account won't get correct overdue/business-day calculations
-until an Admin corrects it via Edit User — a proper onboarding/profile-
-completion prompt is the real fix, deferred to a later phase since it wasn't
-part of the six discussed sections.
+user" endpoint (`POST /api/v1/users`) requires `work_country`/`work_state` as
+real input. (The gap this originally left — a self-service first SSO login
+having nowhere to ask for region — no longer applies: see §G4, self-service
+account creation was removed entirely.)
 
 ### G3. Role-toggle is a presentation lens, not a second authorization layer
 `User.activeRoleId` records which held role the UI is currently framed around.
@@ -295,6 +291,21 @@ this reading is correct before Phase 5 builds the switcher UI and per-role
 dashboards on top of it. The endpoint to actually set `activeRoleId` and the
 frontend toggle itself are not built yet — only the schema column exists so
 far.
+
+### G4. Invite-only: self-service account auto-provisioning removed entirely
+The app was auto-creating a `User` row on anyone's first successful sign-in
+(any provider, including "dev"). Confirmed with the user this is wrong for
+this app — it's invite-only, meaning an Admin must create the account (full
+name, department, region, roles, manager) via `POST /api/v1/users` *before*
+that person can sign in at all, SSO included. `AuthService.exchange()`
+(`apps/api/src/auth/auth.service.ts`) now throws `UnauthorizedException` when
+no existing `User` row matches the identity token's email, instead of
+creating one. A real Google/Firebase identity token is proof of *who someone
+is*, not by itself authorization to *have an account* — those are different
+questions, and this app answers the second one only through the Admin invite
+flow. This also fully resolves §G2's region gap: since there's no more
+self-service path, `workCountry`/`workState` are always supplied by the
+Admin who creates the account, never defaulted.
 
 ---
 

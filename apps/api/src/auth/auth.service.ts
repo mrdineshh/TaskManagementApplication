@@ -40,41 +40,15 @@ export class AuthService {
       );
     }
 
-    let user = await this.prisma.user.findUnique({ where: { email: identity.email } });
+    // Invite-only (docs/10-OPEN-DECISIONS.md §G4): an Admin must create the User row — via
+    // work_country/work_state, primary department, roles, manager — before anyone can sign in
+    // at all, SSO included. No self-service auto-provisioning on first login; a real identity
+    // token from Google/Firebase is not by itself authorization to create an account.
+    const user = await this.prisma.user.findUnique({ where: { email: identity.email } });
     if (!user) {
-      const fallbackDept = await this.prisma.department.findFirst({
-        where: { slug: 'management' },
-      });
-      if (!fallbackDept) {
-        throw new UnauthorizedException(
-          'No department available to provision a new user into — seed departments first',
-        );
-      }
-      user = await this.prisma.user.create({
-        data: {
-          email: identity.email,
-          fullName: identity.name,
-          primaryDepartmentId: fallbackDept.id,
-          // Work location (docs/10-OPEN-DECISIONS.md §G2) isn't known for a self-service
-          // first sign-in — the Admin "invite user" flow captures it directly, but a walk-up
-          // SSO login has nowhere to ask. "Unknown" (same placeholder the migration backfill
-          // used) flags the account for an Admin to correct via Edit User; this account won't
-          // get sane overdue/business-day math until then.
-          workCountry: 'Unknown',
-          workState: 'Unknown',
-          authProvider: provider.name === 'dev' ? 'google' : (provider.name as 'google' | 'sso'),
-          authProviderId: identity.externalId,
-        },
-      });
-      // New users get the seeded "Employee" role by default so the account is usable immediately,
-      // scoped to their department via departmentOverride (Employee is a generic, department_id-NULL
-      // role template reused across departments — see rbac.service.ts for why that distinction matters).
-      const employeeRole = await this.prisma.role.findFirst({ where: { name: 'Employee' } });
-      if (employeeRole) {
-        await this.prisma.userRole.create({
-          data: { userId: user.id, roleId: employeeRole.id, departmentOverride: fallbackDept.id },
-        });
-      }
+      throw new UnauthorizedException(
+        'No account found for this email — ask an Admin to create your account first',
+      );
     }
 
     if (!user.isActive) {
