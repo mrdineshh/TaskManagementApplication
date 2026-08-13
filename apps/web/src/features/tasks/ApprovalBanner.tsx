@@ -11,8 +11,8 @@ export function ApprovalBanner({ taskId }: { taskId: string }) {
   if (pending.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
-      <p className="text-sm font-medium text-amber-800">
+    <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 p-4">
+      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
         This task has a status change awaiting approval.
       </p>
       {canApprove ? (
@@ -22,14 +22,14 @@ export function ApprovalBanner({ taskId }: { taskId: string }) {
               <button
                 onClick={() => decide.mutate({ stepId: step.id, decision: 'approved' })}
                 disabled={decide.isPending}
-                className="rounded-md bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                className="rounded-md bg-green-600 dark:bg-green-500 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50"
               >
                 Approve
               </button>
               <button
                 onClick={() => decide.mutate({ stepId: step.id, decision: 'rejected' })}
                 disabled={decide.isPending}
-                className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-md bg-red-600 dark:bg-red-500 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 dark:hover:bg-red-600 disabled:opacity-50"
               >
                 Reject
               </button>
@@ -37,7 +37,7 @@ export function ApprovalBanner({ taskId }: { taskId: string }) {
           ))}
         </div>
       ) : (
-        <p className="mt-1 text-xs text-amber-600">Waiting on someone with approval rights.</p>
+        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">Waiting on someone with approval rights.</p>
       )}
     </div>
   );

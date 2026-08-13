@@ -49,13 +49,13 @@ export function TimelinePage() {
     })),
   });
 
-  if (isLoading) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (isLoading) return <p className="text-sm text-slate-400 dark:text-slate-500">Loading…</p>;
 
   if (sorted.length === 0) {
     return (
       <div>
         <TimelineHeader departments={departments} departmentId={departmentId} onChange={setDepartmentId} />
-        <p className="mt-6 text-sm text-slate-400">
+        <p className="mt-6 text-sm text-slate-400 dark:text-slate-500">
           No tasks with a start or due date in this scope yet. Set dates on a task to see it here.
         </p>
       </div>
@@ -106,22 +106,22 @@ export function TimelinePage() {
     <div>
       <TimelineHeader departments={departments} departmentId={departmentId} onChange={setDepartmentId} />
       {undatedCount > 0 && (
-        <p className="mb-3 text-xs text-slate-400">{undatedCount} task(s) without a start or due date aren't shown.</p>
+        <p className="mb-3 text-xs text-slate-400 dark:text-slate-500">{undatedCount} task(s) without a start or due date aren't shown.</p>
       )}
 
-      <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div className="w-56 shrink-0 border-r border-slate-200">
-          <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium uppercase text-slate-500" style={{ height: 33 }}>
+      <div className="flex overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div className="w-56 shrink-0 border-r border-slate-200 dark:border-slate-800">
+          <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium uppercase text-slate-500 dark:text-slate-400" style={{ height: 33 }}>
             Task
           </div>
           {sorted.map((t) => (
-            <div key={t.id} className="flex items-center border-b border-slate-100 px-3 text-sm last:border-0" style={{ height: ROW_HEIGHT }}>
-              <Link to={`/tasks/${t.id}`} className="truncate text-slate-700 hover:text-brand-700" title={t.title}>
+            <div key={t.id} className="flex items-center border-b border-slate-100 dark:border-slate-800 px-3 text-sm last:border-0" style={{ height: ROW_HEIGHT }}>
+              <Link to={`/tasks/${t.id}`} className="truncate text-slate-700 dark:text-slate-300 hover:text-brand-700 dark:hover:text-brand-300" title={t.title}>
                 {t.title}
               </Link>
               {(blockerTitlesByTask.get(t.id) ?? []).some((b) => b.open) && (
                 <span
-                  className="ml-1.5 shrink-0 text-amber-500"
+                  className="ml-1.5 shrink-0 text-amber-500 dark:text-amber-400"
                   title={`Blocked by: ${(blockerTitlesByTask.get(t.id) ?? []).map((b) => b.title).join(', ')}`}
                 >
                   ⛓
@@ -133,9 +133,9 @@ export function TimelinePage() {
 
         <div className="overflow-x-auto">
           <div style={{ width: chartWidth, position: 'relative' }}>
-            <div className="relative border-b border-slate-200 bg-slate-50" style={{ height: 33 }}>
+            <div className="relative border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950" style={{ height: 33 }}>
               {dayLabels.map((d) => (
-                <span key={d.x} className="absolute top-2 text-xs text-slate-400" style={{ left: d.x + 4 }}>
+                <span key={d.x} className="absolute top-2 text-xs text-slate-400 dark:text-slate-500" style={{ left: d.x + 4 }}>
                   {d.label}
                 </span>
               ))}
@@ -171,7 +171,7 @@ export function TimelinePage() {
               return (
                 <div
                   key={t.id}
-                  className="relative border-b border-slate-100 last:border-0"
+                  className="relative border-b border-slate-100 dark:border-slate-800 last:border-0"
                   style={{ height: ROW_HEIGHT, width: chartWidth }}
                 >
                   <Link
@@ -197,12 +197,12 @@ export function TimelinePage() {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
+      <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
         <LegendDot color={CATEGORY_COLOR.todo} label="Todo" />
         <LegendDot color={CATEGORY_COLOR.in_progress} label="In progress" />
         <LegendDot color={CATEGORY_COLOR.done} label="Done" />
         <span className="flex items-center gap-1">
-          <span className="text-amber-500">⛓</span> Open blocker
+          <span className="text-amber-500 dark:text-amber-400">⛓</span> Open blocker
         </span>
       </div>
     </div>
@@ -220,11 +220,11 @@ function TimelineHeader({
 }) {
   return (
     <div className="mb-4 flex items-center justify-between">
-      <h1 className="text-lg font-semibold text-slate-900">Timeline</h1>
+      <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Timeline</h1>
       <select
         value={departmentId}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+        className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
       >
         <option value="">All departments</option>
         {departments?.map((d) => (

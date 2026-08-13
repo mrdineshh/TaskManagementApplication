@@ -567,6 +567,92 @@ front of real users.
 
 ---
 
+## L. Phase 6 — full visual redesign (dark mode, design system)
+
+### L1. Richer indigo/teal palette replacing the flat 5-shade blue
+The original `brand` color was five hand-picked shades of a single blue with big gaps
+between them (50/100/500/600/700, nothing else) — functional but exactly the "soulless and
+monotonous" the user called out. Replaced with a full 50-950 indigo scale plus a secondary
+`accent` (teal) scale reserved for sparing highlight use (leaderboard emphasis, positive
+deltas) rather than a second primary color competing with the brand indigo.
+
+### L2. Dark mode via Tailwind's `dark:` class strategy, not a runtime CSS-variable token system
+Considered a CSS-custom-property token layer (`bg-surface`, `text-ink`, etc.) but chose
+plain Tailwind `dark:` variants directly on existing utility classes instead — it required no
+renaming of any existing class across ~40 files (lower regression risk) and is the more
+common, more debuggable approach for an app this size. `<html class="dark">` is toggled by
+`useTheme()` (`apps/web/src/lib/theme/useTheme.ts`); an inline script in `index.html` applies
+the same resolution *before* React mounts, to avoid a flash of the wrong theme. Preference
+(`light`/`dark`/`system`) persists to `localStorage`; `system` is only the pre-first-toggle
+default, matching `prefers-color-scheme` live until the user picks explicitly.
+
+### L3. The dark-mode sweep was scripted, not hand-edited file by file
+With ~40 page/component files each carrying many repeated Tailwind color utilities
+(`border-slate-200`, `text-slate-500`, `bg-white`, …), hand-editing every occurrence
+consistently would have been both slow and error-prone (easy to pick a slightly different
+dark shade for the "same" light color in two different files). Instead, a one-off script
+(not committed — scratch tooling) walked every `.tsx` file and, for a fixed light→dark shade
+mapping, appended the `dark:` companion class immediately after each matching utility,
+correctly preserving any variant prefix chain (`hover:`, `focus:`, etc.) so
+`hover:bg-slate-100` became `hover:bg-slate-100 dark:hover:bg-slate-800` rather than an
+always-on dark background. This guarantees the same light-to-dark shade mapping was applied
+identically everywhere, which hand-editing could not.
+
+### L4. Global base-layer fix for native form controls, found via live dark-mode screenshots
+The scripted sweep only touches classes that literally appear in a file's `className`
+strings — it can't fix an element that has NO explicit background class at all and is
+instead relying on the browser's native white `<input>`/`<select>`/`<textarea>` background.
+Caught this live: a department-filter `<select>` on the Kanban board rendered as a glaring
+white box on an otherwise dark page. Rather than auditing all ~32 `<select>`s and every
+`<input>`/`<textarea>` in the app individually for a missing `bg-white`, added one
+`@layer base` rule in `index.css` (`input, select, textarea { @apply bg-white ... dark:bg-slate-900 ... }`)
+that covers every current and future form control at once; any element with its own explicit
+`bg-*` utility still wins per Tailwind's layer ordering. Also set `color-scheme: dark` on
+`.dark` so native browser chrome (date-picker icon/popup, scrollbars) matches the theme
+instead of always rendering light-mode-native widgets — verified live on the Scorecard page's
+date-range inputs.
+
+### L5. Subtle motion, deliberately minimal — no new dependency added
+"Polished/premium with subtle motion" was interpreted narrowly rather than reaching for an
+animation library: a short `fade-in` keyframe (`Shell.tsx` keys the route-content wrapper by
+`location.pathname` so it replays on navigation), a `pop-in` on the login card, `transition-colors`
+on nav items and the sidebar's `transition-[width]` on collapse/expand, and
+`prefers-reduced-motion` respected globally via a `@media` rule that collapses all
+animation/transition durations to near-zero. No `framer-motion` or similar was added — plain
+CSS covers everything asked for here without a new dependency.
+
+### L6. `Badge` gained a same-color border, for contrast safety across both themes
+`Badge` renders arbitrary Admin-chosen hex colors (per-status, per-priority) at a fixed low
+opacity — a color picked to read well against a white surface has no guarantee of reading
+well against `slate-900`, and vice versa, since Admins never see a dark-mode preview when
+picking it. Added a thin `border` in the same color at higher opacity so every badge has a
+visible edge on both themes even in the rare case the low-opacity fill alone is too faint —
+a robustness fix rather than something tied to one specific page.
+
+### L7. Scope: systematic sweep + representative spot-checks, not a pixel review of every page
+Every `.tsx` file under `apps/web/src` went through the same scripted, consistent
+light→dark mapping (§L3) and the same global form-control fix (§L4), so coverage is
+complete in that sense. What did NOT happen: a manual pixel-level review of all ~30 pages
+individually. Verified live instead — via Playwright screenshots in both themes — on a
+representative spread covering every UI pattern in the app (dense data tables, kanban
+drag-cards, forms with every input type, badges/pills, the leaderboard, breadcrumbs, the
+collapsed sidebar, the role switcher, and the login page): My Tasks, All Tasks, Kanban,
+Timeline, Scorecard, Team (all scopes), Reports, Notifications, Settings, Admin overview,
+Admin Scorecard Weights, and a full Task Detail page. No visual defects found beyond the one
+form-control bug already fixed in §L4. Flagging this as the honest scope boundary rather than
+claiming exhaustive per-page verification.
+
+### L8. Mobile app intentionally untouched in this phase
+The user's "soulless and monotonous" complaint was about the web app specifically (they were
+using it live in a browser); the Expo mobile app already went through its own design-system
+redesign earlier in this project (tasks #42-50: theme + UI primitives, navigation, and a
+per-screen redesign of Login/MyTasks/TaskList/TaskDetail/TeamDashboard/Notifications). Phase 6
+did not touch mobile — no new mobile screens were added since that redesign (Scorecard/Team
+role-adaptive views from Phases 4-5 are web-only so far), so mobile parity with those two new
+web pages is a real, currently-unaddressed gap if mobile parity turns out to matter.
+
+---
+
 ## How to keep this log current
 
 As the build proceeds and these items get resolved, update this document (or

@@ -37,32 +37,32 @@ export function IntegrationsAdminPage() {
 
   return (
     <div className="max-w-lg space-y-4">
-      <form onSubmit={handleSave} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-700">SMTP (outbound email)</h2>
-        <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp-relay.gmail.com" className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+      <form onSubmit={handleSave} className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">SMTP (outbound email)</h2>
+        <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp-relay.gmail.com" className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
         <div className="flex gap-2">
-          <input value={port} onChange={(e) => setPort(e.target.value)} placeholder="Port" className="w-24 rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-          <input value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} placeholder="from@econz.net" className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+          <input value={port} onChange={(e) => setPort(e.target.value)} placeholder="Port" className="w-24 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
+          <input value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} placeholder="from@econz.net" className="flex-1 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
         </div>
-        <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+        <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder={(data as any)?.has_secret ? '•••••••• (unchanged)' : 'Password'}
-          className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
         />
         <div className="flex gap-2">
           <button type="submit" className="rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
             Save
           </button>
-          <button type="button" onClick={() => test.mutate()} className="rounded-md border border-slate-300 px-4 py-1.5 text-sm hover:bg-slate-50">
+          <button type="button" onClick={() => test.mutate()} className="rounded-md border border-slate-300 dark:border-slate-700 px-4 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-950">
             Send test email
           </button>
         </div>
-        {test.data && <p className="text-sm text-slate-500">{(test.data as any).message}</p>}
+        {test.data && <p className="text-sm text-slate-500 dark:text-slate-400">{(test.data as any).message}</p>}
       </form>
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-slate-400 dark:text-slate-500">
         Until real Google Workspace SMTP credentials are provided, saved config is exercised end-to-end but
         emails are logged server-side rather than actually sent.
       </p>

@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Task Management</title>
+    <script>
+      // Applied before React mounts to avoid a flash of the wrong theme on load
+      // (docs/10-OPEN-DECISIONS.md §L) — mirrors the resolution logic in
+      // src/lib/theme/useTheme.ts exactly (localStorage 'taskapp.theme', falling back to the
+      // OS preference).
+      (function () {
+        var pref = localStorage.getItem('taskapp.theme') || 'system';
+        var dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

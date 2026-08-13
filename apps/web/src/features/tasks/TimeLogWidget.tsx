@@ -42,14 +42,14 @@ export function TimeLogWidget({ taskId }: { taskId: string }) {
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
+    <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-700">Time logged</h2>
-        <span className="text-sm text-slate-500">{(totalMinutes / 60).toFixed(1)}h total</span>
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Time logged</h2>
+        <span className="text-sm text-slate-500 dark:text-slate-400">{(totalMinutes / 60).toFixed(1)}h total</span>
       </div>
       <ul className="mb-3 space-y-1">
         {logs?.map((l) => (
-          <li key={l.id} className="flex items-center justify-between text-sm text-slate-600">
+          <li key={l.id} className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-400">
             {editingId === l.id ? (
               <div className="flex flex-1 items-center gap-2">
                 <input
@@ -58,12 +58,12 @@ export function TimeLogWidget({ taskId }: { taskId: string }) {
                   step={0.25}
                   value={editHours}
                   onChange={(e) => setEditHours(e.target.value)}
-                  className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                  className="w-20 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
                 />
-                <button onClick={() => handleSaveEdit(l.id)} className="text-xs text-brand-700 hover:underline">
+                <button onClick={() => handleSaveEdit(l.id)} className="text-xs text-brand-700 dark:text-brand-300 hover:underline">
                   Save
                 </button>
-                <button onClick={() => setEditingId(null)} className="text-xs text-slate-400 hover:underline">
+                <button onClick={() => setEditingId(null)} className="text-xs text-slate-400 dark:text-slate-500 hover:underline">
                   Cancel
                 </button>
               </div>
@@ -72,14 +72,14 @@ export function TimeLogWidget({ taskId }: { taskId: string }) {
                 <span>
                   {l.note || '(no note)'} — {new Date(l.logged_at).toLocaleDateString()}
                 </span>
-                <span className="flex items-center gap-2 text-slate-400">
+                <span className="flex items-center gap-2 text-slate-400 dark:text-slate-500">
                   {(l.minutes / 60).toFixed(1)}h
                   <button
                     onClick={() => {
                       setEditingId(l.id);
                       setEditHours((l.minutes / 60).toString());
                     }}
-                    className="text-xs text-slate-400 hover:text-brand-700 hover:underline"
+                    className="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-700 dark:hover:text-brand-300 hover:underline"
                   >
                     Edit
                   </button>
@@ -88,7 +88,7 @@ export function TimeLogWidget({ taskId }: { taskId: string }) {
             )}
           </li>
         ))}
-        {logs?.length === 0 && <li className="text-sm text-slate-400">No time logged yet.</li>}
+        {logs?.length === 0 && <li className="text-sm text-slate-400 dark:text-slate-500">No time logged yet.</li>}
       </ul>
       <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
         <input
@@ -97,20 +97,20 @@ export function TimeLogWidget({ taskId }: { taskId: string }) {
           step={0.25}
           value={hours}
           onChange={(e) => setHours(e.target.value)}
-          className="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          className="w-20 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
         />
-        <span className="self-center text-xs text-slate-400">hrs</span>
+        <span className="self-center text-xs text-slate-400 dark:text-slate-500">hrs</span>
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
         />
         <input
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Note (optional)"
-          className="flex-1 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          className="flex-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
         />
         <button
           type="submit"

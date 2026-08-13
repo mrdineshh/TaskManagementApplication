@@ -56,14 +56,14 @@ export function Breadcrumbs() {
   }
 
   return (
-    <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+    <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
       {crumbs.map((crumb, i) => (
         <span key={crumb.to} className="flex items-center gap-1.5">
           {i > 0 && <span aria-hidden>/</span>}
           {i === crumbs.length - 1 ? (
-            <span className="font-medium text-slate-600">{crumb.label}</span>
+            <span className="font-medium text-slate-600 dark:text-slate-400">{crumb.label}</span>
           ) : (
-            <Link to={crumb.to} className="hover:text-slate-600">
+            <Link to={crumb.to} className="hover:text-slate-600 dark:hover:text-slate-400">
               {crumb.label}
             </Link>
           )}

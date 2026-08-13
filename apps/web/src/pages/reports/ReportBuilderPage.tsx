@@ -77,24 +77,24 @@ export function ReportBuilderPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold text-slate-900">{isEditing ? 'Edit report' : 'New report'}</h1>
+      <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{isEditing ? 'Edit report' : 'New report'}</h1>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="space-y-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Report name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Report name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Metrics</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Metrics</label>
             <div className="space-y-1">
               {catalog?.metrics.map((m) => (
-                <label key={m.key} className="flex items-start gap-2 text-sm text-slate-700">
+                <label key={m.key} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
                   <input type="checkbox" checked={metrics.includes(m.key)} onChange={() => toggleMetric(m.key)} className="mt-0.5" />
                   <span>
                     {m.label}
-                    <span className="block text-xs text-slate-400">{m.description}</span>
+                    <span className="block text-xs text-slate-400 dark:text-slate-500">{m.description}</span>
                   </span>
                 </label>
               ))}
@@ -102,10 +102,10 @@ export function ReportBuilderPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">Dimensions</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Dimensions</label>
             <div className="flex flex-wrap gap-3">
               {reportDimensions.map((dim) => (
-                <label key={dim} className="flex items-center gap-1 text-sm text-slate-700">
+                <label key={dim} className="flex items-center gap-1 text-sm text-slate-700 dark:text-slate-300">
                   <input type="checkbox" checked={dimensions.includes(dim)} onChange={() => toggleDimension(dim)} />
                   {dim.replace('_', ' ')}
                 </label>
@@ -115,8 +115,8 @@ export function ReportBuilderPage() {
 
           <div className="flex flex-wrap gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Date range</label>
-              <select value={preset} onChange={(e) => setPreset(e.target.value as (typeof DATE_PRESETS)[number])} className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Date range</label>
+              <select value={preset} onChange={(e) => setPreset(e.target.value as (typeof DATE_PRESETS)[number])} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
                 {DATE_PRESETS.map((p) => (
                   <option key={p} value={p}>
                     {p.replace(/_/g, ' ')}
@@ -125,8 +125,8 @@ export function ReportBuilderPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Chart type</label>
-              <select value={chartType} onChange={(e) => setChartType(e.target.value as ReportChartType)} className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Chart type</label>
+              <select value={chartType} onChange={(e) => setChartType(e.target.value as ReportChartType)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
                 {reportChartTypes.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -135,8 +135,8 @@ export function ReportBuilderPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Department</label>
-              <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Department</label>
+              <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
                 <option value="">My scope</option>
                 {departments?.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -147,10 +147,10 @@ export function ReportBuilderPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-3">
+          <div className="flex flex-wrap gap-3 border-t border-slate-100 dark:border-slate-800 pt-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Visibility</label>
-              <select value={visibility} onChange={(e) => setVisibility(e.target.value as SavedReport['visibility'])} className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Visibility</label>
+              <select value={visibility} onChange={(e) => setVisibility(e.target.value as SavedReport['visibility'])} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
                 <option value="private">Private</option>
                 <option value="shared_roles">Shared with roles</option>
                 <option value="shared_org">Org-wide</option>
@@ -158,12 +158,12 @@ export function ReportBuilderPage() {
             </div>
             {visibility === 'shared_roles' && (
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">Roles</label>
+                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Roles</label>
                 <select
                   multiple
                   value={sharedRoleIds}
                   onChange={(e) => setSharedRoleIds(Array.from(e.target.selectedOptions, (o) => o.value))}
-                  className="h-16 w-48 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                  className="h-16 w-48 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
                 >
                   {roles?.map((r) => (
                     <option key={r.id} value={r.id}>
@@ -175,11 +175,11 @@ export function ReportBuilderPage() {
             )}
           </div>
 
-          <div className="flex gap-2 border-t border-slate-100 pt-3">
+          <div className="flex gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
             <button
               onClick={handlePreview}
               disabled={metrics.length === 0 || previewReport.isPending}
-              className="rounded-md border border-slate-300 px-4 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-md border border-slate-300 dark:border-slate-700 px-4 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 disabled:opacity-50"
             >
               {previewReport.isPending ? 'Running…' : 'Preview'}
             </button>
@@ -194,14 +194,14 @@ export function ReportBuilderPage() {
         </div>
 
         <div className="space-y-4">
-          {previewReport.isError && <p className="text-sm text-red-600">{(previewReport.error as Error)?.message ?? 'Preview failed.'}</p>}
+          {previewReport.isError && <p className="text-sm text-red-600 dark:text-red-400">{(previewReport.error as Error)?.message ?? 'Preview failed.'}</p>}
           {previewReport.data?.map((result) => (
-            <div key={result.metric} className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-medium text-slate-700">{result.metric.replace(/_/g, ' ')}</h2>
+            <div key={result.metric} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+              <h2 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">{result.metric.replace(/_/g, ' ')}</h2>
               <ReportChart result={result} chartType={chartType} />
             </div>
           ))}
-          {!previewReport.data && <p className="text-sm text-slate-400">Pick metrics and click Preview to see the data.</p>}
+          {!previewReport.data && <p className="text-sm text-slate-400 dark:text-slate-500">Pick metrics and click Preview to see the data.</p>}
         </div>
       </div>
     </div>

@@ -36,7 +36,7 @@ function AppRoutes() {
   const ready = useBootstrapSession();
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-slate-400">
+      <div className="flex min-h-screen items-center justify-center text-slate-400 dark:text-slate-500">
         Loading…
       </div>
     );

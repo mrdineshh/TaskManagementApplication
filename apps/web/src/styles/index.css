@@ -2,6 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Tells the browser to use its dark-themed native chrome (date-picker icon/popup,
+   scrollbars, etc.) instead of always rendering light-mode-native widgets on a dark page. */
+.dark {
+  color-scheme: dark;
+}
+
 body {
-  @apply bg-slate-50 text-slate-900;
+  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+}
+
+/* Form controls don't inherit page background the way text color does — the browser's own
+   UA stylesheet gives every <input>/<select>/<textarea> a plain white background regardless
+   of theme. Rather than auditing every one of the ~32 <select>s and every <input>/<textarea>
+   across the app for an explicit bg- class, one base-layer rule covers all of them; any
+   element that DOES carry its own explicit bg-* utility still wins, since utility classes
+   are emitted after @layer base in the generated stylesheet. */
+@layer base {
+  input,
+  select,
+  textarea {
+    @apply bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100;
+  }
+}
+
+/* Subtle motion (docs/10-OPEN-DECISIONS.md §L) — used on route-content mount and modal/menu
+   pop-ins. Deliberately short and low-amplitude: "polished/premium... subtle motion", not a
+   showy transition. Respects reduced-motion preferences. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+::selection {
+  @apply bg-brand-200 text-brand-900 dark:bg-brand-800 dark:text-brand-50;
 }

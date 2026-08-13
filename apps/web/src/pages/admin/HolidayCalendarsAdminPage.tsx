@@ -30,18 +30,18 @@ export function HolidayCalendarsAdminPage() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleCreate} className="flex gap-2 rounded-lg border border-slate-200 bg-white p-4">
+      <form onSubmit={handleCreate} className="flex gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
         <input
           value={country}
           onChange={(e) => setCountry(e.target.value)}
           placeholder="Country"
-          className="w-40 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className="w-40 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
         />
         <input
           value={state}
           onChange={(e) => setState(e.target.value)}
           placeholder="State"
-          className="w-40 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className="w-40 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
         />
         <button
           type="submit"
@@ -52,34 +52,34 @@ export function HolidayCalendarsAdminPage() {
         </button>
       </form>
 
-      {isLoading && <p className="text-sm text-slate-400">Loading…</p>}
+      {isLoading && <p className="text-sm text-slate-400 dark:text-slate-500">Loading…</p>}
 
       {(calendars as any[])?.map((cal) => (
-        <div key={cal.id} className="rounded-lg border border-slate-200 bg-white p-4">
+        <div key={cal.id} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-slate-900">
+            <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">
               {cal.country}, {cal.state}
             </h3>
-            <button onClick={() => deleteCalendar.mutate(cal.id)} className="text-xs text-slate-400 hover:text-red-600">
+            <button onClick={() => deleteCalendar.mutate(cal.id)} className="text-xs text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400">
               Delete calendar
             </button>
           </div>
 
           <ul className="mb-3 space-y-1">
             {cal.holidays?.map((h: any) => (
-              <li key={h.id} className="flex items-center justify-between text-sm text-slate-600">
+              <li key={h.id} className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-400">
                 <span>
                   {h.date} — {h.name}
                 </span>
                 <button
                   onClick={() => removeHoliday.mutate({ calendarId: cal.id, holidayId: h.id })}
-                  className="text-xs text-slate-400 hover:text-red-600"
+                  className="text-xs text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400"
                 >
                   Remove
                 </button>
               </li>
             ))}
-            {!cal.holidays?.length && <li className="text-sm text-slate-400">No holidays yet.</li>}
+            {!cal.holidays?.length && <li className="text-sm text-slate-400 dark:text-slate-500">No holidays yet.</li>}
           </ul>
 
           <div className="flex gap-2">
@@ -87,13 +87,13 @@ export function HolidayCalendarsAdminPage() {
               type="date"
               value={newHoliday[cal.id]?.date ?? ''}
               onChange={(e) => setNewHoliday((prev) => ({ ...prev, [cal.id]: { date: e.target.value, name: prev[cal.id]?.name ?? '' } }))}
-              className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+              className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs"
             />
             <input
               value={newHoliday[cal.id]?.name ?? ''}
               onChange={(e) => setNewHoliday((prev) => ({ ...prev, [cal.id]: { date: prev[cal.id]?.date ?? '', name: e.target.value } }))}
               placeholder="Holiday name"
-              className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+              className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs"
             />
             <button
               disabled={!newHoliday[cal.id]?.date || !newHoliday[cal.id]?.name}
@@ -101,7 +101,7 @@ export function HolidayCalendarsAdminPage() {
                 await addHoliday.mutateAsync({ calendarId: cal.id, data: newHoliday[cal.id] });
                 setNewHoliday((prev) => ({ ...prev, [cal.id]: { date: '', name: '' } }));
               }}
-              className="text-xs text-brand-700 hover:underline disabled:text-slate-300"
+              className="text-xs text-brand-700 dark:text-brand-300 hover:underline disabled:text-slate-300 dark:disabled:text-slate-600"
             >
               Add holiday
             </button>

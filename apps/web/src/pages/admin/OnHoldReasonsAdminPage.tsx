@@ -37,12 +37,12 @@ export function OnHoldReasonsAdminPage() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleCreate} className="flex gap-2 rounded-lg border border-slate-200 bg-white p-4">
+      <form onSubmit={handleCreate} className="flex gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
         <input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Reason label (e.g. Waiting for Legal)"
-          className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className="flex-1 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
         />
         <button
           type="submit"
@@ -53,9 +53,9 @@ export function OnHoldReasonsAdminPage() {
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
+          <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             <tr>
               <th className="px-4 py-2">Label</th>
               <th className="px-4 py-2">Active</th>
@@ -65,19 +65,19 @@ export function OnHoldReasonsAdminPage() {
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={3} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={3} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
                   Loading…
                 </td>
               </tr>
             )}
             {reasons?.map((r) => (
-              <tr key={r.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-2 font-medium text-slate-800">{r.label}</td>
-                <td className="px-4 py-2 text-slate-500">{r.is_active ? 'Yes' : 'No'}</td>
+              <tr key={r.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{r.label}</td>
+                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{r.is_active ? 'Yes' : 'No'}</td>
                 <td className="px-4 py-2 text-right">
                   <button
                     onClick={() => toggleReason.mutate({ id: r.id, isActive: !r.is_active })}
-                    className="text-xs text-brand-700 hover:underline"
+                    className="text-xs text-brand-700 dark:text-brand-300 hover:underline"
                   >
                     {r.is_active ? 'Deactivate' : 'Activate'}
                   </button>
