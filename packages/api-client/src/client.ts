@@ -29,6 +29,8 @@ import type {
   ReportSchedule,
   ReportExportFormat,
   NotificationPreference,
+  HolidayCalendar,
+  Holiday,
 } from '@taskapp/shared-types';
 
 export class ApiError extends Error {
@@ -159,12 +161,14 @@ export function createApiClient(config: ApiClientConfig) {
       notificationPreferences: () => request<NotificationPreference[]>('GET', '/me/notification-preferences'),
       updateNotificationPreferences: (preferences: NotificationPreference[]) =>
         request<{ success: boolean }>('PUT', '/me/notification-preferences', { preferences }),
+      setActiveRole: (roleId: string) =>
+        request<{ success: boolean; active_role_id: string }>('PATCH', '/me/active-role', { role_id: roleId }),
     },
     departments: {
       list: () => request<Department[]>('GET', '/departments'),
       create: (data: { name: string; slug: string; description?: string }) =>
         request<Department>('POST', '/departments', data),
-      update: (id: string, data: Partial<{ name: string; description: string; is_active: boolean }>) =>
+      update: (id: string, data: Partial<{ name: string; description: string; is_active: boolean; head_user_id: string }>) =>
         request<Department>('PATCH', `/departments/${id}`, data),
       remove: (id: string) => request<{ success: boolean }>('DELETE', `/departments/${id}`),
     },
@@ -189,10 +193,27 @@ export function createApiClient(config: ApiClientConfig) {
           `/users${qs({ department_id: params?.department_id, is_active: params?.is_active === undefined ? undefined : String(params.is_active) })}`,
         ),
       get: (id: string) => request<unknown>('GET', `/users/${id}`),
-      invite: (data: { email: string; full_name: string; primary_department_id: string; role_ids?: string[] }) =>
-        request('POST', '/users', data),
+      invite: (data: {
+        email: string;
+        full_name: string;
+        primary_department_id: string;
+        work_country: string;
+        work_state: string;
+        manager_id?: string;
+        role_ids?: string[];
+      }) => request('POST', '/users', data),
       update: (id: string, data: Record<string, unknown>) => request('PATCH', `/users/${id}`, data),
       deactivate: (id: string) => request<{ success: boolean }>('DELETE', `/users/${id}`),
+    },
+    holidayCalendars: {
+      list: () => request<HolidayCalendar[]>('GET', '/holiday-calendars'),
+      create: (data: { country: string; state: string }) =>
+        request<HolidayCalendar>('POST', '/holiday-calendars', data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/holiday-calendars/${id}`),
+      addHoliday: (calendarId: string, data: { date: string; name: string }) =>
+        request<Holiday>('POST', `/holiday-calendars/${calendarId}/holidays`, data),
+      removeHoliday: (calendarId: string, holidayId: string) =>
+        request<{ success: boolean }>('DELETE', `/holiday-calendars/${calendarId}/holidays/${holidayId}`),
     },
     workflows: {
       list: () => request<WorkflowDefinition[]>('GET', '/workflows'),

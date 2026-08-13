@@ -29,8 +29,9 @@ These require a human with account/billing authority and cannot be created by Te
 (or any build agent) — see `docs/08-INFRA-DEPLOYMENT.md` §9:
 
 - GCP billing account, linked to the three projects
-- The three GCP projects themselves (`econz-taskapp-dev/staging/prod`) and enabling their APIs
-  (Cloud Run, Cloud SQL, Secret Manager, Cloud KMS, Cloud Scheduler, Artifact Registry, Cloud Build)
+- The three GCP projects themselves and enabling their APIs (Cloud Run, Cloud SQL, Secret
+  Manager, Cloud KMS, Cloud Scheduler, Artifact Registry, Cloud Build). Dev exists as
+  `econz-task-management-app`; staging/prod aren't created yet.
 - Google OAuth client / Firebase project (for Sign-In with Google)
 - Apple Developer + Google Play Console accounts (mobile distribution)
 - GitHub repo access with permission to configure Cloud Build triggers
@@ -40,16 +41,22 @@ provide them on request, per `docs/10-OPEN-DECISIONS.md`.
 
 ## 1. One-time bootstrap (per environment)
 
-The Terraform state bucket must exist before Terraform can manage its own backend:
+The Terraform state bucket must exist before Terraform can manage its own backend, and
+Terraform itself needs a service account with the right (least-privilege, not Owner) roles.
+Run `environments/<env>/bootstrap-terraform-sa.sh` from a machine authenticated as a project
+owner/editor — this is the human-authority step `docs/08-INFRA-DEPLOYMENT.md` §9 calls out,
+not something Terraform or a build agent does for itself:
 
 ```bash
-PROJECT_ID=econz-taskapp-dev   # or -staging / -prod
-gcloud config set project "$PROJECT_ID"
-gcloud services enable storage.googleapis.com
-
-gsutil mb -l asia-south1 "gs://${PROJECT_ID}-tfstate"
-gsutil versioning set on "gs://${PROJECT_ID}-tfstate"
+cd infra/environments/dev
+PROJECT_ID=econz-task-management-app REGION=us-central1 ./bootstrap-terraform-sa.sh
 ```
+
+This enables the required APIs, creates a `terraform-dev` service account scoped to just the
+roles this config touches (IAM, KMS, Secret Manager, Cloud SQL, Storage, Cloud Run), writes
+its key to `./terraform-dev-key.json` (gitignored — never commit it), and creates + versions
+the `gs://<project-id>-tfstate` state bucket. Delete or rotate the key once you're done with
+it (`gcloud iam service-accounts keys delete`) — a standing key is a standing risk.
 
 ## 2. Apply an environment
 
@@ -69,9 +76,16 @@ terraform apply -var="google_oauth_client_secret=$GOOGLE_OAUTH_CLIENT_SECRET"
 
 ## 3. What's deliberately not built yet
 
-- **Cloud CDN / custom domain**: the web static bucket is provisioned, but fronting it
-  with an HTTPS Load Balancer + Cloud CDN is skipped until a custom domain is actually
-  wanted — `docs/08-INFRA-DEPLOYMENT.md` §7 confirms launch on default GCP URLs.
+- **Web hosting: Cloud Run, not Cloud Storage + CDN.** `docs/08-INFRA-DEPLOYMENT.md` §5 names
+  Cloud Storage + Cloud CDN as the Default, with Cloud Run serving the static build as an
+  equally valid, explicitly-named alternative — dev actually uses the Cloud Run path.
+  `econz-task-management-app` enforces Public Access Prevention (an org policy), which rejects
+  any `allUsers`/`allAuthenticatedUsers` bucket IAM binding outright — not something to route
+  around, since it's almost certainly there deliberately. An HTTPS Load Balancer + backend
+  bucket would preserve the policy too, but pulls in real infra (backend bucket, URL map, a
+  managed SSL cert that wants a real domain) that contradicts §7's "no custom domain at
+  launch" — Cloud Run needs neither, and already has automatic HTTPS on its own `*.run.app`
+  URL like the API does. Revisit if a custom domain + CDN is wanted later.
 - **Cloud Scheduler jobs**: the `scheduler-job` module is ready, but no jobs are wired up
   yet since the v1 backend doesn't have any scheduled endpoints to call (SLA checks,
   report aggregation, etc. are v1.1/v1.2 features per `docs/05-FEATURES.md`).

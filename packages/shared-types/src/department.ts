@@ -7,6 +7,8 @@ export interface Department {
   slug: string;
   description: string | null;
   is_active: boolean;
+  /** Exactly one Head per department (docs/10-OPEN-DECISIONS.md §G1); null if unassigned. */
+  head_user_id: string | null;
   created_at: ISODateString;
   updated_at: ISODateString;
 }

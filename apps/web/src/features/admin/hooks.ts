@@ -57,8 +57,15 @@ export function useUsersAdmin() {
 export function useInviteUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { email: string; full_name: string; primary_department_id: string; role_ids?: string[] }) =>
-      apiClient.users.invite(data),
+    mutationFn: (data: {
+      email: string;
+      full_name: string;
+      primary_department_id: string;
+      work_country: string;
+      work_state: string;
+      manager_id?: string;
+      role_ids?: string[];
+    }) => apiClient.users.invite(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
 }
@@ -257,5 +264,40 @@ export function useDeleteSLAPolicy() {
   return useMutation({
     mutationFn: (id: string) => apiClient.slaPolicies.remove(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sla-policies'] }),
+  });
+}
+
+// --- Holiday calendars (docs/10-OPEN-DECISIONS.md §G2) ---
+export function useHolidayCalendars() {
+  return useQuery({ queryKey: ['holiday-calendars'], queryFn: () => apiClient.holidayCalendars.list() });
+}
+export function useCreateHolidayCalendar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { country: string; state: string }) => apiClient.holidayCalendars.create(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['holiday-calendars'] }),
+  });
+}
+export function useDeleteHolidayCalendar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.holidayCalendars.remove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['holiday-calendars'] }),
+  });
+}
+export function useAddHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ calendarId, data }: { calendarId: string; data: { date: string; name: string } }) =>
+      apiClient.holidayCalendars.addHoliday(calendarId, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['holiday-calendars'] }),
+  });
+}
+export function useRemoveHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ calendarId, holidayId }: { calendarId: string; holidayId: string }) =>
+      apiClient.holidayCalendars.removeHoliday(calendarId, holidayId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['holiday-calendars'] }),
   });
 }

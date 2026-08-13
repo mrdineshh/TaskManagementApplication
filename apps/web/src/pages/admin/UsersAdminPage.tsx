@@ -21,14 +21,31 @@ export function UsersAdminPage() {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [departmentId, setDepartmentId] = useState('');
+  const [workCountry, setWorkCountry] = useState('');
+  const [workState, setWorkState] = useState('');
+  const [managerId, setManagerId] = useState('');
   const [roleToAssign, setRoleToAssign] = useState<Record<string, string>>({});
+
+  // "Reports to" (docs/10-OPEN-DECISIONS.md §G1) — only makes sense within the same
+  // department, so the manager options narrow to whoever's already in the chosen department.
+  const managerOptions = (users as any[])?.filter((u) => u.primary_department_id === departmentId) ?? [];
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !fullName.trim() || !departmentId) return;
-    await inviteUser.mutateAsync({ email, full_name: fullName, primary_department_id: departmentId });
+    if (!email.trim() || !fullName.trim() || !departmentId || !workCountry.trim() || !workState.trim()) return;
+    await inviteUser.mutateAsync({
+      email,
+      full_name: fullName,
+      primary_department_id: departmentId,
+      work_country: workCountry,
+      work_state: workState,
+      manager_id: managerId || undefined,
+    });
     setEmail('');
     setFullName('');
+    setWorkCountry('');
+    setWorkState('');
+    setManagerId('');
   }
 
   return (
@@ -48,13 +65,41 @@ export function UsersAdminPage() {
         />
         <select
           value={departmentId}
-          onChange={(e) => setDepartmentId(e.target.value)}
+          onChange={(e) => {
+            setDepartmentId(e.target.value);
+            setManagerId(''); // manager options depend on department — reset when it changes
+          }}
           className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
         >
           <option value="">Department…</option>
           {departments?.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
+            </option>
+          ))}
+        </select>
+        <input
+          value={workCountry}
+          onChange={(e) => setWorkCountry(e.target.value)}
+          placeholder="Country"
+          className="w-28 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+        />
+        <input
+          value={workState}
+          onChange={(e) => setWorkState(e.target.value)}
+          placeholder="State"
+          className="w-28 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+        />
+        <select
+          value={managerId}
+          onChange={(e) => setManagerId(e.target.value)}
+          disabled={!departmentId}
+          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+        >
+          <option value="">Reports to (optional)…</option>
+          {managerOptions.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.full_name}
             </option>
           ))}
         </select>
@@ -69,6 +114,8 @@ export function UsersAdminPage() {
             <tr>
               <th className="px-4 py-2">Name</th>
               <th className="px-4 py-2">Email</th>
+              <th className="px-4 py-2">Region</th>
+              <th className="px-4 py-2">Reports to</th>
               <th className="px-4 py-2">Roles</th>
               <th className="px-4 py-2">Assign role</th>
               <th className="px-4 py-2">Active</th>
@@ -77,7 +124,7 @@ export function UsersAdminPage() {
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
                   Loading…
                 </td>
               </tr>
@@ -86,6 +133,13 @@ export function UsersAdminPage() {
               <tr key={u.id} className="border-b border-slate-100 last:border-0">
                 <td className="px-4 py-2 font-medium text-slate-800">{u.full_name}</td>
                 <td className="px-4 py-2 text-slate-500">{u.email}</td>
+                <td className="px-4 py-2 text-slate-500">
+                  {u.work_country}
+                  {u.work_state ? `, ${u.work_state}` : ''}
+                </td>
+                <td className="px-4 py-2 text-slate-500">
+                  {(users as any[])?.find((m) => m.id === u.manager_id)?.full_name ?? '—'}
+                </td>
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap gap-1">
                     {u.roles?.map((r: any) => (

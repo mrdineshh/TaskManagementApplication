@@ -22,6 +22,7 @@ import { OrganizationModule } from './organization/organization.module';
 import { DashboardsModule } from './dashboards/dashboards.module';
 import { SLAModule } from './sla/sla.module';
 import { ReportsModule } from './reports/reports.module';
+import { HolidayCalendarsModule } from './holiday-calendars/holiday-calendars.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ReportsModule } from './reports/reports.module';
     DashboardsModule,
     SLAModule,
     ReportsModule,
+    HolidayCalendarsModule,
   ],
   controllers: [AppController],
   providers: [

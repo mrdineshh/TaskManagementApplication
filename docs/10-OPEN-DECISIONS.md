@@ -183,6 +183,130 @@ aggregate counts, so there's nothing in it that the aggregate cache could
 serve — migrating it would just add a cache-staleness window to an
 already-cheap, single-user query with no benefit.
 
+## F. Decisions made while applying dev infrastructure
+
+### F1. Web app hosts on Cloud Run, not Cloud Storage + CDN
+`08-INFRA-DEPLOYMENT.md` §5 names Cloud Storage + Cloud CDN as the Default
+and Cloud Run as an equally valid alternative for hosting the static SPA.
+The real dev project (`econz-task-management-app`) enforces Public Access
+Prevention (an org policy), which rejects any public bucket IAM binding
+outright — best practice here is to respect that policy rather than ask an
+org admin to relax it just for this bucket, and an HTTPS Load Balancer
+workaround would preserve the policy but pulls in real infra (backend
+bucket, URL map, a managed SSL cert wanting a real domain) that contradicts
+§7's "no custom domain at launch." Switched to Cloud Run: same deploy
+pattern as the API, automatic HTTPS on its own URL, no org policy touched.
+See `infra/README.md` §3.
+
+### F2. Cloud SQL public IP enabled for dev, with no authorized networks yet
+Requested directly, overriding §3's "no public IP" default for this one
+environment. Implemented as an `enable_public_ip` module variable (default
+false, so staging/prod keep the documented no-public-IP posture) plus an
+`authorized_networks` variable, left empty for now — a public IP with zero
+authorized networks exists but is not reachable from anywhere until
+specific CIDRs are added once it's known what needs to connect directly
+(Cloud Run itself always uses the Auth Proxy/connector regardless of this
+setting).
+
+### F3. JWT signing secrets are Terraform-generated, not human-supplied
+`01-ARCHITECTURE.md` §2.9a's "bootstrap secrets" framing implies a human
+populates these, matching the OAuth client secret's real credential. But a
+JWT signing secret is just an arbitrary random string with no external
+source of truth — generating it via `random_password` (same as the DB
+password already was) removes a manual step with no downside, and avoids a
+real chicken-and-egg problem: Cloud Run's deploy validates that every
+referenced secret has at least one version at deploy time, so leaving these
+null (as originally written) made the very first deploy fail outright.
+
+### F4. "dev" mock auth provider temporarily enabled on the deployed dev API — SECURITY EXPOSURE, revert once Firebase is set up
+`AUTH_PROVIDERS` on the deployed `taskapp-api` Cloud Run service is
+currently `"google,dev"`, not `"google"` alone as originally deployed. Real
+Google Sign-In (`GoogleAuthProvider`, `docs/03-RBAC-AUTH.md` §1.1) is Firebase
+Auth-backed and needs a Firebase project added to `econz-task-management-app`
+plus a Google sign-in provider enabled in it — the account applying this infra
+does not have permission to create that Firebase project. Explicitly chosen
+(over the alternative of locking down Cloud Run ingress) as the fastest way to
+get the freshly-deployed app reachable at all.
+
+**This is a real, live security exposure, not just a dev-convenience trade-off**:
+`DevAuthProvider` (`apps/api/src/auth/providers/dev-auth.provider.ts`) accepts
+*any* string containing "@" as a fully-trusted identity token — no password, no
+verification, nothing. Since `taskapp-api` is `allow_unauthenticated = true`
+(network-level; the app's own JWT auth is what's supposed to gate access) and
+is reachable at a public `*.run.app` URL, anyone who has that URL can sign in
+as *any* `@econz.net` user, including admins, just by typing their email into
+the web login form's "dev sign-in" field.
+
+**Revert as soon as a Firebase project is available**: create/link a Firebase
+project (someone with the right GCP org permission), enable Google as a
+sign-in provider, add the deployed web URL to Firebase Auth's authorized
+domains, wire the frontend's disabled "Sign in with Google" button up to the
+Firebase JS SDK, set `FIREBASE_PROJECT_ID` on the API service, then change
+`AUTH_PROVIDERS` back to `"google"` only in
+`infra/environments/dev/main.tf` and redeploy.
+
+---
+
+## G. Post-launch feature expansion (subtasks, effort/time tracking, org hierarchy, redesign)
+
+Scoped through direct discussion with the user, section by section, before any
+of it was built. Building in six dependency-ordered phases; this section
+covers decisions made in **Phase 1 (foundations)** so far. Later phases will
+add their own subsections here as they land.
+
+### G1. Department hierarchy: Head (1, via `Department.headUserId`) + Manager "reports to" chain (`User.managerId`)
+Exactly one Head per department, enforced by `headUserId` being a unique
+scalar FK rather than a join table. Every employee explicitly reports to one
+Manager via `User.managerId` (self-relation) — a Manager's "team" is this
+explicit set, not inferred from task assignment. `Head` and `Management` were
+added to `SYSTEM_ROLE_NAMES` alongside the existing `Admin`/`Manager`/`Employee`.
+`Head`'s permission bundle equals `Manager`'s — what differs between them is
+query *scope* (whole department vs. only direct reports), which is application
+logic for a later phase, not a distinct permission key. `Management` is a
+genuinely org-wide role (no `departmentOverride`), which — deliberately — needs
+zero new code in `rbac.service.ts`: it reuses the existing `hasOrgWideRole`
+mechanism that `Admin` already relies on. Its permission bundle is every
+viewing (`*.view`) key and no `*.manage` key, matching "sees everything, but
+not admin setup/configuration."
+
+### G2. Region + holiday calendars: `User.workCountry`/`workState`, `HolidayCalendar`/`Holiday` keyed by Country+State
+Added as **required** fields on `User` — business-day/overdue math has no sane
+fallback without a region. Existing seeded users were backfilled to the
+literal placeholder value `"Unknown"` in the migration (deliberately obvious,
+not a real region, so affected accounts are easy to find). The Admin "invite
+user" endpoint (`POST /api/v1/users`) requires `work_country`/`work_state` as
+real input. (The gap this originally left — a self-service first SSO login
+having nowhere to ask for region — no longer applies: see §G4, self-service
+account creation was removed entirely.)
+
+### G3. Role-toggle is a presentation lens, not a second authorization layer
+`User.activeRoleId` records which held role the UI is currently framed around.
+Deliberately **not** wired into the JWT's permission computation — a Head who
+toggles to "Employee" view still holds every Head permission underneath;
+switching only changes what nav/dashboard renders, not what the API will
+authorize. Reasoned as the safer default (a real role a person holds doesn't
+functionally disappear because of a UI preference) and flagged here since the
+user didn't explicitly weigh in on this specific subtlety — worth confirming
+this reading is correct before Phase 5 builds the switcher UI and per-role
+dashboards on top of it. The endpoint to actually set `activeRoleId` and the
+frontend toggle itself are not built yet — only the schema column exists so
+far.
+
+### G4. Invite-only: self-service account auto-provisioning removed entirely
+The app was auto-creating a `User` row on anyone's first successful sign-in
+(any provider, including "dev"). Confirmed with the user this is wrong for
+this app — it's invite-only, meaning an Admin must create the account (full
+name, department, region, roles, manager) via `POST /api/v1/users` *before*
+that person can sign in at all, SSO included. `AuthService.exchange()`
+(`apps/api/src/auth/auth.service.ts`) now throws `UnauthorizedException` when
+no existing `User` row matches the identity token's email, instead of
+creating one. A real Google/Firebase identity token is proof of *who someone
+is*, not by itself authorization to *have an account* — those are different
+questions, and this app answers the second one only through the Admin invite
+flow. This also fully resolves §G2's region gap: since there's no more
+self-service path, `workCountry`/`workState` are always supplied by the
+Admin who creates the account, never defaulted.
+
 ---
 
 ## How to keep this log current

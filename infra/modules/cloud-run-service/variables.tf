@@ -56,3 +56,9 @@ variable "cloudsql_instance_connection_name" {
   type        = string
   default     = ""
 }
+
+variable "deletion_protection" {
+  description = "The provider defaults this to true, which blocks replacing a tainted/misconfigured revision with a plain apply (hit live). False for dev (freely resettable, matching Cloud SQL's dev sizing); should be true for staging/prod."
+  type        = bool
+  default     = false
+}

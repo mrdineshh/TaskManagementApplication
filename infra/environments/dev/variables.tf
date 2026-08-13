@@ -1,17 +1,23 @@
 variable "project_id" {
   type    = string
-  default = "econz-taskapp-dev"
+  default = "econz-task-management-app"
 }
 
 variable "region" {
   type    = string
-  default = "asia-south1"
+  default = "us-central1" # lowest-cost GCP region — no real-user latency to optimize for in dev
 }
 
 variable "api_image" {
   description = "Artifact Registry image for the API, set by CI (docs/08-INFRA-DEPLOYMENT.md §4). Placeholder until the first Cloud Build run publishes one."
   type        = string
   default     = "gcr.io/cloudrun/hello" # placeholder — replaced by the CI pipeline's build
+}
+
+variable "web_image" {
+  description = "Artifact Registry image serving the built static SPA (e.g. nginx + the Vite build output), set by CI. Placeholder until the first Cloud Build run publishes one — see docs/08-INFRA-DEPLOYMENT.md §5 on why this is Cloud Run rather than a public Cloud Storage bucket."
+  type        = string
+  default     = "gcr.io/cloudrun/hello"
 }
 
 variable "google_oauth_client_secret" {

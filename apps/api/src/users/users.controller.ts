@@ -62,6 +62,9 @@ export class UsersController {
         email: dto.email,
         fullName: dto.full_name,
         primaryDepartmentId: dto.primary_department_id,
+        workCountry: dto.work_country,
+        workState: dto.work_state,
+        managerId: dto.manager_id,
         authProvider: 'google',
       },
     });
@@ -85,6 +88,9 @@ export class UsersController {
       data: {
         fullName: dto.full_name,
         primaryDepartmentId: dto.primary_department_id,
+        workCountry: dto.work_country,
+        workState: dto.work_state,
+        managerId: dto.manager_id,
         isActive: dto.is_active,
       },
     });
@@ -114,6 +120,9 @@ export class UsersController {
     fullName: string;
     avatarUrl: string | null;
     primaryDepartmentId: string;
+    workCountry: string;
+    workState: string;
+    managerId: string | null;
     authProvider: string;
     isActive: boolean;
     lastLoginAt: Date | null;
@@ -128,6 +137,9 @@ export class UsersController {
       full_name: user.fullName,
       avatar_url: user.avatarUrl,
       primary_department_id: user.primaryDepartmentId,
+      work_country: user.workCountry,
+      work_state: user.workState,
+      manager_id: user.managerId,
       department_ids: user.departments.map((d) => d.departmentId),
       auth_provider: user.authProvider,
       is_active: user.isActive,

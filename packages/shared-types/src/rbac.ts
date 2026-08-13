@@ -34,6 +34,10 @@ export const permissionKeys = [
   // reasonable-default-over-blocking treatment as organization.manage above.
   'sla.view',
   'sla.manage',
+  // Same reasonable-default-over-blocking treatment as organization.manage/sla.* above —
+  // docs/10-OPEN-DECISIONS.md §G2 introduced holiday calendars post-launch.
+  'holiday_calendar.view',
+  'holiday_calendar.manage',
   'report.view',
   'report.create',
   'report.export',
@@ -48,8 +52,18 @@ export interface Permission {
   description: string;
 }
 
-/** System roles seeded at launch per 03-RBAC-AUTH.md §2.2. Only 'Admin' is protected from deletion. */
-export const SYSTEM_ROLE_NAMES = ['Admin', 'Manager', 'Employee'] as const;
+/**
+ * System roles seeded at launch per 03-RBAC-AUTH.md §2.2. Only 'Admin' is protected from
+ * deletion. 'Head' and 'Management' added per docs/10-OPEN-DECISIONS.md §G1/§G3 — 'Head' is a
+ * department-scoped role like 'Manager' (assigned via UserRole.departmentOverride to whichever
+ * department their Department.headUserId points at), with a permission bundle equal to
+ * Manager's; what actually differs is the *scope* of what they query (whole department vs. only
+ * direct reports), computed in application logic, not by a distinct permission key. 'Management'
+ * is a genuinely org-wide role (no departmentOverride) reusing the RBAC system's existing
+ * hasOrgWideRole mechanism for cross-department visibility — granted every viewing permission
+ * but none of the *.manage keys, which stay Admin-only.
+ */
+export const SYSTEM_ROLE_NAMES = ['Admin', 'Management', 'Head', 'Manager', 'Employee'] as const;
 
 export const createRoleSchema = z.object({
   name: z.string().min(1).max(100),
