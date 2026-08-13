@@ -32,6 +32,10 @@ import type {
   HolidayCalendar,
   Holiday,
   OnHoldReason,
+  Scorecard,
+  LeaderboardEntry,
+  ScorecardConfig,
+  ScorecardWeights,
 } from '@taskapp/shared-types';
 
 export class ApiError extends Error {
@@ -303,6 +307,15 @@ export function createApiClient(config: ApiClientConfig) {
     dashboards: {
       personal: () => request<Record<string, unknown>>('GET', '/dashboards/personal'),
       department: (departmentId: string) => request<Record<string, unknown>>('GET', `/dashboards/department${qs({ department_id: departmentId })}`),
+    },
+    scorecards: {
+      me: (start: string, end: string) => request<Scorecard>('GET', `/scorecards/me${qs({ start, end })}`),
+      forUser: (userId: string, start: string, end: string) =>
+        request<Scorecard>('GET', `/scorecards/users/${userId}${qs({ start, end })}`),
+      leaderboard: (departmentId: string, start: string, end: string) =>
+        request<LeaderboardEntry[]>('GET', `/scorecards/leaderboard${qs({ department_id: departmentId, start, end })}`),
+      getConfig: () => request<ScorecardConfig>('GET', '/scorecards/config'),
+      updateConfig: (weights: ScorecardWeights) => request<ScorecardConfig>('PATCH', '/scorecards/config', { weights }),
     },
     integrationSettings: {
       get: (key: string) => request<Record<string, unknown>>('GET', `/integration-settings/${key}`),

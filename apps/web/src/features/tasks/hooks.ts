@@ -142,6 +142,43 @@ export function useDepartmentDashboard(departmentId: string | undefined) {
   });
 }
 
+// --- Phase 4: employee scorecard + department leaderboard ---
+
+export function useMyScorecard(start: string, end: string) {
+  return useQuery({
+    queryKey: ['scorecards', 'me', start, end],
+    queryFn: () => apiClient.scorecards.me(start, end),
+  });
+}
+
+export function useUserScorecard(userId: string | undefined, start: string, end: string) {
+  return useQuery({
+    queryKey: ['scorecards', 'users', userId, start, end],
+    queryFn: () => apiClient.scorecards.forUser(userId!, start, end),
+    enabled: !!userId,
+  });
+}
+
+export function useLeaderboard(departmentId: string | undefined, start: string, end: string) {
+  return useQuery({
+    queryKey: ['scorecards', 'leaderboard', departmentId, start, end],
+    queryFn: () => apiClient.scorecards.leaderboard(departmentId!, start, end),
+    enabled: !!departmentId,
+  });
+}
+
+export function useScorecardConfig() {
+  return useQuery({ queryKey: ['scorecards', 'config'], queryFn: () => apiClient.scorecards.getConfig() });
+}
+
+export function useUpdateScorecardConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (weights: Parameters<typeof apiClient.scorecards.updateConfig>[0]) => apiClient.scorecards.updateConfig(weights),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['scorecards', 'config'] }),
+  });
+}
+
 // --- v1.1: time tracking, dependencies, approvals ---
 
 export function useTimeLogs(id: string | undefined) {

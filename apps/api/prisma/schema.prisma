@@ -25,6 +25,19 @@ model OrganizationSettings {
   @@map("organization_settings")
 }
 
+/// Singleton, same pattern as OrganizationSettings above — admin-tunable sub-metric weights
+/// for the employee scorecard/leaderboard (docs/10-OPEN-DECISIONS.md §J). Weights are stored
+/// as JSON rather than six separate columns so the sub-metric set itself can grow later
+/// without another migration; today's six keys are validated at the application layer
+/// (packages/shared-types/src/scorecard.ts's scorecardWeightsSchema), not the DB.
+model ScorecardConfig {
+  id        String   @id @default(uuid())
+  weights   Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("scorecard_config")
+}
+
 model IntegrationSetting {
   id              String   @id @default(uuid())
   key             String   @unique

@@ -50,6 +50,10 @@ export const permissionKeys = [
   'report.export',
   'report.manage',
   'approval.approve', // v1.1
+  // Scorecards/leaderboard are viewable by everyone by design (docs/10-OPEN-DECISIONS.md
+  // §J — explicit transparency requirement for healthy competition), so there is no
+  // scorecard.view key gating reads. Only the weighting config is Admin-restricted.
+  'scorecard.manage',
 ] as const;
 export type PermissionKey = (typeof permissionKeys)[number];
 

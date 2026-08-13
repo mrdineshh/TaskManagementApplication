@@ -9,6 +9,7 @@ const navItems = [
   { to: '/tasks/board', label: 'Kanban' },
   { to: '/tasks/timeline', label: 'Timeline' },
   { to: '/team', label: 'Team' },
+  { to: '/scorecard', label: 'Scorecard' },
   { to: '/notifications', label: 'Notifications' },
 ];
 

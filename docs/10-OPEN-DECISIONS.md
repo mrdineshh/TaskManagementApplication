@@ -424,6 +424,79 @@ approximations side by side in the same module.
 
 ---
 
+## J. Phase 4 — employee scorecard + department leaderboard
+
+### J1. Six sub-scores normalized to 0-100, blended into one overall score via admin-tunable weights
+Each of the six confirmed parameters (on-time completion rate, estimate
+accuracy, volume, overdue count, over-budget count, rework/reopened count)
+is computed as its own 0-100 sub-score so they stay individually meaningful
+("having separate metrics is good to understand the bifurcation") while
+also combining into one `overall_score` for the leaderboard. Weights live
+in a new singleton `ScorecardConfig` model (JSON, same pattern as
+`OrganizationSettings`) rather than hardcoded — defaults chosen by us per
+the user's explicit instruction ("lets configure what we think... is best
+and let the admin change and reconfigure it later"):
+
+| Sub-metric | Weight | Rationale |
+|---|---|---|
+| on_time_rate | 0.25 | Primary reliability signal |
+| estimate_accuracy | 0.20 | Directly enables appraisal use — mandatory estimates only pay off if scored |
+| volume | 0.15 | Throughput matters but shouldn't dominate quality |
+| overdue | 0.15 | Overlaps in spirit with on-time but catches currently-open liabilities too |
+| over_budget | 0.15 | Independent failure mode — a task can be on-time yet over-budget |
+| rework | 0.10 | Smallest weight: no dedicated "reopened" state exists yet, so this is the least precise signal (see J3) |
+
+Gated by a new `scorecard.manage` permission (Admin-only); every role that
+holds `task.view` can read `/scorecards/*` — no `scorecard.view` key exists
+because the user was explicit that scorecards are visible to everyone
+("anyone can see... transparent system... healthy competition").
+
+### J2. Computed live per [department, start, end] — not built on ReportAggregateCache
+`ReportAggregateCache` is a fixed-daily-snapshot system; the user
+confirmed scorecards need an arbitrary custom date range ("just a date
+range on the overall report would make sense"), which that cache can't
+serve. `ScorecardsService.computeDepartmentScorecards()` queries
+`Task`/`TimeLog`/`ActivityLogEntry` directly for the requested range,
+computing every department member's six sub-scores in one pass — this
+also keeps `volume` (scored relative to the department's own top
+performer in the same range) consistent between the single-user endpoint
+and the leaderboard, since both read from the same computation. Leaderboard
+is department-scoped only, never company-wide, per the user's explicit
+confirmation ("department based... compete against their department
+users").
+
+### J3. Rework/reopened has no dedicated workflow state — detected via ActivityLogEntry
+The seeded workflow has no transition path out of a `done`-category status
+by default (nothing to "reopen" into), so there's no first-class "this task
+was reopened" event to count directly. Detected instead as any
+`status_changed` activity entry whose `from` status was done-category and
+whose `to` status isn't, attributed to the task's **current** assignee —
+not the assignee at the time of the reopen, since historical
+assignee-per-status-change isn't tracked. This is a known simplification:
+if a task is reassigned after being reopened, the rework charge follows
+the new assignee, not whoever actually caused the rework. Verified live end
+-to-end: created a task, estimated 4h, logged 3h, drove it through
+`in_progress → in_review → done` (`completed_count` went to 1,
+`over_budget` stayed clean since 3h < 4h), then reopened it via an
+admin-added `done → todo` transition — `reworked_count` correctly went to
+1 and the rework sub-score dropped from 100 to 0 (denominator was
+`completed_count(0) + reworked_count(1)` once the reopen zeroed out
+`completedAt`).
+
+### J4. Known gap: Zod validation errors surface as 500, not 400 (pre-existing, not introduced here)
+`ScorecardsController.updateConfig()` calls
+`updateScorecardConfigSchema.parse(body)` the same way
+`OrganizationController.update()` already does — neither is caught by a
+global exception filter, so a validation failure (e.g. weights not summing
+to 1) currently returns `500 INTERNAL_SERVER_ERROR` with the raw Zod issue
+array as the message, not a clean `400`. Confirmed this is systemic, not a
+Phase 4 regression, by reproducing the same 500 against the pre-existing
+`/organization-settings` endpoint with a bad payload. Worth a dedicated
+Zod-to-`BadRequestException` exception filter at some point, but out of
+scope for this feature — logged here rather than silently left unfixed.
+
+---
+
 ## How to keep this log current
 
 As the build proceeds and these items get resolved, update this document (or

@@ -11,6 +11,7 @@ const sections = [
   { to: 'sla', label: 'SLA Policies' },
   { to: 'holiday-calendars', label: 'Holiday Calendars' },
   { to: 'on-hold-reasons', label: 'On-Hold Reasons' },
+  { to: 'scorecard-weights', label: 'Scorecard Weights' },
   { to: 'integrations', label: 'Integrations' },
   { to: 'settings', label: 'Org Settings' },
 ];
