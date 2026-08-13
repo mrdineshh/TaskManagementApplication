@@ -307,6 +307,75 @@ flow. This also fully resolves §G2's region gap: since there's no more
 self-service path, `workCountry`/`workState` are always supplied by the
 Admin who creates the account, never defaulted.
 
+## H. Phase 2 — task mechanics (subtasks, on-hold reasons, effort estimates, time-log rules)
+
+### H1. On-Hold reasons via a per-status admin flag, not a hardcoded status key
+Subtasks were already fully supported at the schema level from the original
+v1 build (`Task.parentTaskId` self-relation, creation already accepted
+`parent_task_id`) — the only genuinely new piece was the **hard rule**: a
+parent cannot transition into a `done`-category status while any subtask is
+still open (`tasks.service.ts`'s `transition()`), verified live end-to-end
+(create parent+subtask → blocked at Done → close subtask → parent Done
+succeeds). This is a hard block, distinct from the existing task-dependency
+soft warning.
+
+Added a new `WorkflowStatus.requiresHoldReason` boolean (admin-configurable
+per status, not tied to any specific status key, since workflows themselves
+are admin-configurable per department) plus a new admin-configurable
+`OnHoldReason` list (org-wide, seeded with Waiting for Customer/Waiting for
+Third-Party/Other). A new "On Hold" status was seeded distinct from the
+pre-existing "Blocked" — Blocked has no reason-tracking and its meaning is
+unchanged; On Hold specifically means waiting on something external, with a
+mandatory reason. Resuming from On Hold requires no reason (transition-free,
+confirmed with the user).
+
+### H2. Effort estimate gate: a dedicated `requiresEstimateBeforeEntry` flag, not `category === 'in_progress'`
+**Caught and fixed live before shipping**: the first implementation gated
+the "estimate mandatory before starting work" rule on
+`WorkflowStatusCategory.in_progress`, which also covers On Hold, Blocked,
+and In Review — so pausing a task via On Hold, or blocking it, incorrectly
+also demanded an estimate. Fixed by adding a second admin-configurable
+`WorkflowStatus` boolean, `requiresEstimateBeforeEntry`, seeded `true` only
+on the literal "In Progress" status. Same reasoning as `requiresHoldReason`
+in §H1 — one category covers several distinct semantic states, so gates
+need their own explicit flag rather than reusing the category.
+
+Estimate mechanics per direct discussion: set by the assignee (not the
+creator), value + unit (hours or days, 1 day = 8 hours for reporting),
+self-service editable for 30 minutes after `estimateSubmittedAt`, Admin can
+override anytime via the new `task.override_locked_edits` permission
+(deliberately not granted to Manager/Head despite them holding
+`task.moderate` — the user was explicit this is Admin-only). Every change
+is logged to the activity log, including Admin overrides, with an
+`is_override` flag — verified live.
+
+### H3. Time-log rules: hours + date only, same 30-minute window, fires-once crossing notification
+`TimeLog` gained `createdAt`/`updatedAt` (distinct from the pre-existing
+`loggedAt`, which is the date work happened on and can be backdated) to
+drive the same 30-minute self-edit window as estimates. The web form takes
+hours + a date picker, converting to `minutes` internally — no raw
+timestamps, per the user's explicit "time stamp will be very granular and
+it will be tough for them."
+
+Crossing the estimate notifies the assignee once — compares total logged
+minutes before/after each add or edit against the estimate (converted to
+minutes), only firing when the total crosses from at-or-under to over, so
+continuing to log time after the estimate is already blown doesn't
+re-notify on every entry.
+
+### H4. Seed-script upgrade safety: new WorkflowStatus flags backfill on re-seed, unlike everything else in seed.ts
+Every other `upsert` in `prisma/seed.ts` uses `update: {}` deliberately —
+existing labels/colors/display-orders are Admin-owned and re-running the
+script must never clobber real customization. `requiresHoldReason` and
+`requiresEstimateBeforeEntry` are the one exception: they're new Phase 2
+system behavior with no Admin UI ever exposing them for editing, so
+`update: {}` would have silently left every already-seeded status (e.g. the
+live dev environment's pre-existing "In Progress" row) at `false` forever —
+the mandatory-estimate/on-hold-reason gates would never actually activate
+there without this. Caught before push by re-running seed against a local
+DB that already had Phase-1-era rows and checking the actual column values,
+not just a fresh install.
+
 ---
 
 ## How to keep this log current

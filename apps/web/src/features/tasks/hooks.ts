@@ -65,13 +65,30 @@ export function useAssignTask(id: string) {
 export function useTransitionTask(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (toStatusId: string) => apiClient.tasks.transition(id, toStatusId),
+    mutationFn: ({ toStatusId, onHoldReasonId }: { toStatusId: string; onHoldReasonId?: string }) =>
+      apiClient.tasks.transition(id, toStatusId, onHoldReasonId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks', id] });
       qc.invalidateQueries({ queryKey: ['tasks', id, 'activity'] });
       qc.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
+}
+
+// --- Phase 2: effort estimation (docs/10-OPEN-DECISIONS.md §H2) ---
+export function useSubmitEstimate(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ value, unit }: { value: number; unit: 'hours' | 'days' }) => apiClient.tasks.submitEstimate(id, value, unit),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', id] });
+      qc.invalidateQueries({ queryKey: ['tasks', id, 'activity'] });
+    },
+  });
+}
+
+export function useOnHoldReasons() {
+  return useQuery({ queryKey: ['on-hold-reasons'], queryFn: () => apiClient.onHoldReasons.list() });
 }
 
 export function useAddComment(id: string) {
@@ -134,7 +151,18 @@ export function useTimeLogs(id: string | undefined) {
 export function useAddTimeLog(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ minutes, note }: { minutes: number; note?: string }) => apiClient.tasks.addTimeLog(id, minutes, note),
+    mutationFn: ({ minutes, note, loggedAt }: { minutes: number; note?: string; loggedAt?: string }) =>
+      apiClient.tasks.addTimeLog(id, minutes, note, loggedAt),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'time-logs'] }),
+  });
+}
+
+/** 30-minute self-edit window + Admin override, enforced server-side (docs/10-OPEN-DECISIONS.md §H3). */
+export function useUpdateTimeLog(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ logId, data }: { logId: string; data: { minutes?: number; note?: string; logged_at?: string } }) =>
+      apiClient.tasks.updateTimeLog(id, logId, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'time-logs'] }),
   });
 }

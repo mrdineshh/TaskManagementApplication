@@ -17,6 +17,12 @@ export interface Task {
   completed_at: ISODateString | null;
   is_recurring: boolean; // v1.1
   recurrence_rule: string | null; // v1.1, iCal RRULE
+  // Phase 2 (docs/10-OPEN-DECISIONS.md §H1/§H2)
+  on_hold_reason_id: string | null;
+  estimate_value: number | null;
+  estimate_unit: 'hours' | 'days' | null;
+  estimate_submitted_at: ISODateString | null;
+  estimate_submitted_by_id: string | null;
   created_at: ISODateString;
   updated_at: ISODateString;
   deleted_at: ISODateString | null;
@@ -104,3 +110,12 @@ export type TaskFilterQuery = z.infer<typeof taskFilterSchema>;
 
 /** Attachment size limit per 05-FEATURES.md §1.4 [Default: 25MB]. */
 export const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024;
+
+/** Admin-configurable, org-wide (docs/10-OPEN-DECISIONS.md §H1). */
+export interface OnHoldReason {
+  id: string;
+  label: string;
+  is_active: boolean;
+  created_at: ISODateString;
+  updated_at: ISODateString;
+}

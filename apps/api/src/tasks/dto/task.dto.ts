@@ -2,7 +2,9 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
+  IsIn,
   IsInt,
+  IsNumber,
   IsObject,
   IsOptional,
   IsString,
@@ -114,6 +116,38 @@ export class AssignTaskDto {
 export class TransitionTaskDto {
   @IsUUID()
   to_status_id!: string;
+
+  // Required only when the target WorkflowStatus has requires_hold_reason=true
+  // (docs/10-OPEN-DECISIONS.md §H1) — validated in the service, not here, since that's
+  // conditional on the target status rather than a fixed rule.
+  @IsOptional()
+  @IsUUID()
+  on_hold_reason_id?: string;
+}
+
+export class SubmitEstimateDto {
+  @IsNumber()
+  @Min(0.01)
+  value!: number;
+
+  @IsIn(['hours', 'days'])
+  unit!: 'hours' | 'days';
+}
+
+export class UpdateTimeLogDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  minutes?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  note?: string;
+
+  @IsOptional()
+  @IsDateString()
+  logged_at?: string;
 }
 
 export class CreateCommentDto {

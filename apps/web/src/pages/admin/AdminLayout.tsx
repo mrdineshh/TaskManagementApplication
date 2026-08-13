@@ -10,6 +10,7 @@ const sections = [
   { to: 'priorities', label: 'Priorities' },
   { to: 'sla', label: 'SLA Policies' },
   { to: 'holiday-calendars', label: 'Holiday Calendars' },
+  { to: 'on-hold-reasons', label: 'On-Hold Reasons' },
   { to: 'integrations', label: 'Integrations' },
   { to: 'settings', label: 'Org Settings' },
 ];

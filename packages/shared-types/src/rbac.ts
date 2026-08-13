@@ -38,6 +38,13 @@ export const permissionKeys = [
   // docs/10-OPEN-DECISIONS.md §G2 introduced holiday calendars post-launch.
   'holiday_calendar.view',
   'holiday_calendar.manage',
+  // Admin-only override for the 30-minute self-edit window on effort estimates and time log
+  // entries (docs/10-OPEN-DECISIONS.md §H2/§H3) — deliberately not granted to Manager/Head even
+  // though they hold task.moderate, since the user was explicit this is an Admin-level override.
+  'task.override_locked_edits',
+  // Admin-configurable On-Hold reason list (§H1), same pattern as holiday_calendar.* above.
+  'on_hold_reason.view',
+  'on_hold_reason.manage',
   'report.view',
   'report.create',
   'report.export',

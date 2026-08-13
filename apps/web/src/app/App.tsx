@@ -28,6 +28,7 @@ import { PrioritiesAdminPage } from '../pages/admin/PrioritiesAdminPage';
 import { IntegrationsAdminPage } from '../pages/admin/IntegrationsAdminPage';
 import { OrgSettingsAdminPage } from '../pages/admin/OrgSettingsAdminPage';
 import { HolidayCalendarsAdminPage } from '../pages/admin/HolidayCalendarsAdminPage';
+import { OnHoldReasonsAdminPage } from '../pages/admin/OnHoldReasonsAdminPage';
 
 function AppRoutes() {
   const ready = useBootstrapSession();
@@ -67,6 +68,7 @@ function AppRoutes() {
             <Route path="integrations" element={<IntegrationsAdminPage />} />
             <Route path="sla" element={<SLAAdminPage />} />
             <Route path="holiday-calendars" element={<HolidayCalendarsAdminPage />} />
+            <Route path="on-hold-reasons" element={<OnHoldReasonsAdminPage />} />
             <Route path="settings" element={<OrgSettingsAdminPage />} />
           </Route>
         </Route>

@@ -31,6 +31,7 @@ import type {
   NotificationPreference,
   HolidayCalendar,
   Holiday,
+  OnHoldReason,
 } from '@taskapp/shared-types';
 
 export class ApiError extends Error {
@@ -205,6 +206,13 @@ export function createApiClient(config: ApiClientConfig) {
       update: (id: string, data: Record<string, unknown>) => request('PATCH', `/users/${id}`, data),
       deactivate: (id: string) => request<{ success: boolean }>('DELETE', `/users/${id}`),
     },
+    onHoldReasons: {
+      list: () => request<OnHoldReason[]>('GET', '/on-hold-reasons'),
+      create: (label: string) => request<OnHoldReason>('POST', '/on-hold-reasons', { label }),
+      update: (id: string, data: Partial<{ label: string; is_active: boolean }>) =>
+        request<OnHoldReason>('PATCH', `/on-hold-reasons/${id}`, data),
+      remove: (id: string) => request<{ success: boolean }>('DELETE', `/on-hold-reasons/${id}`),
+    },
     holidayCalendars: {
       list: () => request<HolidayCalendar[]>('GET', '/holiday-calendars'),
       create: (data: { country: string; state: string }) =>
@@ -249,19 +257,24 @@ export function createApiClient(config: ApiClientConfig) {
       update: (id: string, data: Record<string, unknown>) => request<TaskWithDetails>('PATCH', `/tasks/${id}`, data),
       remove: (id: string) => request<{ success: boolean }>('DELETE', `/tasks/${id}`),
       assign: (id: string, assigneeId: string | null) => request<Task>('POST', `/tasks/${id}/assign`, { assignee_id: assigneeId }),
-      transition: (id: string, toStatusId: string) =>
+      transition: (id: string, toStatusId: string, onHoldReasonId?: string) =>
         request<(Task & { warnings?: { open_blockers: { task_id: string; task_title: string }[] } }) | { pending_approval: true; approval_step: ApprovalStep }>(
           'POST',
           `/tasks/${id}/transition`,
-          { to_status_id: toStatusId },
+          { to_status_id: toStatusId, on_hold_reason_id: onHoldReasonId },
         ),
       activity: (id: string) => request<ActivityLogEntry[]>('GET', `/tasks/${id}/activity`),
       comments: (id: string) => request<TaskComment[]>('GET', `/tasks/${id}/comments`),
       addComment: (id: string, body: string) => request<TaskComment>('POST', `/tasks/${id}/comments`, { body }),
       // v1.1
       timeLogs: (id: string) => request<TimeLog[]>('GET', `/tasks/${id}/time-logs`),
-      addTimeLog: (id: string, minutes: number, note?: string) =>
-        request<TimeLog>('POST', `/tasks/${id}/time-logs`, { minutes, note }),
+      addTimeLog: (id: string, minutes: number, note?: string, loggedAt?: string) =>
+        request<TimeLog>('POST', `/tasks/${id}/time-logs`, { minutes, note, logged_at: loggedAt }),
+      updateTimeLog: (id: string, logId: string, data: { minutes?: number; note?: string; logged_at?: string }) =>
+        request<TimeLog>('PATCH', `/tasks/${id}/time-logs/${logId}`, data),
+      // Phase 2 (docs/10-OPEN-DECISIONS.md §H2)
+      submitEstimate: (id: string, value: number, unit: 'hours' | 'days') =>
+        request<Task>('POST', `/tasks/${id}/estimate`, { value, unit }),
       dependencies: (id: string) => request<(TaskDependency & { depends_on_task: { id: string; title: string } })[]>('GET', `/tasks/${id}/dependencies`),
       addDependency: (id: string, dependsOnTaskId: string, type: 'blocks' | 'relates_to') =>
         request<TaskDependency>('POST', `/tasks/${id}/dependencies`, { depends_on_task_id: dependsOnTaskId, type }),
