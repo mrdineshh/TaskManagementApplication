@@ -9,6 +9,7 @@ const sections = [
   { to: 'workflows', label: 'Workflows' },
   { to: 'priorities', label: 'Priorities' },
   { to: 'sla', label: 'SLA Policies' },
+  { to: 'holiday-calendars', label: 'Holiday Calendars' },
   { to: 'integrations', label: 'Integrations' },
   { to: 'settings', label: 'Org Settings' },
 ];

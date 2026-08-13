@@ -27,6 +27,7 @@ import { WorkflowsAdminPage } from '../pages/admin/WorkflowsAdminPage';
 import { PrioritiesAdminPage } from '../pages/admin/PrioritiesAdminPage';
 import { IntegrationsAdminPage } from '../pages/admin/IntegrationsAdminPage';
 import { OrgSettingsAdminPage } from '../pages/admin/OrgSettingsAdminPage';
+import { HolidayCalendarsAdminPage } from '../pages/admin/HolidayCalendarsAdminPage';
 
 function AppRoutes() {
   const ready = useBootstrapSession();
@@ -65,6 +66,7 @@ function AppRoutes() {
             <Route path="priorities" element={<PrioritiesAdminPage />} />
             <Route path="integrations" element={<IntegrationsAdminPage />} />
             <Route path="sla" element={<SLAAdminPage />} />
+            <Route path="holiday-calendars" element={<HolidayCalendarsAdminPage />} />
             <Route path="settings" element={<OrgSettingsAdminPage />} />
           </Route>
         </Route>

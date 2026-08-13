@@ -34,6 +34,10 @@ export const permissionKeys = [
   // reasonable-default-over-blocking treatment as organization.manage above.
   'sla.view',
   'sla.manage',
+  // Same reasonable-default-over-blocking treatment as organization.manage/sla.* above —
+  // docs/10-OPEN-DECISIONS.md §G2 introduced holiday calendars post-launch.
+  'holiday_calendar.view',
+  'holiday_calendar.manage',
   'report.view',
   'report.create',
   'report.export',
