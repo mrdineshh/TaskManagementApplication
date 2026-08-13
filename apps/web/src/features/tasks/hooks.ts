@@ -142,6 +142,14 @@ export function useDepartmentDashboard(departmentId: string | undefined) {
   });
 }
 
+/** Role-adaptive team view (docs/10-OPEN-DECISIONS.md §K) — same query, different shape per active role. */
+export function useTeamDashboard(departmentId?: string) {
+  return useQuery({
+    queryKey: ['dashboards', 'team', departmentId],
+    queryFn: () => apiClient.dashboards.team(departmentId),
+  });
+}
+
 // --- Phase 4: employee scorecard + department leaderboard ---
 
 export function useMyScorecard(start: string, end: string) {

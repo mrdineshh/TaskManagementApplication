@@ -497,6 +497,76 @@ scope for this feature — logged here rather than silently left unfixed.
 
 ---
 
+## K. Phase 5 — role-adaptive navigation + dashboards
+
+### K1. Active-role resolution lives in one place, mirrored (not shared) between API and web
+`RbacService.resolveActiveRoleName(userId)` (new) is the single source of truth: the user's
+explicitly toggled `User.activeRoleId` if it's still a role they hold, else the
+highest-priority role among everything they hold (`Admin > Management > Head > Manager >
+Employee`), else `null`. It is deliberately NOT put in the JWT — the user confirmed the
+toggle is presentation-only and must never require a token reissue, so every role-aware
+endpoint re-resolves it fresh per request from the DB. The web app carries a small mirror,
+`resolveActiveRoleName()` in `apps/web/src/lib/auth/roles.ts`, used only to decide nav
+visibility — it can never grant access the backend wouldn't also grant, since both read the
+same `User.activeRoleId` + `UserRole` rows and apply the same priority order.
+
+### K2. One `GET /dashboards/team` endpoint, four different response shapes by active role
+Rather than building four separate pages/endpoints, a single endpoint switches on
+`resolveActiveRoleName()`:
+- **Manager** → `scope: 'manager'`, `members` = explicit direct reports only
+  (`User.managerId = caller`), never the whole department — confirmed directly: "the manager
+  is restricted to view only his team members details."
+- **Head** → `scope: 'department'`, whole department (`Department.headUserId = caller`, with
+  a `departmentIds[0]` fallback if headUserId was never set) plus a `by_manager` breakdown —
+  "the head should see the entire managers and the whole team's view filtered by managers."
+- **Management/Admin** → `scope: 'org'` (every department's summary, clickable) when no
+  `department_id` is passed, or the same `scope: 'department'` shape as Head's for any single
+  department when one is — "across departments... down to the individual user level."
+- **Employee** (or unresolved) → `scope: 'none'` — no team to show; the nav hides this page
+  for them rather than rendering an empty state.
+
+All four share one `computeTaskStats(assigneeIds)` helper (status breakdown, business-day
+overdue, over-budget) so the same math (§I1) backs every scope instead of four parallel
+reimplementations. Verified live against all four roles with real seeded users (Manager saw
+only their 1 direct report's 5 open tasks; Head saw the whole department broken down by both
+Managers in it, including one with zero reports' worth of tasks; Management saw every
+department's summary and could drill into "Development" for the same department-shape
+response; the Employee call correctly returned `scope: 'none'`).
+
+### K3. Toggling role hides nav items but never blocks a direct URL — matches the "presentation only" decision from §G3
+The `Team` nav item is shown only when the active role is Manager/Head/Management/Admin; the
+`Admin` nav item is shown only when the active role is specifically `Admin` (tightened from
+the previous "show if the user holds any `.manage` permission" — toggling to Employee now
+visibly hides Admin's own admin-area link, so an Admin previewing another role's experience
+sees what that role actually sees). Neither is a real access boundary: typing `/admin/...`
+directly still works precisely as far as the permissions the user's *other* held roles grant
+(e.g. a Manager+Employee dual-role user can still view — not edit — `/admin/departments`,
+since `department.view` is Manager's, not Employee's) — this is the existing, pre-Phase-5
+pattern (`AdminLayout` has no route guard; per-action permission checks are the only real
+enforcement), left as-is rather than introducing a new, inconsistent guarding mechanism just
+for this phase.
+
+### K4. Breadcrumbs are derived from the route tree, not hand-authored per page
+`Breadcrumbs.tsx` splits the URL path and maps each static segment through one label table
+(kept in sync with `App.tsx`'s routes and `AdminLayout.tsx`'s section list) rather than each
+page declaring its own crumb — so a route rename can't silently leave a stale breadcrumb
+behind. The one dynamic case, a task's title on `/tasks/:id`, reuses the same cached
+`useTask()` query the task detail page itself already fires, so the breadcrumb never causes
+an extra request. `/reports/:id` deliberately does NOT resolve a report's name the same way
+(logged as a known, minor gap) — scoped out to keep this phase's surface area contained;
+it shows the raw path segment (the report's UUID) instead of its title.
+
+### K5. Home ("/") stays `MyTasksPage` for every role; only the `Team` page is role-adaptive
+Rather than building distinct landing dashboards for all five roles, personal task ownership
+("my own open tasks, overdue, over budget") is treated as universally relevant regardless of
+which role is active — everyone including Heads/Management/Admin can be a task assignee too.
+The role-differentiated experience lives entirely in `/team` (§K2) and the nav/sidebar itself.
+This is a scope call, not something explicitly confirmed with the user; flagged here in case
+five fully distinct landing dashboards turn out to matter more than assumed once this is in
+front of real users.
+
+---
+
 ## How to keep this log current
 
 As the build proceeds and these items get resolved, update this document (or

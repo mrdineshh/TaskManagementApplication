@@ -14,6 +14,22 @@ export function useUpdateProfile() {
   });
 }
 
+/** Role-toggle (docs/10-OPEN-DECISIONS.md §G3) — presentation lens only; permissions stay the
+ * full union of every role the user holds, so this never needs a token refresh, just a
+ * currentUser update plus a re-fetch of anything whose content depends on active role. */
+export function useSetActiveRole() {
+  const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
+  const currentUser = useSessionStore((s) => s.currentUser);
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (roleId: string) => apiClient.me.setActiveRole(roleId),
+    onSuccess: (result) => {
+      if (currentUser) setCurrentUser({ ...currentUser, active_role_id: result.active_role_id });
+      qc.invalidateQueries({ queryKey: ['dashboards'] });
+    },
+  });
+}
+
 const PREFERENCES_KEY = ['notification-preferences'];
 
 export function useNotificationPreferences() {

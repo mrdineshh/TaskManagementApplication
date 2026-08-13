@@ -1,5 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SYSTEM_ROLE_NAMES } from '@taskapp/shared-types';
+
+/**
+ * Priority order (highest first) for picking a default active role when the user hasn't
+ * explicitly toggled one (docs/10-OPEN-DECISIONS.md §G3/§K) — highest-privilege held role
+ * wins, so a brand-new multi-role user lands somewhere sensible rather than on whichever
+ * role happened to be assigned first. SYSTEM_ROLE_NAMES is already declared in this order.
+ */
+const ROLE_PRIORITY: readonly string[] = SYSTEM_ROLE_NAMES;
 
 export interface EffectivePermissions {
   permissionKeys: string[];
@@ -68,5 +77,29 @@ export class RbacService {
       departmentIds: hasOrgWideRole ? [] : [...scopedDepartmentIds],
       hasOrgWideRole,
     };
+  }
+
+  /**
+   * Which role the app should be "framed around" right now (docs/10-OPEN-DECISIONS.md §G3):
+   * the user's explicitly toggled `activeRoleId` if it's still one they actually hold,
+   * otherwise the highest-priority role among everything they hold, otherwise null (no
+   * system role assigned at all — shouldn't happen for an invited user, but not fatal).
+   * Head and Manager carry an identical permission bundle (§G1) — this is the only place
+   * that distinguishes them, by role *name*, for scope decisions in application logic
+   * rather than a permission key.
+   */
+  async resolveActiveRoleName(userId: string): Promise<string | null> {
+    const [user, userRoles] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { activeRoleId: true } }),
+      this.prisma.userRole.findMany({ where: { userId }, include: { role: true } }),
+    ]);
+
+    if (user?.activeRoleId) {
+      const active = userRoles.find((ur) => ur.roleId === user.activeRoleId);
+      if (active) return active.role.name;
+    }
+
+    const heldNames = new Set(userRoles.map((ur) => ur.role.name));
+    return ROLE_PRIORITY.find((name) => heldNames.has(name)) ?? null;
   }
 }

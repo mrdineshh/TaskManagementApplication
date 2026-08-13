@@ -307,6 +307,7 @@ export function createApiClient(config: ApiClientConfig) {
     dashboards: {
       personal: () => request<Record<string, unknown>>('GET', '/dashboards/personal'),
       department: (departmentId: string) => request<Record<string, unknown>>('GET', `/dashboards/department${qs({ department_id: departmentId })}`),
+      team: (departmentId?: string) => request<Record<string, unknown>>('GET', `/dashboards/team${qs({ department_id: departmentId })}`),
     },
     scorecards: {
       me: (start: string, end: string) => request<Scorecard>('GET', `/scorecards/me${qs({ start, end })}`),
