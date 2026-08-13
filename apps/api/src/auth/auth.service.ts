@@ -55,6 +55,13 @@ export class AuthService {
           email: identity.email,
           fullName: identity.name,
           primaryDepartmentId: fallbackDept.id,
+          // Work location (docs/10-OPEN-DECISIONS.md §G2) isn't known for a self-service
+          // first sign-in — the Admin "invite user" flow captures it directly, but a walk-up
+          // SSO login has nowhere to ask. "Unknown" (same placeholder the migration backfill
+          // used) flags the account for an Admin to correct via Edit User; this account won't
+          // get sane overdue/business-day math until then.
+          workCountry: 'Unknown',
+          workState: 'Unknown',
           authProvider: provider.name === 'dev' ? 'google' : (provider.name as 'google' | 'sso'),
           authProviderId: identity.externalId,
         },

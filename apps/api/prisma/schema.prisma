@@ -47,6 +47,11 @@ model Department {
   slug        String   @unique
   description String?
   isActive    Boolean  @default(true) @map("is_active")
+  /// Exactly one Head per department (docs/10-OPEN-DECISIONS.md §G1) — enforced by this being
+  /// a single scalar FK (not a join table) plus @unique, so a user can head at most one
+  /// department. Nullable: a department can exist with no Head assigned yet.
+  headUserId  String?  @unique @map("head_user_id")
+  head        User?    @relation("DepartmentHead", fields: [headUserId], references: [id])
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -84,6 +89,21 @@ model User {
   /// in on multiple devices only receives push on whichever registered most recently. A
   /// per-device join table is the natural upgrade if that turns out to matter.
   pushToken           String?          @map("push_token")
+  /// Work location (docs/10-OPEN-DECISIONS.md §G2) — drives which HolidayCalendar governs this
+  /// user's business-day/SLA math. Required at creation, not optional metadata: overdue
+  /// calculations have no sane fallback without it.
+  workCountry         String           @map("work_country")
+  workState           String           @map("work_state")
+  /// Each employee reports to exactly one Manager within their department (§G1) — this is what
+  /// makes a Manager's "team" an explicit, queryable set rather than inferred from task
+  /// assignment. Self-relation, so a Manager is just another User with reports pointing at them.
+  managerId           String?          @map("manager_id")
+  manager             User?            @relation("ManagerReports", fields: [managerId], references: [id])
+  /// Which of this user's held roles the UI is currently framed around (the role-toggle, §G3).
+  /// Purely a presentation lens — authorization still checks the full set of roles actually
+  /// held, so switching to "Employee" view never reduces what a Head/Manager is permitted to do.
+  activeRoleId        String?          @map("active_role_id")
+  activeRole          Role?            @relation("ActiveRole", fields: [activeRoleId], references: [id])
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 
@@ -100,6 +120,8 @@ model User {
   approvalSteps       ApprovalStep[]
   savedReports        SavedReport[]
   notificationPreferences NotificationPreference[]
+  directReports       User[]           @relation("ManagerReports")
+  headOfDepartment    Department?      @relation("DepartmentHead")
 
   @@unique([authProvider, authProviderId])
   @@map("users")
@@ -114,6 +136,36 @@ model UserDepartment {
 
   @@unique([userId, departmentId])
   @@map("user_departments")
+}
+
+// ---------------------------------------------------------------------------
+// Holiday calendars (docs/10-OPEN-DECISIONS.md §G2) — admin-configurable per
+// Country+State, used to compute business-day due dates/overdue status for
+// every user whose workCountry/workState matches.
+// ---------------------------------------------------------------------------
+
+model HolidayCalendar {
+  id        String   @id @default(uuid())
+  country   String
+  state     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  holidays Holiday[]
+
+  @@unique([country, state])
+  @@map("holiday_calendars")
+}
+
+model Holiday {
+  id         String          @id @default(uuid())
+  calendarId String          @map("calendar_id")
+  calendar   HolidayCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  date       DateTime        @db.Date
+  name       String
+
+  @@unique([calendarId, date])
+  @@map("holidays")
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +184,7 @@ model Role {
 
   permissions RolePermission[]
   userRoles   UserRole[]
+  activeForUsers User[] @relation("ActiveRole")
 
   @@map("roles")
 }

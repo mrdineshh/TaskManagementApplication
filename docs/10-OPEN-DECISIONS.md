@@ -247,6 +247,57 @@ Firebase JS SDK, set `FIREBASE_PROJECT_ID` on the API service, then change
 
 ---
 
+## G. Post-launch feature expansion (subtasks, effort/time tracking, org hierarchy, redesign)
+
+Scoped through direct discussion with the user, section by section, before any
+of it was built. Building in six dependency-ordered phases; this section
+covers decisions made in **Phase 1 (foundations)** so far. Later phases will
+add their own subsections here as they land.
+
+### G1. Department hierarchy: Head (1, via `Department.headUserId`) + Manager "reports to" chain (`User.managerId`)
+Exactly one Head per department, enforced by `headUserId` being a unique
+scalar FK rather than a join table. Every employee explicitly reports to one
+Manager via `User.managerId` (self-relation) — a Manager's "team" is this
+explicit set, not inferred from task assignment. `Head` and `Management` were
+added to `SYSTEM_ROLE_NAMES` alongside the existing `Admin`/`Manager`/`Employee`.
+`Head`'s permission bundle equals `Manager`'s — what differs between them is
+query *scope* (whole department vs. only direct reports), which is application
+logic for a later phase, not a distinct permission key. `Management` is a
+genuinely org-wide role (no `departmentOverride`), which — deliberately — needs
+zero new code in `rbac.service.ts`: it reuses the existing `hasOrgWideRole`
+mechanism that `Admin` already relies on. Its permission bundle is every
+viewing (`*.view`) key and no `*.manage` key, matching "sees everything, but
+not admin setup/configuration."
+
+### G2. Region + holiday calendars: `User.workCountry`/`workState`, `HolidayCalendar`/`Holiday` keyed by Country+State
+Added as **required** fields on `User` — business-day/overdue math has no sane
+fallback without a region. Existing seeded users were backfilled to the
+literal placeholder value `"Unknown"` in the migration (deliberately obvious,
+not a real region, so affected accounts are easy to find). The Admin "invite
+user" endpoint (`POST /api/v1/users`) now requires `work_country`/`work_state`
+as real input — but the auth auto-provisioning path (a brand-new user's first
+SSO login, `auth.service.ts`) has no form to ask on, so it still defaults to
+`"Unknown"`/`"Unknown"` today. **Known gap, not yet resolved**: that
+auto-provisioned account won't get correct overdue/business-day calculations
+until an Admin corrects it via Edit User — a proper onboarding/profile-
+completion prompt is the real fix, deferred to a later phase since it wasn't
+part of the six discussed sections.
+
+### G3. Role-toggle is a presentation lens, not a second authorization layer
+`User.activeRoleId` records which held role the UI is currently framed around.
+Deliberately **not** wired into the JWT's permission computation — a Head who
+toggles to "Employee" view still holds every Head permission underneath;
+switching only changes what nav/dashboard renders, not what the API will
+authorize. Reasoned as the safer default (a real role a person holds doesn't
+functionally disappear because of a UI preference) and flagged here since the
+user didn't explicitly weigh in on this specific subtlety — worth confirming
+this reading is correct before Phase 5 builds the switcher UI and per-role
+dashboards on top of it. The endpoint to actually set `activeRoleId` and the
+frontend toggle itself are not built yet — only the schema column exists so
+far.
+
+---
+
 ## How to keep this log current
 
 As the build proceeds and these items get resolved, update this document (or

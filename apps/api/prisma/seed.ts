@@ -27,24 +27,42 @@ const DEPARTMENT_LABELS: Record<(typeof SEED_DEPARTMENT_SLUGS)[number], string> 
   marketing: 'Marketing',
 };
 
-// Permission bundles for the three seeded system roles (docs/03-RBAC-AUTH.md §2.2).
+const MANAGER_PERMISSIONS = [
+  'task.create',
+  'task.view',
+  'task.edit',
+  'task.assign',
+  'task.comment',
+  'task.moderate',
+  'department.view',
+  'user.view',
+  'custom_field.view',
+  'workflow.view',
+  'priority.view',
+  'report.view',
+  'report.create',
+] as const;
+
+// Permission bundles for the seeded system roles (docs/03-RBAC-AUTH.md §2.2,
+// docs/10-OPEN-DECISIONS.md §G1/§G3). Head reuses Manager's bundle — the department-wide vs.
+// direct-reports-only difference is scope, computed in application logic, not permission keys.
+// Management gets every viewing permission but no *.manage key (those stay Admin-only).
 const ROLE_PERMISSIONS: Record<(typeof SYSTEM_ROLE_NAMES)[number], readonly string[]> = {
   Admin: permissionKeys,
-  Manager: [
-    'task.create',
+  Management: [
     'task.view',
-    'task.edit',
-    'task.assign',
-    'task.comment',
-    'task.moderate',
     'department.view',
     'user.view',
     'custom_field.view',
     'workflow.view',
     'priority.view',
+    'sla.view',
     'report.view',
     'report.create',
+    'report.export',
   ],
+  Head: MANAGER_PERMISSIONS,
+  Manager: MANAGER_PERMISSIONS,
   Employee: ['task.view', 'task.edit', 'task.comment', 'department.view'],
 };
 
@@ -166,11 +184,47 @@ async function main() {
     priorityIds.set(p.key, priority.id);
   }
 
+  console.log('Seeding holiday calendar...');
+  // Single demo region for now — matches OrganizationSettings' Asia/Kolkata timezone above.
+  // Admin-configurable per docs/10-OPEN-DECISIONS.md §G2; this is just a starting calendar.
+  const calendar = await prisma.holidayCalendar.upsert({
+    where: { country_state: { country: 'India', state: 'Tamil Nadu' } },
+    update: {},
+    create: { country: 'India', state: 'Tamil Nadu' },
+  });
+  const demoHolidays = [
+    { date: '2026-10-20', name: 'Diwali' },
+    { date: '2026-01-14', name: 'Pongal' },
+    { date: '2026-01-26', name: 'Republic Day' },
+  ] as const;
+  for (const h of demoHolidays) {
+    await prisma.holiday.upsert({
+      where: { calendarId_date: { calendarId: calendar.id, date: new Date(h.date) } },
+      update: { name: h.name },
+      create: { calendarId: calendar.id, date: new Date(h.date), name: h.name },
+    });
+  }
+
   console.log('Seeding mock users...');
+  const REGION = { workCountry: 'India', workState: 'Tamil Nadu' };
   const mockUsers = [
     { email: 'admin@econz.net', fullName: 'Ada Admin', dept: 'management', role: 'Admin' },
-    { email: 'manager.dev@econz.net', fullName: 'Mona Manager', dept: 'development', role: 'Manager' },
-    { email: 'employee.dev@econz.net', fullName: 'Ravi Employee', dept: 'development', role: 'Employee' },
+    { email: 'management@econz.net', fullName: 'Mike Management', dept: 'management', role: 'Management' },
+    { email: 'head.dev@econz.net', fullName: 'Hana Head', dept: 'development', role: 'Head' },
+    {
+      email: 'manager.dev@econz.net',
+      fullName: 'Mona Manager',
+      dept: 'development',
+      role: 'Manager',
+      managerEmail: 'head.dev@econz.net',
+    },
+    {
+      email: 'employee.dev@econz.net',
+      fullName: 'Ravi Employee',
+      dept: 'development',
+      role: 'Employee',
+      managerEmail: 'manager.dev@econz.net',
+    },
     { email: 'employee.sales@econz.net', fullName: 'Sara Sales', dept: 'sales', role: 'Employee' },
   ] as const;
 
@@ -184,19 +238,37 @@ async function main() {
         fullName: u.fullName,
         primaryDepartmentId: departments.get(u.dept)!,
         authProvider: 'google',
+        ...REGION,
       },
     });
     userIds.set(u.email, user.id);
-    // Manager/Employee are generic, department_id-NULL role templates (reused across every
+    // Manager/Employee/Head are generic, department_id-NULL role templates (reused across every
     // department) — departmentOverride is what actually narrows this specific assignment to
-    // the user's department, per 02-DATA-MODEL.md §2.4. Admin stays unscoped (no override).
-    const departmentOverride = u.role === 'Admin' ? null : departments.get(u.dept)!;
+    // the user's department, per 02-DATA-MODEL.md §2.4. Admin/Management stay unscoped (no
+    // override) — Management's cross-department visibility relies on this exact mechanism.
+    const departmentOverride = u.role === 'Admin' || u.role === 'Management' ? null : departments.get(u.dept)!;
     await prisma.userRole.upsert({
       where: { userId_roleId: { userId: user.id, roleId: roleIds.get(u.role)! } },
       update: { departmentOverride },
       create: { userId: user.id, roleId: roleIds.get(u.role)!, departmentOverride },
     });
   }
+
+  // "reports to" links (docs/10-OPEN-DECISIONS.md §G1) — set after every user above exists,
+  // since a manager's own id has to already be known.
+  for (const u of mockUsers) {
+    if (!('managerEmail' in u)) continue;
+    await prisma.user.update({
+      where: { id: userIds.get(u.email)! },
+      data: { managerId: userIds.get(u.managerEmail)! },
+    });
+  }
+
+  console.log('Seeding department head...');
+  await prisma.department.update({
+    where: { id: departments.get('development')! },
+    data: { headUserId: userIds.get('head.dev@econz.net')! },
+  });
 
   console.log('Seeding mock tasks...');
   const admin = userIds.get('admin@econz.net')!;
