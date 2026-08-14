@@ -483,17 +483,7 @@ admin-added `done → todo` transition — `reworked_count` correctly went to
 `completed_count(0) + reworked_count(1)` once the reopen zeroed out
 `completedAt`).
 
-### J4. Known gap: Zod validation errors surface as 500, not 400 (pre-existing, not introduced here)
-`ScorecardsController.updateConfig()` calls
-`updateScorecardConfigSchema.parse(body)` the same way
-`OrganizationController.update()` already does — neither is caught by a
-global exception filter, so a validation failure (e.g. weights not summing
-to 1) currently returns `500 INTERNAL_SERVER_ERROR` with the raw Zod issue
-array as the message, not a clean `400`. Confirmed this is systemic, not a
-Phase 4 regression, by reproducing the same 500 against the pre-existing
-`/organization-settings` endpoint with a bad payload. Worth a dedicated
-Zod-to-`BadRequestException` exception filter at some point, but out of
-scope for this feature — logged here rather than silently left unfixed.
+### J4. ~~Known gap: Zod validation errors surface as 500, not 400~~ — fixed, see §M1
 
 ---
 
@@ -650,6 +640,30 @@ per-screen redesign of Login/MyTasks/TaskList/TaskDetail/TeamDashboard/Notificat
 did not touch mobile — no new mobile screens were added since that redesign (Scorecard/Team
 role-adaptive views from Phases 4-5 are web-only so far), so mobile parity with those two new
 web pages is a real, currently-unaddressed gap if mobile parity turns out to matter.
+
+---
+
+## M. Post-launch gap fixes
+
+### M1. Fixed — Zod validation errors now return a clean 400, not a raw 500 (closes §J4)
+Several controllers (`ScorecardsController.updateConfig()`, `OrganizationController.update()`)
+validate their body with a shared-types zod schema's `.parse(body)` directly rather than
+going through Nest's class-validator `ValidationPipe` — an uncaught `ZodError` previously fell
+through to `AllExceptionsFilter`'s generic `Error` branch and came back as a
+`500 INTERNAL_SERVER_ERROR` with the raw zod issue array dumped into the message.
+
+Fixed at the source, not per-controller: added a `ZodError` branch to the existing global
+`AllExceptionsFilter` (`apps/api/src/common/filters/all-exceptions.filter.ts`) that maps it to
+`400 VALIDATION_ERROR` with a readable `"path: message"` summary plus the full issue array
+under `details.validation` — matching the shape class-validator errors already return. This
+fixes every current and future `.parse()` call site at once, not just the two that surfaced
+it, without requiring each controller to wrap its own call in a try/catch.
+
+Verified live: re-ran the exact two payloads that previously produced a 500 (scorecard
+weights not summing to 1; `organization-settings` with `timezone` as a number) — both now
+return a clean `400` with a readable message. Confirmed no regression on the pre-existing
+class-validator DTO path (`POST /tasks` with a missing/invalid body) and on a valid
+scorecard-weights payload (still `200`).
 
 ---
 
