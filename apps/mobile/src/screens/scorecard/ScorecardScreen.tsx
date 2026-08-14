@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useDepartments, useLeaderboard, useMyScorecard } from '../../features/tasks/hooks';
 import { useSessionStore } from '../../lib/auth/session-store';

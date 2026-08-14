@@ -1,7 +1,8 @@
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Navigation } from './src/app/Navigation';
+import { Navigation } from './src/navigation/Navigation';
 import { LoadingView } from './src/components/LoadingView';
 import { useBootstrapSession } from './src/features/auth/useBootstrapSession';
 import { usePushNotifications } from './src/features/notifications/usePushNotifications';

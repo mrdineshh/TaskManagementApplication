@@ -10,7 +10,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { LoadingView } from '../../components/LoadingView';
 import { Screen } from '../../components/Screen';
 import { useAppTheme } from '../../theme';
-import type { TasksStackParamList } from '../../app/Navigation';
+import type { TasksStackParamList } from '../../navigation/Navigation';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'TaskList'>;
 

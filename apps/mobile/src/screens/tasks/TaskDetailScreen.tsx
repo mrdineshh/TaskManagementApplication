@@ -16,7 +16,7 @@ import { Button } from '../../components/Button';
 import { LoadingView } from '../../components/LoadingView';
 import { EmptyState } from '../../components/EmptyState';
 import { useAppTheme } from '../../theme';
-import type { TasksStackParamList } from '../../app/Navigation';
+import type { TasksStackParamList } from '../../navigation/Navigation';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'TaskDetail'>;
 

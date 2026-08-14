@@ -695,16 +695,71 @@ and features. Brought fully current in one pass:
   `personal` dashboard endpoint already returned `over_budget_count` since Phase 3, mobile
   just wasn't displaying it.
 
-**Known gap, disclosed rather than silently left implicit:** the Expo dev bundler could not
-be reached in this sandbox even in `--web --offline` mode (its dependency-validation step
-hits `exp.host`/`api.expo.dev`, which this environment's network proxy blocks, and there is
-no flag to skip that check entirely for the web platform's entry resolution). Every change
-here typechecks cleanly (`tsc --noEmit`) and was reviewed carefully against React's Rules of
-Hooks (no hook called after an early return, `useAppTheme()` always called unconditionally
-before any conditional render), but none of it was exercised live on a device, simulator, or
-Expo Go — unlike every other phase in this log, which was verified running. Flagging this
-explicitly rather than claiming a verification level that didn't happen; worth an actual
-device/simulator pass before shipping this to real users.
+**Update — Expo now runs, and three real, pre-existing bugs got fixed along the way (§M3).**
+The initial version of this fix shipped without live verification (the Expo dev bundler
+wasn't reachable in the sandbox). Asked to actually run it before merging, three genuine,
+previously-undiagnosed bugs were found and fixed — none introduced by this change, all three
+would have blocked *anyone* from running `expo start` on this project, on any machine. See §M3.
+
+### M3. Fixed — Expo genuinely would not start on this project at all, on any machine
+Asked to actually run the mobile app before merging §M2. The very first `expo start` attempt
+failed, and the failure had nothing to do with the mobile-parity change — it was three
+separate, pre-existing structural bugs, apparently never caught because (per §M2's own
+original disclosure, and #42-50's) nobody had run this Expo app end-to-end before. Each was
+diagnosed from the actual Metro/Expo CLI source, not guessed at:
+
+1. **`src/app` collides with Expo CLI's Router auto-detection.** Modern `@expo/cli`
+   unconditionally treats a directory literally named `src/app` as an Expo Router root
+   (`getRouterDirectory()` in `@expo/cli`'s own source — a bare filesystem check, no
+   `expo-router` dependency required to trigger it). This project's `src/app/Navigation.tsx`
+   predates Expo Router entirely and has nothing to do with it — the name collision alone
+   was enough to break entry resolution. Fixed by renaming `src/app` → `src/navigation`
+   (`git mv`, plus updating the 4 files that imported `TasksStackParamList` from it).
+2. **`package.json`'s `main` field assumed a non-hoisted install.** `"main": "node_modules/expo/AppEntry.js"` is Expo's standard scaffold value, but it's a literal relative
+   filesystem path — correct only when `expo` lives inside this package's *own*
+   `node_modules`. In this npm workspace, `expo` is hoisted to the repo root, so that path
+   pointed nowhere. Worse, Expo's shared `AppEntry.js` template itself does
+   `import App from '../../App'`, a relative reach-up that only works when the file
+   physically sits inside the consuming package's node_modules — hoisting breaks that
+   assumption too, independent of the `main` field. Fixed the standard, Expo-documented way
+   for monorepos: added a local `apps/mobile/index.js` (`registerRootComponent(App)` against
+   a local `./App` import) and pointed `main` at it directly, sidestepping hoisting entirely.
+3. **The committed lockfile pinned an incompatible nested `react-native`.** `package-lock.json`
+   had `node_modules/expo/node_modules/react-native` pinned to `0.86.2` — despite `expo`'s own
+   `package.json` declaring `"react-native": "0.74.5"` (identical to this project's top-level
+   pin, which should have deduped to a single copy with zero nested duplicates). That stray
+   0.86.2 copy's `index.js` uses syntax (`} as ReactNativePublicAPI;`, a type assertion in a
+   plain `.js` file) this project's Metro/Babel config can't parse, hard-crashing every bundle
+   attempt. Confirmed this wasn't sandbox-specific contamination by reproducing it from a full
+   `rm -rf node_modules && npm install` — a genuinely fresh install, matching what the user's
+   own machine would produce, hit the identical crash. Fixed durably with `npm dedupe`
+   (removed 1300 lines of redundant nested-dependency lockfile entries), re-verified with
+   another full clean reinstall from scratch.
+
+Also fixed, surfaced only after the above three: a TypeScript error in the three mobile files
+using `<>...</>` fragment shorthand (`App.tsx`, `TeamDashboardScreen.tsx`,
+`ScorecardScreen.tsx`) — the classic RN JSX transform needs `React` in scope for fragment
+shorthand, and none of the three had an explicit `import React from 'react'` (relying on
+named imports only). Added it to all three.
+
+**Verified, for real this time:** with every fix above applied and node_modules rebuilt from
+scratch, `expo start` serves a working Metro dev server; requested a full bundle for both
+`platform=ios` and `platform=android` directly against the running server (the same request
+Expo Go itself makes) — both compiled with **zero errors and zero warnings**, 1122 and 1127
+modules respectively. Grepped the compiled output to confirm the new Scorecard screen, the
+`ThemeProvider`/`useAppTheme` code, and the role-adaptive Team dashboard are actually present
+in the shipped bundle (163+ matches), not stale cache. Re-ran the entire sequence after a full
+`rm -rf node_modules && npm install` to confirm every fix is durable and not an artifact of
+this session's own node_modules history. `tsc --noEmit` passes clean across every package in
+the monorepo (api, api-client, shared-types, web, mobile) after all fixes.
+
+**What's still not verified:** actual on-screen rendering. A successful, error-free,
+zero-warning Metro bundle compile is strong evidence the code is structurally correct (every
+import resolves, no syntax errors, no React version conflicts, all new screens are reachable
+from the navigator) — but it is not the same as seeing the app render in Expo Go or a
+simulator/emulator, neither of which exists in this sandbox. Genuinely worth a quick real
+device/Expo-Go check before this reaches real users, though the risk profile is now much
+lower than an untested change: the JS bundle Expo Go would load is now proven to build clean.
 
 ---
 

@@ -11,7 +11,7 @@ import { LoadingView } from '../../components/LoadingView';
 import { Badge } from '../../components/Badge';
 import { Avatar } from '../../components/Avatar';
 import { useAppTheme } from '../../theme';
-import type { TasksStackParamList } from '../../app/Navigation';
+import type { TasksStackParamList } from '../../navigation/Navigation';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'MyTasks'>;
 
