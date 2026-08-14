@@ -10,7 +10,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { LoadingView } from '../../components/LoadingView';
 import { Badge } from '../../components/Badge';
 import { Avatar } from '../../components/Avatar';
-import { colors, spacing, typography } from '../../theme';
+import { useAppTheme } from '../../theme';
 import type { TasksStackParamList } from '../../app/Navigation';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'MyTasks'>;
@@ -26,17 +26,34 @@ function greeting(): string {
 export function MyTasksScreen({ navigation }: Props) {
   const { data, isLoading, refetch, isRefetching } = usePersonalDashboard();
   const currentUser = useSessionStore((s) => s.currentUser);
+  const { colors, spacing, typography } = useAppTheme();
   const d = data as any;
 
   if (isLoading) return <LoadingView />;
 
+  const styles = StyleSheet.create({
+    listContent: { paddingHorizontal: 16, paddingBottom: spacing.xl },
+    header: { paddingTop: spacing.sm },
+    greeting: { ...typography.body, color: colors.slate[500] },
+    name: { ...typography.h1, marginBottom: spacing.lg },
+    statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+    sectionLabel: { ...typography.label, marginBottom: spacing.sm },
+    row: { flexDirection: 'row', alignItems: 'center' },
+    priorityBar: { width: 3, alignSelf: 'stretch', borderRadius: 2, marginRight: spacing.sm },
+    rowContent: { flex: 1, marginRight: spacing.sm },
+    rowTitle: { ...typography.title, marginBottom: 6 },
+    rowMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    dueRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+    dueText: { ...typography.caption },
+  });
+
   return (
-    <Screen edges={['top', 'left', 'right']} padded={false}>
+    <Screen edges={['left', 'right']} padded={false}>
       <FlatList
         data={d?.open_tasks ?? []}
         keyExtractor={(t: any) => t.id}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.brand[600]} />}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.greeting}>{greeting()},</Text>
@@ -45,8 +62,8 @@ export function MyTasksScreen({ navigation }: Props) {
             {d && (
               <View style={styles.statsRow}>
                 <StatCard label="Overdue" value={d.overdue_count} color={colors.danger} icon="alert-circle" />
-                <StatCard label="Due this week" value={d.due_this_week_count} color={colors.warning} icon="calendar" />
-                <StatCard label="Open" value={d.open_tasks.length} color={colors.brand[600]} icon="albums" />
+                <StatCard label="Over budget" value={d.over_budget_count ?? 0} color={colors.warning} icon="cash" />
+                <StatCard label="Open" value={d.open_tasks.length} color={colors.primary} icon="albums" />
               </View>
             )}
 
@@ -81,19 +98,3 @@ export function MyTasksScreen({ navigation }: Props) {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  listContent: { paddingHorizontal: 16, paddingBottom: spacing.xl },
-  header: { paddingTop: spacing.sm },
-  greeting: { ...typography.body, color: colors.slate[500] },
-  name: { ...typography.h1, marginBottom: spacing.lg },
-  statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-  sectionLabel: { ...typography.label, marginBottom: spacing.sm },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  priorityBar: { width: 3, alignSelf: 'stretch', borderRadius: 2, marginRight: spacing.sm },
-  rowContent: { flex: 1, marginRight: spacing.sm },
-  rowTitle: { ...typography.title, marginBottom: 6 },
-  rowMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  dueRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  dueText: { ...typography.caption },
-});

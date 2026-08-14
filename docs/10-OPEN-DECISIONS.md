@@ -632,7 +632,7 @@ Admin Scorecard Weights, and a full Task Detail page. No visual defects found be
 form-control bug already fixed in §L4. Flagging this as the honest scope boundary rather than
 claiming exhaustive per-page verification.
 
-### L8. Mobile app intentionally untouched in this phase
+### L8. ~~Mobile app intentionally untouched in this phase~~ — closed, see §M2
 The user's "soulless and monotonous" complaint was about the web app specifically (they were
 using it live in a browser); the Expo mobile app already went through its own design-system
 redesign earlier in this project (tasks #42-50: theme + UI primitives, navigation, and a
@@ -664,6 +664,47 @@ weights not summing to 1; `organization-settings` with `timezone` as a number) �
 return a clean `400` with a readable message. Confirmed no regression on the pre-existing
 class-validator DTO path (`POST /tasks` with a missing/invalid body) and on a valid
 scorecard-weights payload (still `200`).
+
+### M2. Fixed — mobile parity gap (closes §L8)
+Closes the mobile-parity gap flagged when Phase 6 shipped: the Expo app had its own,
+earlier, separate redesign (tasks #42-50) that predates web's Phase 6 palette/dark-mode work
+and Phases 4-5's Scorecard/role-adaptive Team pages, so it had drifted behind on both looks
+and features. Brought fully current in one pass:
+
+- **Dark mode.** React Native has no CSS custom-property equivalent to the `dark:` class
+  trick web's Phase 6 used, so every color has to be resolved per-render instead of baked
+  into a module-level `StyleSheet.create()`. Added `src/theme/ThemeProvider.tsx` — a
+  `useAppTheme()` hook exposing `{ colors, typography, shadow }` for the current scheme —
+  and converted every component/screen's static `colors`/`typography` import to call the
+  hook and build its `StyleSheet` inline. Preference (`light`/`dark`/`system`) persists via
+  `expo-secure-store` (already a dependency, for the session refresh token) rather than
+  adding `AsyncStorage` as a new one, mirroring web's `useTheme.ts` in spirit.
+- **Palette.** Replaced the flat single-blue scale with the same indigo/teal system as web's
+  `tailwind.config.js`, resolved into concrete light/dark hex pairs (RN can't consume
+  Tailwind classes) instead of a token-name mapping.
+- **Scorecard screen.** New tab (`ScorecardTab`, trophy icon) — own overall score + six
+  sub-scores, department leaderboard with the own-row highlighted — hitting the same
+  `/scorecards/me` and `/scorecards/leaderboard` endpoints web's Phase 4 page uses. Fixed to
+  a 30-day range rather than reproducing web's free-form date pickers, keeping this one
+  glanceable screen instead of a form.
+- **Role-adaptive Team tab.** Rewrote `TeamDashboardScreen` to call `/dashboards/team` (the
+  same Phase 5 endpoint web's Team page uses) and render per-scope — Manager sees direct
+  reports only, Head/Management see a department or org-wide summary with drill-down —
+  replacing the old fixed department-picker that showed identical content to every role.
+- **My Tasks dashboard.** Added an "Over budget" stat card next to Overdue — the
+  `personal` dashboard endpoint already returned `over_budget_count` since Phase 3, mobile
+  just wasn't displaying it.
+
+**Known gap, disclosed rather than silently left implicit:** the Expo dev bundler could not
+be reached in this sandbox even in `--web --offline` mode (its dependency-validation step
+hits `exp.host`/`api.expo.dev`, which this environment's network proxy blocks, and there is
+no flag to skip that check entirely for the web platform's entry resolution). Every change
+here typechecks cleanly (`tsc --noEmit`) and was reviewed carefully against React's Rules of
+Hooks (no hook called after an early return, `useAppTheme()` always called unconditionally
+before any conditional render), but none of it was exercised live on a device, simulator, or
+Expo Go — unlike every other phase in this log, which was verified running. Flagging this
+explicitly rather than claiming a verification level that didn't happen; worth an actual
+device/simulator pass before shipping this to real users.
 
 ---
 

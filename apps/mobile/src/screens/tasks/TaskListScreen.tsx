@@ -9,7 +9,7 @@ import { Chip } from '../../components/Chip';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingView } from '../../components/LoadingView';
 import { Screen } from '../../components/Screen';
-import { colors, radius, spacing, typography } from '../../theme';
+import { useAppTheme } from '../../theme';
 import type { TasksStackParamList } from '../../app/Navigation';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'TaskList'>;
@@ -19,6 +19,7 @@ export function TaskListScreen({ navigation }: Props) {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const { data: departments } = useDepartments();
+  const { colors, radius, spacing, typography } = useAppTheme();
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -27,8 +28,33 @@ export function TaskListScreen({ navigation }: Props) {
 
   const { data, isLoading } = useTasks({ q: debouncedSearch || undefined, department_id: departmentId || undefined });
 
+  const styles = StyleSheet.create({
+    searchWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: 16,
+      marginTop: spacing.sm,
+      marginBottom: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: spacing.sm,
+    },
+    searchIcon: { marginRight: 6 },
+    searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: colors.text },
+    chipRow: { flexGrow: 0, marginBottom: spacing.sm },
+    listContent: { paddingHorizontal: 16, paddingBottom: spacing.xl, flexGrow: 1 },
+    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    rowContent: { flex: 1, marginRight: spacing.sm },
+    rowTitle: { ...typography.title, marginBottom: 6 },
+    rowMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    deptPill: { backgroundColor: colors.surfaceAlt, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 2 },
+    deptText: { fontSize: 11, fontWeight: '600', color: colors.slate[500] },
+  });
+
   return (
-    <Screen padded={false}>
+    <Screen edges={['left', 'right']} padded={false}>
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={colors.slate[400]} style={styles.searchIcon} />
         <TextInput
@@ -82,28 +108,3 @@ export function TaskListScreen({ navigation }: Props) {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.slate[200],
-    paddingHorizontal: spacing.sm,
-  },
-  searchIcon: { marginRight: 6 },
-  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: colors.slate[900] },
-  chipRow: { flexGrow: 0, marginBottom: spacing.sm },
-  listContent: { paddingHorizontal: 16, paddingBottom: spacing.xl, flexGrow: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rowContent: { flex: 1, marginRight: spacing.sm },
-  rowTitle: { ...typography.title, marginBottom: 6 },
-  rowMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  deptPill: { backgroundColor: colors.slate[100], borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 2 },
-  deptText: { fontSize: 11, fontWeight: '600', color: colors.slate[500] },
-});

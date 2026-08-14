@@ -1,8 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { useAppTheme } from '../theme';
 
 export function EmptyState({ icon, title, subtitle }: { icon: keyof typeof Ionicons.glyphMap; title: string; subtitle?: string }) {
+  const { colors, spacing, typography } = useAppTheme();
+  const styles = StyleSheet.create({
+    container: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl },
+    iconWrap: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.surfaceAlt,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+    },
+    title: { ...typography.title, textAlign: 'center' },
+    subtitle: { ...typography.body, color: colors.slate[400], textAlign: 'center', marginTop: 4 },
+  });
+
   return (
     <View style={styles.container}>
       <View style={styles.iconWrap}>
@@ -13,18 +29,3 @@ export function EmptyState({ icon, title, subtitle }: { icon: keyof typeof Ionic
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl },
-  iconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.slate[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  title: { ...typography.title, textAlign: 'center' },
-  subtitle: { ...typography.body, color: colors.slate[400], textAlign: 'center', marginTop: 4 },
-});

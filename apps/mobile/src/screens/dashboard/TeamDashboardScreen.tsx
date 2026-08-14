@@ -1,73 +1,195 @@
 import { useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
-import { useDepartmentDashboard, useDepartments } from '../../features/tasks/hooks';
-import { useSessionStore } from '../../lib/auth/session-store';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTeamDashboard } from '../../features/tasks/hooks';
 import { Screen } from '../../components/Screen';
-import { Card } from '../../components/Card';
-import { Chip } from '../../components/Chip';
-import { StatCard } from '../../components/StatCard';
 import { EmptyState } from '../../components/EmptyState';
-import { Badge } from '../../components/Badge';
-import { colors, spacing, typography } from '../../theme';
+import { LoadingView } from '../../components/LoadingView';
+import { ThemeToggleButton } from '../../components/ThemeToggleButton';
+import { useAppTheme } from '../../theme';
+
+interface StatusCount {
+  status_id: string;
+  label: string;
+  color: string | null;
+  count: number;
+}
+interface TeamStats {
+  counts_by_status: StatusCount[];
+  overdue_count: number;
+  over_budget_count: number;
+  open_count: number;
+}
 
 /**
- * View-only depth on mobile per docs/07-FRONTEND-MOBILE.md §4 — full admin config stays
- * desk-oriented (web only). Manager task assignment/editing is a fast-follow once the
- * task detail screen grows an edit mode.
+ * Role-adaptive team view (docs/10-OPEN-DECISIONS.md §K/§N) — same endpoint web's Team page
+ * uses, rendering per-scope: Manager sees direct reports only, Head/Management see a
+ * department or org-wide summary. Replaces the old fixed department-picker + generic task
+ * list, which showed the same content to every role regardless of what they actually manage.
  */
 export function TeamDashboardScreen() {
-  const { data: departments } = useDepartments();
-  const currentUser = useSessionStore((s) => s.currentUser);
-  const [departmentId, setDepartmentId] = useState(currentUser?.primary_department_id ?? '');
-  const { data } = useDepartmentDashboard(departmentId || undefined);
+  const [departmentId, setDepartmentId] = useState<string | undefined>(undefined);
+  const { data, isLoading } = useTeamDashboard(departmentId);
+  const { colors, radius, spacing, typography, shadow } = useAppTheme();
   const d = data as any;
 
+  const styles = StyleSheet.create({
+    topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: spacing.sm, marginBottom: spacing.sm },
+    heading: { ...typography.h1 },
+    listContent: { paddingHorizontal: 16, paddingBottom: spacing.xl },
+    statsRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.md },
+    stat: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+    statValue: { fontSize: 18, fontWeight: '700', color: colors.text },
+    statValueDanger: { fontSize: 18, fontWeight: '700', color: colors.danger },
+    statValueWarn: { fontSize: 18, fontWeight: '700', color: colors.warning },
+    statLabel: { ...typography.caption },
+    summaryCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: spacing.lg,
+      ...shadow.card,
+    },
+    row: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    rowTitle: { fontSize: 14, fontWeight: '600', color: colors.slate[800], marginBottom: 4 },
+    rowMeta: { fontSize: 12, color: colors.slate[400] },
+    sectionLabel: { ...typography.label, marginBottom: spacing.sm },
+    backLink: { fontSize: 12, fontWeight: '600', color: colors.primary, marginBottom: spacing.md, paddingHorizontal: 16 },
+  });
+
+  function StatRow({ stats }: { stats: TeamStats }) {
+    return (
+      <View style={styles.statsRow}>
+        <View style={styles.stat}>
+          <Text style={styles.statValue}>{stats.open_count}</Text>
+          <Text style={styles.statLabel}>open</Text>
+        </View>
+        <View style={styles.stat}>
+          <Text style={styles.statValueDanger}>{stats.overdue_count}</Text>
+          <Text style={styles.statLabel}>overdue</Text>
+        </View>
+        <View style={styles.stat}>
+          <Text style={styles.statValueWarn}>{stats.over_budget_count}</Text>
+          <Text style={styles.statLabel}>over budget</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (isLoading) return <LoadingView />;
+
+  if (!d || d.scope === 'none') {
+    return (
+      <Screen padded={false}>
+        <View style={styles.topRow}>
+          <Text style={styles.heading}>Team</Text>
+          <ThemeToggleButton />
+        </View>
+        <EmptyState icon="people-outline" title="No team view" subtitle="Your current role doesn't manage a team." />
+      </Screen>
+    );
+  }
+
+  if (d.scope === 'manager') {
+    return (
+      <Screen padded={false}>
+        <FlatList
+          data={d.members}
+          keyExtractor={(m: any) => m.id}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          ListHeaderComponent={
+            <>
+              <View style={styles.topRow}>
+                <Text style={styles.heading}>My Team</Text>
+                <ThemeToggleButton />
+              </View>
+              <View style={styles.summaryCard}>
+                <StatRow stats={d} />
+              </View>
+              <Text style={styles.sectionLabel}>Direct reports ({d.members.length})</Text>
+            </>
+          }
+          ListEmptyComponent={<EmptyState icon="person-outline" title="No direct reports yet" />}
+          renderItem={({ item }: { item: any }) => (
+            <View style={styles.row}>
+              <Text style={styles.rowTitle}>{item.full_name}</Text>
+            </View>
+          )}
+        />
+      </Screen>
+    );
+  }
+
+  if (d.scope === 'department') {
+    return (
+      <Screen padded={false}>
+        <FlatList
+          data={d.by_manager}
+          keyExtractor={(m: any) => m.manager_id}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          ListHeaderComponent={
+            <>
+              <View style={styles.topRow}>
+                <Text style={styles.heading}>{d.department_name}</Text>
+                <ThemeToggleButton />
+              </View>
+              {departmentId && (
+                <Text style={styles.backLink} onPress={() => setDepartmentId(undefined)}>
+                  ← All departments
+                </Text>
+              )}
+              <View style={styles.summaryCard}>
+                <StatRow stats={d} />
+              </View>
+              <Text style={styles.sectionLabel}>By manager</Text>
+            </>
+          }
+          ListEmptyComponent={<EmptyState icon="people-outline" title="No managers assigned yet" />}
+          renderItem={({ item }: { item: any }) => (
+            <View style={styles.row}>
+              <Text style={styles.rowTitle}>
+                {item.manager_name} · {item.member_count} reports
+              </Text>
+              <StatRow stats={item} />
+            </View>
+          )}
+        />
+      </Screen>
+    );
+  }
+
+  // scope === 'org'
   return (
     <Screen padded={false}>
       <FlatList
-        horizontal
-        data={departments ?? []}
-        keyExtractor={(dept) => dept.id}
-        style={styles.deptRow}
-        contentContainerStyle={{ paddingHorizontal: 16 }}
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => <Chip label={item.name} active={departmentId === item.id} onPress={() => setDepartmentId(item.id)} />}
-      />
-
-      <FlatList
-        data={d?.recently_created ?? []}
-        keyExtractor={(t: any) => t.id}
+        data={d.departments}
+        keyExtractor={(dept: any) => dept.department_id}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
         ListHeaderComponent={
-          d ? (
-            <View style={styles.statsRow}>
-              <StatCard label="Overdue" value={d.overdue_count} color={colors.danger} icon="alert-circle" />
-              <StatCard label="Statuses tracked" value={d.counts_by_status?.length ?? 0} color={colors.brand[600]} icon="stats-chart" />
-              <StatCard label="Assignees" value={d.workload_by_assignee?.length ?? 0} color={colors.success} icon="people" />
-            </View>
-          ) : null
+          <View style={styles.topRow}>
+            <Text style={styles.heading}>Organization</Text>
+            <ThemeToggleButton />
+          </View>
         }
-        ListEmptyComponent={<EmptyState icon="briefcase-outline" title="No recent activity" subtitle="Pick a department above to see its tasks." />}
         renderItem={({ item }: { item: any }) => (
-          <Card>
-            <View style={styles.row}>
-              <Text style={styles.rowTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              {item.status && <Badge label={item.status.label} color={item.status.color} />}
-            </View>
-          </Card>
+          <Pressable style={styles.row} onPress={() => setDepartmentId(item.department_id)}>
+            <Text style={styles.rowTitle}>
+              {item.department_name} · {item.member_count} members
+            </Text>
+            <StatRow stats={item} />
+          </Pressable>
         )}
       />
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  deptRow: { flexGrow: 0, marginTop: spacing.sm, marginBottom: spacing.sm },
-  listContent: { paddingHorizontal: 16, paddingBottom: spacing.xl, flexGrow: 1 },
-  statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rowTitle: { ...typography.title, flex: 1, marginRight: spacing.sm },
-});
