@@ -14,7 +14,8 @@
       "package": "net.econz.taskapp"
     },
     "extra": {
-      "apiBaseUrl": "http://localhost:3000"
+      "apiBaseUrl": "http://localhost:3000",
+      "googleOAuthClientId": ""
     }
   }
 }

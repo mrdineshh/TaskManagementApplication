@@ -4,11 +4,37 @@
 # — see apps/web/Dockerfile.
 steps:
   - name: gcr.io/cloud-builders/docker
-    args: ['build', '-f', 'apps/web/Dockerfile', '--build-arg', 'VITE_API_BASE_URL=${_API_URL}', '-t', '${_IMAGE}', '.']
+    args:
+      - build
+      - '-f'
+      - apps/web/Dockerfile
+      - '--build-arg'
+      - VITE_API_BASE_URL=${_API_URL}
+      - '--build-arg'
+      - VITE_FIREBASE_API_KEY=${_FIREBASE_API_KEY}
+      - '--build-arg'
+      - VITE_FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN}
+      - '--build-arg'
+      - VITE_FIREBASE_PROJECT_ID=${_FIREBASE_PROJECT_ID}
+      - '--build-arg'
+      - VITE_FIREBASE_APP_ID=${_FIREBASE_APP_ID}
+      - '--build-arg'
+      - VITE_ALLOWED_EMAIL_DOMAIN=${_ALLOWED_EMAIL_DOMAIN}
+      - '-t'
+      - ${_IMAGE}
+      - .
 images:
   - '${_IMAGE}'
 substitutions:
   _IMAGE: us-central1-docker.pkg.dev/econz-task-management-app/taskapp/web:latest
   _API_URL: https://taskapp-api-2r35mnxdmq-uc.a.run.app
+  # Firebase Web SDK config (docs/10-OPEN-DECISIONS.md §M4) — pass real values via
+  # --substitutions once the official-account Firebase project is provisioned; empty
+  # defaults keep Google Sign-In disabled (dev auth provider still works) until then.
+  _FIREBASE_API_KEY: ''
+  _FIREBASE_AUTH_DOMAIN: ''
+  _FIREBASE_PROJECT_ID: ''
+  _FIREBASE_APP_ID: ''
+  _ALLOWED_EMAIL_DOMAIN: econz.net
 options:
   logging: CLOUD_LOGGING_ONLY

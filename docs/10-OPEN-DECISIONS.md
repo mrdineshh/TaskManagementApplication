@@ -245,6 +245,11 @@ Firebase JS SDK, set `FIREBASE_PROJECT_ID` on the API service, then change
 `AUTH_PROVIDERS` back to `"google"` only in
 `infra/environments/dev/main.tf` and redeploy.
 
+**Status: code-complete, still open** — see §M4. The frontend wiring, Firebase JS SDK
+integration, and `FIREBASE_PROJECT_ID` Terraform plumbing are all done; what's left is
+provisioning the actual Firebase project under the right GCP account and setting the real
+values, then flipping `AUTH_PROVIDERS` and redeploying.
+
 ---
 
 ## G. Post-launch feature expansion (subtasks, effort/time tracking, org hierarchy, redesign)
@@ -760,6 +765,64 @@ from the navigator) — but it is not the same as seeing the app render in Expo 
 simulator/emulator, neither of which exists in this sandbox. Genuinely worth a quick real
 device/Expo-Go check before this reaches real users, though the risk profile is now much
 lower than an untested change: the JS bundle Expo Go would load is now proven to build clean.
+
+### M4. Google Sign-In wired end-to-end on web + mobile — code-complete, blocked only on real Firebase project values (partially closes §F4)
+`GoogleAuthProvider` (backend) has existed since #4 but nothing ever called it — both frontends
+had a permanently-disabled "Sign in with Google" placeholder, and `FIREBASE_PROJECT_ID` was
+missing from all three Terraform environments' `env_vars` entirely (not even an empty
+placeholder — the "google" provider would have thrown `UnauthorizedException` at runtime in
+every deployed environment even with a correct real value elsewhere). Fixed all of it:
+
+- **Terraform**: added a `firebase_project_id` variable (default `""`) and
+  `FIREBASE_PROJECT_ID = var.firebase_project_id` to `env_vars` in `infra/environments/{dev,staging,prod}/main.tf`.
+  Not secret — `verifyIdToken()` only uses it to check the token's `aud` claim against Google's
+  *public* JWKS endpoint, no IAM/ADC project match required — so a plain variable is correct,
+  no Secret Manager entry needed. (`GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET`, by
+  contrast, turned out to be dead: grepped the entire backend and nothing reads either — left
+  as-is rather than touching already-applied Secret Manager resources out of scope.)
+- **Web** (`apps/web/src/lib/firebase/client.ts`, `LoginPage.tsx`): added the `firebase` dep,
+  `signInWithGoogle()` via `signInWithPopup` + `GoogleAuthProvider`, wired to the previously-dead
+  button. Reads `VITE_FIREBASE_{API_KEY,AUTH_DOMAIN,PROJECT_ID,APP_ID}` — a public, embeddable
+  config, not a secret — with an `firebaseEnabled` guard that keeps the button honestly disabled
+  ("pending GCP setup") until all four are set. Threaded through as new Docker build args
+  (`apps/web/Dockerfile`, `cloudbuild.yaml`) alongside the existing `VITE_API_BASE_URL` pattern,
+  since Vite bakes these in at build time, not runtime.
+- **Mobile** (`apps/mobile/src/screens/auth/LoginScreen.tsx`): added `expo-auth-session` +
+  `expo-web-browser` + `expo-crypto` (SDK-51-pinned versions read from `expo`'s own
+  `bundledNativeModules.json`, since the registry-version-check `expo install` step fails in
+  this sandbox the same way §M3 already worked around). Uses
+  `Google.useIdTokenAuthRequest({ webClientId })` — the chosen approach from the earlier
+  discussion, reusing the single Web OAuth Client ID rather than a native client (no EAS custom
+  dev client / SHA-1 fingerprint needed, still works inside plain Expo Go via Expo's auth
+  proxy). Client ID read from `app.json`'s `extra.googleOAuthClientId`, mirroring the existing
+  `extra.apiBaseUrl` convention.
+- **Verified the same way as §M3**: both apps typecheck clean; re-ran the iOS/Android Metro
+  bundle-compile check after adding the new deps (both still 200 OK, zero errors) and grepped
+  the compiled output to confirm the new Google sign-in code is actually present in both
+  platform bundles, not stale cache.
+
+**Why this landed as code-complete but not flag-flipped**: the Firebase project created so far
+(`task-management-e12d2`) was created under a personal Google account, not the official one the
+real GCP infra (`econz-task-management-app` et al.) lives under — caught before any secrets were
+committed. Decision: keep building the integration against env vars (which don't care which
+Firebase project supplies the values) rather than block on resolving ownership first, since
+none of the code above hardcodes project-specific values.
+
+**Remaining before this can actually be used**:
+1. Provision (or transfer) a Firebase project under the official GCP account, enable Google as a
+   sign-in provider, register a Web app to get the `VITE_FIREBASE_*` config values.
+2. Get the **Web OAuth Client ID** (Google Cloud Console → APIs & Services → Credentials — the
+   client Firebase auto-creates once Google sign-in is enabled) for mobile's
+   `extra.googleOAuthClientId`.
+3. Add Expo's auth-proxy redirect URI (`https://auth.expo.io/@<owner>/<slug>`) to that OAuth
+   client's Authorized redirect URIs — required for `promptAsync()` to complete inside Expo Go;
+   not yet done since the client doesn't exist yet.
+4. Set the real `firebase_project_id` Terraform var (`-var` or CI secret store) and re-apply;
+   set the real `VITE_FIREBASE_*` / `VITE_ALLOWED_EMAIL_DOMAIN` values in the web Cloud Build
+   substitutions and rebuild/redeploy the web image.
+5. Only once (4) is confirmed working end-to-end in the deployed dev environment: flip
+   `AUTH_PROVIDERS` back to `"google"` alone in `infra/environments/dev/main.tf` (closing the
+   §F4 exposure for real) and redeploy.
 
 ---
 

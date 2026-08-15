@@ -19,6 +19,20 @@ FROM deps AS build
 # which only works when Vite's dev-server proxy exists; there's no such proxy in production).
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+# Firebase Web SDK config (docs/10-OPEN-DECISIONS.md §M4) — apiKey/authDomain/projectId/appId
+# are not secrets (they're embedded in the public JS bundle by design), but still build-time
+# only like VITE_API_BASE_URL above. Google Sign-In stays disabled (apps/web/src/lib/firebase/
+# client.ts) until all four are supplied.
+ARG VITE_FIREBASE_API_KEY
+ARG VITE_FIREBASE_AUTH_DOMAIN
+ARG VITE_FIREBASE_PROJECT_ID
+ARG VITE_FIREBASE_APP_ID
+ARG VITE_ALLOWED_EMAIL_DOMAIN
+ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
+ENV VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN
+ENV VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID
+ENV VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
+ENV VITE_ALLOWED_EMAIL_DOMAIN=$VITE_ALLOWED_EMAIL_DOMAIN
 COPY . .
 RUN npx turbo run build --filter=@taskapp/web
 

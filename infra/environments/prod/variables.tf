@@ -19,6 +19,12 @@ variable "google_oauth_client_secret" {
   sensitive = true
 }
 
+variable "firebase_project_id" {
+  description = "GCP project ID hosting the Firebase project used for Google Sign-In (docs/10-OPEN-DECISIONS.md §M4). Not secret — it's the JWT audience the API checks ID tokens against."
+  type        = string
+  default     = ""
+}
+
 variable "enable_ha" {
   description = "Adds a Cloud SQL HA replica (~2x cost) — off by default per docs/08-INFRA-DEPLOYMENT.md §6, flip on only once uptime requirements justify it."
   type        = bool

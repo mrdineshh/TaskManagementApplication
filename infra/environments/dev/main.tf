@@ -182,9 +182,10 @@ module "api" {
     # zero verification, and this Cloud Run service is allow_unauthenticated — anyone with the
     # URL can sign in as any @econz.net user, including admins, until this is reverted to
     # "google" only once real Firebase credentials are set up.
-    AUTH_PROVIDERS = "google,dev"
-    ATTACHMENTS_BUCKET   = module.attachments_bucket.bucket_name
-    DEV_KMS_KEY_ID       = google_kms_crypto_key.integration_settings.id
+    AUTH_PROVIDERS      = "google,dev"
+    FIREBASE_PROJECT_ID = var.firebase_project_id
+    ATTACHMENTS_BUCKET  = module.attachments_bucket.bucket_name
+    DEV_KMS_KEY_ID      = google_kms_crypto_key.integration_settings.id
   }
 
   secret_env_vars = {
