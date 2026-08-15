@@ -10,9 +10,10 @@ import {
 import { TasksService } from './tasks.service';
 import { MockStorageService } from '../storage/mock-storage.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { HolidayCalendarsModule } from '../holiday-calendars/holiday-calendars.module';
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, HolidayCalendarsModule],
   controllers: [
     TasksController,
     CommentsController,

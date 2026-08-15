@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { AccessTokenPayload } from '../auth/auth.service';
 import { assertDepartmentScope, departmentScopeWhere } from '../common/scope.util';
 import { decodeCursor, encodeCursor } from '../common/cursor-pagination.util';
+import { isOverdueOnBusinessDay } from '../common/business-days.util';
+import { HolidayCalendarsService } from '../holiday-calendars/holiday-calendars.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import type { CreateTaskDto, TaskListQueryDto, UpdateTaskDto } from './dto/task.dto';
 
@@ -17,6 +19,7 @@ export class TasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly holidayCalendars: HolidayCalendarsService,
   ) {}
 
   async list(user: AccessTokenPayload, query: TaskListQueryDto) {
@@ -36,11 +39,21 @@ export class TasksService {
       ...departmentScopeWhere(user),
       ...(query.department_id ? { departmentId: query.department_id } : {}),
       ...(query.status_id ? { statusId: query.status_id } : {}),
-      ...(query.assignee_id ? { assigneeId: query.assignee_id } : {}),
+      ...(query.assignee_id?.length ? { assigneeId: { in: query.assignee_id } } : {}),
       ...(query.priority_id ? { priorityId: query.priority_id } : {}),
       ...(query.parent_task_id !== undefined ? { parentTaskId: query.parent_task_id } : {}),
       ...(query.q ? { title: { contains: query.q, mode: 'insensitive' } } : {}),
     };
+
+    // Drill-down from a dashboard's "Overdue"/"Over budget" stat (docs/10-OPEN-DECISIONS.md
+    // §M5) — same live definition dashboards.controller.ts's computeTaskStats() uses (open
+    // tasks only, business-day-overdue as of now / logged minutes over the estimate). Computed
+    // in-memory per task's own assignee holiday calendar, so this path skips cursor pagination
+    // in favor of one bounded fetch — dashboard-scoped task lists (a department/team) are small
+    // enough that this is simpler and more honest than a DB predicate that can't express it.
+    if (query.overdue || query.over_budget) {
+      return this.listByComputedFilter(where, query, limit);
+    }
 
     const cursor = decodeCursor<Cursor>(query.cursor);
     if (cursor) {
@@ -67,6 +80,51 @@ export class TasksService {
       items: page,
       next_cursor: hasMore && last ? encodeCursor({ id: last.id, sortValue: String(last[orderField as keyof typeof last]) }) : null,
     };
+  }
+
+  private async listByComputedFilter(where: Prisma.TaskWhereInput, query: TaskListQueryDto, limit: number) {
+    const candidates = await this.prisma.task.findMany({
+      where: { ...where, status: { category: { in: ['todo', 'in_progress'] } } },
+      orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
+      take: 500,
+      include: {
+        status: true,
+        priority: true,
+        assignee: { select: { id: true, fullName: true, email: true, workCountry: true, workState: true } },
+        department: { select: { id: true, name: true } },
+        timeLogs: { select: { minutes: true } },
+      },
+    });
+
+    const now = new Date();
+    const holidayCache = new Map<string, ReadonlySet<string>>();
+    const matches: typeof candidates = [];
+
+    for (const task of candidates) {
+      let isOverdue = false;
+      if (task.dueDate && task.assignee) {
+        const regionKey = `${task.assignee.workCountry}::${task.assignee.workState}`;
+        if (!holidayCache.has(regionKey)) {
+          holidayCache.set(regionKey, await this.holidayCalendars.getHolidayDateKeys(task.assignee.workCountry, task.assignee.workState));
+        }
+        isOverdue = isOverdueOnBusinessDay(task.dueDate, now, holidayCache.get(regionKey)!);
+      }
+
+      let isOverBudget = false;
+      if (task.estimateValue !== null && task.estimateUnit !== null) {
+        const estimateMinutes = task.estimateUnit === 'days' ? task.estimateValue * 8 * 60 : task.estimateValue * 60;
+        const loggedMinutes = task.timeLogs.reduce((sum, l) => sum + l.minutes, 0);
+        isOverBudget = loggedMinutes > estimateMinutes;
+      }
+
+      // Combines like every other filter on this endpoint (AND, narrowing further) — matters
+      // only if a caller passes both at once, which the UI never does today.
+      if ((!query.overdue || isOverdue) && (!query.over_budget || isOverBudget)) {
+        matches.push(task);
+      }
+    }
+
+    return { items: matches.slice(0, limit), next_cursor: null };
   }
 
   async get(user: AccessTokenPayload, id: string) {

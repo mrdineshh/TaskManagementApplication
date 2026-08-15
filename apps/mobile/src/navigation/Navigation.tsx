@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme, type NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSessionStore } from '../lib/auth/session-store';
@@ -13,15 +13,36 @@ import { TeamDashboardScreen } from '../screens/dashboard/TeamDashboardScreen';
 import { ScorecardScreen } from '../screens/scorecard/ScorecardScreen';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 
+// TaskList's optional params are the drill-down landing state (docs/10-OPEN-DECISIONS.md §M5)
+// — Team/Scorecard screens navigate here (cross-tab, into AllTasksTab) with these set so a tap
+// on a dashboard number lands on exactly that slice, mirroring web's /tasks?... query params.
+export type TaskListFilterParams = {
+  departmentId?: string;
+  assigneeIds?: string;
+  overdue?: boolean;
+  overBudget?: boolean;
+};
+
 export type TasksStackParamList = {
   MyTasks: undefined;
-  TaskList: undefined;
+  TaskList: TaskListFilterParams | undefined;
   TaskDetail: { id: string };
+};
+
+// Lets Team/Scorecard (plain tab screens, not inside either tasks stack) navigate cross-tab
+// into AllTasksTab's TaskList with typed params, instead of an untyped `navigate('AllTasksTab',
+// { screen: ..., params: ... } as any)`.
+export type MainTabsParamList = {
+  MyTasksTab: NavigatorScreenParams<TasksStackParamList>;
+  AllTasksTab: NavigatorScreenParams<TasksStackParamList>;
+  Team: undefined;
+  ScorecardTab: undefined;
+  Notifications: undefined;
 };
 
 const MyTasksStack = createNativeStackNavigator<TasksStackParamList>();
 const AllTasksStack = createNativeStackNavigator<TasksStackParamList>();
-const Tabs = createBottomTabNavigator();
+const Tabs = createBottomTabNavigator<MainTabsParamList>();
 const RootStack = createNativeStackNavigator();
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {

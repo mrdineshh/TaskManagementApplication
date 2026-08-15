@@ -77,6 +77,15 @@ export function useMyScorecard(start: string, end: string) {
   });
 }
 
+/** Leaderboard drill-down (docs/10-OPEN-DECISIONS.md §M5) — same GET /scorecards/users/:id web uses. */
+export function useUserScorecard(userId: string | undefined, start: string, end: string) {
+  return useQuery({
+    queryKey: ['scorecards', 'users', userId, start, end],
+    queryFn: () => apiClient.scorecards.forUser(userId!, start, end),
+    enabled: !!userId,
+  });
+}
+
 export function useLeaderboard(departmentId: string | undefined, start: string, end: string) {
   return useQuery({
     queryKey: ['scorecards', 'leaderboard', departmentId, start, end],

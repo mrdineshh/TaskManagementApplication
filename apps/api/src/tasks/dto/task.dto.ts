@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
@@ -166,9 +166,14 @@ export class TaskListQueryDto {
   @IsUUID()
   status_id?: string;
 
+  // A single UUID (the common case) or a comma-separated list — the latter powers the "whole
+  // team" drill-down links (docs/10-OPEN-DECISIONS.md §M5: a manager's aggregate Overdue/Over
+  // budget count links to every direct report at once, not one person). Always normalized to
+  // an array so TasksService only has one shape to handle.
   @IsOptional()
-  @IsUUID()
-  assignee_id?: string;
+  @Transform(({ value }) => (typeof value === 'string' ? value.split(',').filter(Boolean) : value))
+  @IsUUID('all', { each: true })
+  assignee_id?: string[];
 
   @IsOptional()
   @IsUUID()
@@ -181,6 +186,22 @@ export class TaskListQueryDto {
   @IsOptional()
   @IsString()
   q?: string;
+
+  // Drill-down filters (docs/10-OPEN-DECISIONS.md §M5) — same business-day-overdue / logged-vs-
+  // estimated-budget definitions the team dashboard's stat counts already use, so clicking a
+  // dashboard's "Overdue: N" number and landing here shows exactly N tasks, not an
+  // approximation. Both computed in-memory (not a DB predicate — the accessor's holiday
+  // calendar is per-assignee), so combining either with cursor pagination is out of scope for
+  // now; see TasksService.list().
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  overdue?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  over_budget?: boolean;
 
   @IsOptional()
   @IsString()

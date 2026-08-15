@@ -1,65 +1,67 @@
 /**
- * Design tokens — mirrors apps/web/tailwind.config.js's indigo/teal system
- * (docs/10-OPEN-DECISIONS.md §N) so mobile and web read as one product again after web's
- * Phase 6 redesign diverged from this file's old flat blue. `spacing`/`radius` are
- * theme-independent; colors/typography/shadow come from `useAppTheme()`
+ * Design tokens — mirrors apps/web/tailwind.config.js's "Studio Desk" forest-green/ochre
+ * system (docs/10-OPEN-DECISIONS.md §M5) so mobile and web read as one product. `spacing`/
+ * `radius` are theme-independent; colors/typography/shadow come from `useAppTheme()`
  * (see `./ThemeProvider.tsx`) since React Native has no CSS custom-property equivalent —
  * every color has to be resolved per-render, not baked into a module-level StyleSheet.
  */
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
-export const radius = { sm: 6, md: 10, lg: 14, xl: 20, pill: 999 } as const;
+// Softer, larger radii (Studio Desk's "unhurried" feel) — one notch up from the old scale,
+// matching web's borderRadius bump in tailwind.config.js.
+export const radius = { sm: 8, md: 14, lg: 18, xl: 24, pill: 999 } as const;
 
 const brand = {
-  50: '#eef2ff',
-  100: '#e0e7ff',
-  200: '#c7d2fe',
-  300: '#a5b4fc',
-  400: '#818cf8',
-  500: '#6366f1',
-  600: '#4f46e5',
-  700: '#4338ca',
-  800: '#3730a3',
-  900: '#312e81',
-  950: '#1e1b4b',
+  50: '#eff5f2',
+  100: '#dceae3',
+  200: '#b7d6c9',
+  300: '#8fbeaa',
+  400: '#62a088',
+  500: '#2b6357',
+  600: '#235247',
+  700: '#1d4339',
+  800: '#17352e',
+  900: '#112722',
+  950: '#0a1714',
 } as const;
 
 const accent = {
-  100: '#ccfbf1',
-  300: '#5eead4',
-  400: '#2dd4bf',
-  500: '#14b8a6',
-  600: '#0d9488',
-  900: '#134e4a',
+  100: '#f5e4c2',
+  300: '#e3b563',
+  400: '#d69f3e',
+  500: '#c98a2c',
+  600: '#ad7322',
+  900: '#4a310e',
 } as const;
 
 const slateLight = {
-  50: '#f8fafc',
-  100: '#f1f5f9',
-  200: '#e2e8f0',
-  300: '#cbd5e1',
-  400: '#94a3b8',
-  500: '#64748b',
-  600: '#475569',
-  700: '#334155',
-  800: '#1e293b',
-  900: '#0f172a',
+  50: '#faf8f4',
+  100: '#f3eee5',
+  200: '#e8e0d2',
+  300: '#d6cab4',
+  400: '#b8a98d',
+  500: '#97876d',
+  600: '#786b54',
+  700: '#5b5040',
+  800: '#40372a',
+  900: '#2b2620',
 } as const;
 
 // A dark-mode "slate" scale, roughly the light one reversed and deepened — same role as
-// web's Tailwind dark: variants (Phase 6), just resolved into concrete values here instead
-// of expressed as a class-name suffix.
+// web's Tailwind dark: variants, just resolved into concrete values here instead of expressed
+// as a class-name suffix. Kept warm (brownish near-black), not the old cool-navy dark, so
+// dark mode carries the same "paper planner" character as light mode.
 const slateDark = {
-  50: '#0b0c17',
-  100: '#10111f',
-  200: '#181a2e',
-  300: '#2a2c47',
-  400: '#3d3f61',
-  500: '#6f7292',
-  600: '#8b8eb0',
-  700: '#b4b7d6',
-  800: '#d5d7ef',
-  900: '#eef0ff',
+  50: '#1a160f',
+  100: '#221c14',
+  200: '#2b2620',
+  300: '#40372a',
+  400: '#5b5040',
+  500: '#786b54',
+  600: '#97876d',
+  700: '#b8a98d',
+  800: '#d6cab4',
+  900: '#f3eee5',
 } as const;
 
 export type ThemeColors = ReturnType<typeof buildColors>;
@@ -96,14 +98,24 @@ function buildColors(scheme: 'light' | 'dark') {
 export const lightColors = buildColors('light');
 export const darkColors = buildColors('dark');
 
+// Fraunces (headings) + Karla (everything else) — mirrors web's font pairing (tailwind.config.js
+// fontFamily). Loaded via expo-font in App.tsx before first render (see useFonts there); RN
+// needs the exact per-weight family name rather than a separate fontWeight prop, so none of
+// these also set fontWeight.
 export function makeTypography(colors: ThemeColors) {
   return {
-    h1: { fontSize: 24, fontWeight: '700' as const, color: colors.text },
-    h2: { fontSize: 18, fontWeight: '700' as const, color: colors.text },
-    title: { fontSize: 15, fontWeight: '600' as const, color: colors.slate[800] },
-    body: { fontSize: 14, fontWeight: '400' as const, color: colors.textSoft },
-    caption: { fontSize: 12, fontWeight: '500' as const, color: colors.slate[400] },
-    label: { fontSize: 11, fontWeight: '600' as const, color: colors.slate[400], textTransform: 'uppercase' as const, letterSpacing: 0.4 },
+    h1: { fontSize: 24, fontFamily: 'Fraunces_700Bold', color: colors.text },
+    h2: { fontSize: 18, fontFamily: 'Fraunces_600SemiBold', color: colors.text },
+    title: { fontSize: 15, fontFamily: 'Karla_600SemiBold', color: colors.slate[800] },
+    body: { fontSize: 14, fontFamily: 'Karla_400Regular', color: colors.textSoft },
+    caption: { fontSize: 12, fontFamily: 'Karla_500Medium', color: colors.slate[400] },
+    label: {
+      fontSize: 11,
+      fontFamily: 'Karla_600SemiBold',
+      color: colors.slate[400],
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.4,
+    },
   };
 }
 export type Typography = ReturnType<typeof makeTypography>;

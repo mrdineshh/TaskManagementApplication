@@ -824,6 +824,72 @@ none of the code above hardcodes project-specific values.
    `AUTH_PROVIDERS` back to `"google"` alone in `infra/environments/dev/main.tf` (closing the
    §F4 exposure for real) and redeploy.
 
+### M5. "Studio Desk" visual redesign + Power BI-style drill-down, web and mobile
+
+User picked "Studio Desk" (one of three original mockups — warm putty neutral, forest-green
+primary, serif headings) and separately asked for "every click gives nested, more granular
+detail," citing Power BI. Two independent pieces of work, both shipped app-wide:
+
+**Palette + typography — mechanical sweep, same trick as §L3's dark-mode rollout.** Rather than
+touching every component file, redefined the *scales themselves*:
+- Web (`apps/web/tailwind.config.js`): `brand` (was indigo) → forest green 50-950, `accent`
+  (was teal) → ochre, and — the new part — overrode Tailwind's built-in `slate` scale itself
+  with a warm putty/greige ramp, so every existing `slate-*`/`dark:slate-*` utility across the
+  whole app (body bg, borders, muted text) picked up the new neutral with zero per-file edits.
+  Bumped `borderRadius.{md,lg,xl,2xl}` up one notch for the softer "unhurried" feel. Added
+  Fraunces (headings) + Karla (body) via Google Fonts `<link>` in `index.html`, with a single
+  `@layer base { h1,h2,h3,h4 { font-family: ... } }` rule in `index.css` picking up every
+  semantic heading tag app-wide — confirmed via `grep` that all 22 heading usages in the
+  codebase are real `<h1>`-`<h3>` tags, not styled `<div>`s, before relying on this.
+- Mobile (`apps/mobile/src/theme/index.ts`): same forest-green/ochre/putty values ported to the
+  `buildColors()` scheme resolver (light *and* dark — dark stayed warm/brownish, not the old
+  cool navy, so dark mode carries the same character). Added `expo-font` +
+  `@expo-google-fonts/{fraunces,karla}` (SDK-51-pinned versions read from `expo`'s own
+  `bundledNativeModules.json`, same registry-network workaround as §M3) and gated `App.tsx`'s
+  first render on `useFonts()` resolving, since `makeTypography()` now references exact
+  per-weight family names.
+- **Verified for real**: typechecked clean across all 7 packages; screenshotted the actual
+  running web app (Playwright, both themes, logged in via dev auth against a freshly
+  migrated+reseeded local Postgres) — fonts and colors render correctly, not just "compiles."
+  Mobile verified the same way as §M2/§M3: zero-error Metro bundle compile for both platforms,
+  grepped for the new font family strings in the compiled output.
+
+**Drill-down.** Design: Team Dashboard's Org → Department → Manager → Member hierarchy and
+Scorecard's leaderboard both terminate in filtered detail, using data that mostly already
+existed:
+- `/dashboards/team`'s department-scope response already returned every member with their
+  `managerId` — the department→manager→member drill needed zero backend changes, just UI to
+  expose it (web: click-to-expand rows; mobile: same, `Ionicons` chevron).
+- Added `overdue`/`over_budget` boolean filters to `GET /tasks` (`TaskListQueryDto`,
+  `TasksService.list()`), reusing the *exact* business-day/logged-vs-estimate definitions
+  `dashboards.controller.ts`'s `computeTaskStats()` already computes the dashboard counts
+  from (per-assignee holiday-calendar-cached, same as that method) — so a dashboard's
+  "Overdue: 3" number and the task list you land on after clicking it agree, not two subtly
+  different definitions. Computed in-memory (holiday calendars aren't a DB predicate), so this
+  path skips cursor pagination in favor of one bounded 500-row fetch — fine at
+  department/team scale, not fine as a general-purpose filter, which is why it's gated behind
+  the boolean flags rather than always active.
+- `assignee_id` extended from a single UUID to an optional comma-separated list (`@Transform` +
+  `@IsUUID('all', {each:true})`, normalized to `string[]` in the DTO) so a manager's *whole
+  team's* aggregate Overdue/Over budget count can link to one task-list view, not just a single
+  person's.
+- Scorecard leaderboard rows drill into `GET /scorecards/users/:userId` — already implemented,
+  never called by any page until now. Sub-score tiles expand in place to show the raw counters
+  (`completed_count`, `on_time_count`, etc.) already returned alongside `sub_scores`, rather
+  than linking to a task list: the scorecard's overdue/over_budget are a **date-range-scoped
+  historical** count, a genuinely different definition from the live one the tasks endpoint's
+  new filters use — linking them would show a list whose row count doesn't match the number
+  just clicked, which is worse than not linking at all.
+- **Verified for real, not just typechecked**: logged into the actual running app (Playwright,
+  dev auth) and clicked through every hop — Organization → Development → expand a manager →
+  click "Overdue: 0" → landed on `/tasks?department_id=...&overdue=true` showing "No tasks
+  found" (0 overdue, 0 rows: the numbers agree); Scorecard leaderboard row → "Mike Management's
+  scorecard" with a working back link → clicked "On-time completion" → tile expanded showing
+  "Completed on time: 0 / Completed (with a due date): 0". Mobile side verified the same way as
+  every other mobile change this session: zero-error bundle compiles for both platforms with
+  the new navigation/query code confirmed present in the compiled output (on-device rendering
+  still isn't checkable in this sandbox, same standing gap as §M3).
+
 ---
 
 ## How to keep this log current

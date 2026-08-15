@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useDepartments, useTasks } from '../../features/tasks/hooks';
@@ -14,10 +14,16 @@ import type { TasksStackParamList } from '../../navigation/Navigation';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'TaskList'>;
 
-export function TaskListScreen({ navigation }: Props) {
+/**
+ * Filterable task list — also the drill-down landing screen (docs/10-OPEN-DECISIONS.md §M5):
+ * Team/Scorecard navigate here (cross-tab) with route.params set, so a tap on a dashboard
+ * number lands on exactly that slice, not a fresh unfiltered list.
+ */
+export function TaskListScreen({ navigation, route }: Props) {
+  const drill = route.params;
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [departmentId, setDepartmentId] = useState('');
+  const [departmentId, setDepartmentId] = useState(drill?.departmentId ?? '');
   const { data: departments } = useDepartments();
   const { colors, radius, spacing, typography } = useAppTheme();
 
@@ -26,7 +32,14 @@ export function TaskListScreen({ navigation }: Props) {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { data, isLoading } = useTasks({ q: debouncedSearch || undefined, department_id: departmentId || undefined });
+  const hasDrillFilters = Boolean(drill?.assigneeIds || drill?.overdue || drill?.overBudget);
+  const { data, isLoading } = useTasks({
+    q: debouncedSearch || undefined,
+    department_id: departmentId || undefined,
+    assignee_id: drill?.assigneeIds,
+    overdue: drill?.overdue ? 'true' : undefined,
+    over_budget: drill?.overBudget ? 'true' : undefined,
+  });
 
   const styles = StyleSheet.create({
     searchWrap: {
@@ -51,10 +64,42 @@ export function TaskListScreen({ navigation }: Props) {
     rowMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     deptPill: { backgroundColor: colors.surfaceAlt, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 2 },
     deptText: { fontSize: 11, fontWeight: '600', color: colors.slate[500] },
+    filterBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+      marginHorizontal: 16,
+      marginBottom: spacing.sm,
+      backgroundColor: `${colors.primary}14`,
+      borderWidth: 1,
+      borderColor: `${colors.primary}40`,
+      borderRadius: radius.sm,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    filterLabel: { fontSize: 12, color: colors.slate[500] },
+    filterChip: { fontSize: 12, fontWeight: '700', color: colors.text },
+    filterBadgeDanger: { fontSize: 11, fontWeight: '700', color: colors.danger, backgroundColor: colors.dangerBg, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 },
+    filterBadgeWarn: { fontSize: 11, fontWeight: '700', color: colors.warning, backgroundColor: colors.warningBg, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 },
+    filterClear: { marginLeft: 'auto', fontSize: 12, fontWeight: '600', color: colors.primary },
   });
 
   return (
     <Screen edges={['left', 'right']} padded={false}>
+      {hasDrillFilters && (
+        <View style={styles.filterBanner}>
+          <Text style={styles.filterLabel}>Filtered:</Text>
+          {drill?.assigneeIds && (
+            <Text style={styles.filterChip}>{drill.assigneeIds.split(',').length === 1 ? '1 person' : `${drill.assigneeIds.split(',').length} people`}</Text>
+          )}
+          {drill?.overdue && <Text style={styles.filterBadgeDanger}>Overdue</Text>}
+          {drill?.overBudget && <Text style={styles.filterBadgeWarn}>Over budget</Text>}
+          <Pressable onPress={() => navigation.setParams({ departmentId: undefined, assigneeIds: undefined, overdue: undefined, overBudget: undefined })}>
+            <Text style={styles.filterClear}>Clear</Text>
+          </Pressable>
+        </View>
+      )}
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={colors.slate[400]} style={styles.searchIcon} />
         <TextInput
