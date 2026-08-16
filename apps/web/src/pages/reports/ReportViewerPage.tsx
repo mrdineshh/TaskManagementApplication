@@ -1,20 +1,27 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ReportExportFormat } from '@taskapp/shared-types';
 import { useExportSavedReport, useReport, useRunReport, triggerBlobDownload } from '../../features/reports/hooks';
 import { ReportChart } from '../../features/reports/ReportChart';
+import { reportDrillHref } from '../../features/reports/drill';
 import { useSessionStore } from '../../lib/auth/session-store';
 import { ReportScheduleSection } from '../../features/reports/ReportScheduleSection';
 
 const EXPORT_FORMATS: ReportExportFormat[] = ['csv', 'xlsx', 'pdf'];
 
-/** Runs and displays a SavedReport (docs/05-FEATURES.md §3.1/§3.3), with export + scheduling. */
+/**
+ * Runs and displays a SavedReport (docs/05-FEATURES.md §3.1/§3.3), with export + scheduling.
+ * Drill-down (docs/10-OPEN-DECISIONS.md §M6): bars/slices/rows whose dimension_value maps to a
+ * real filterable id (status/department/priority/assignee) navigate into the task list
+ * pre-filtered to exactly that slice — see features/reports/drill.ts for which metrics qualify.
+ */
 export function ReportViewerPage() {
   const { id } = useParams<{ id: string }>();
   const { data: report } = useReport(id);
   const { data: results, isLoading, isError, error } = useRunReport(id);
   const exportReport = useExportSavedReport();
   const currentUser = useSessionStore((s) => s.currentUser);
+  const navigate = useNavigate();
   const [exporting, setExporting] = useState<ReportExportFormat | null>(null);
 
   if (!report) return <p className="text-sm text-slate-400 dark:text-slate-500">Loading…</p>;
@@ -67,7 +74,12 @@ export function ReportViewerPage() {
         {results?.map((result) => (
           <div key={result.metric} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
             <h2 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">{metricLabel(result.metric)}</h2>
-            <ReportChart result={result} chartType={report.config.chart_type} />
+            <ReportChart
+              result={result}
+              chartType={report.config.chart_type}
+              drillHref={(dimensionValue) => reportDrillHref(result.metric, dimensionValue, report.config.filters.department_id)}
+              onDrill={(href) => navigate(href)}
+            />
           </div>
         ))}
       </div>

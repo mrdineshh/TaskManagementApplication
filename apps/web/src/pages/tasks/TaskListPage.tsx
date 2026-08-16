@@ -15,21 +15,25 @@ export function TaskListPage() {
   const [showNewTask, setShowNewTask] = useState(false);
   const departmentId = params.get('department_id') ?? undefined;
   const assigneeIds = params.get('assignee_id') ?? undefined;
+  const statusId = params.get('status_id') ?? undefined;
+  const priorityId = params.get('priority_id') ?? undefined;
   const overdue = params.get('overdue') === 'true';
   const overBudget = params.get('over_budget') === 'true';
-  const hasDrillFilters = Boolean(assigneeIds || overdue || overBudget);
+  const hasDrillFilters = Boolean(assigneeIds || statusId || priorityId || overdue || overBudget);
 
   const { data: departments } = useDepartments();
   const { data, isLoading } = useTasks({
     department_id: departmentId,
     assignee_id: assigneeIds,
+    status_id: statusId,
+    priority_id: priorityId,
     overdue: overdue ? 'true' : undefined,
     over_budget: overBudget ? 'true' : undefined,
   });
 
-  // Free label derivation (docs §M5) — the loaded rows already carry assignee names, so a
-  // single-person drill ("Ada Admin's tasks") needs no extra request; a multi-person drill
-  // (a manager's whole team) falls back to a count.
+  // Free label derivation (docs §M5/§M6) — the loaded rows already carry assignee/status/
+  // priority labels, so these read straight off the first matching row instead of a second
+  // request just to resolve a name from an id.
   const assigneeLabel = useMemo(() => {
     if (!assigneeIds || !data?.items.length) return null;
     const ids = assigneeIds.split(',');
@@ -39,6 +43,8 @@ export function TaskListPage() {
     }
     return `${ids.length} team members`;
   }, [assigneeIds, data]);
+  const statusLabel = statusId ? (data?.items[0] as any)?.status?.label : null;
+  const priorityLabel = priorityId ? (data?.items[0] as any)?.priority?.label : null;
 
   const departmentName = departments?.find((dep) => dep.id === departmentId)?.name;
 
@@ -65,6 +71,8 @@ export function TaskListPage() {
           <span className="text-slate-500 dark:text-slate-400">Filtered:</span>
           {departmentName && <span className="font-medium text-slate-700 dark:text-slate-200">{departmentName}</span>}
           {assigneeLabel && <span className="font-medium text-slate-700 dark:text-slate-200">{assigneeLabel}</span>}
+          {statusId && <span className="font-medium text-slate-700 dark:text-slate-200">Status: {statusLabel ?? '…'}</span>}
+          {priorityId && <span className="font-medium text-slate-700 dark:text-slate-200">Priority: {priorityLabel ?? '…'}</span>}
           {overdue && <span className="rounded-full bg-red-100 dark:bg-red-950 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">Overdue</span>}
           {overBudget && (
             <span className="rounded-full bg-orange-100 dark:bg-orange-950 px-2 py-0.5 text-xs font-medium text-orange-700 dark:text-orange-300">Over budget</span>

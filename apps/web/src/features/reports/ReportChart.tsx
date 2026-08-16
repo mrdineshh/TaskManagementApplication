@@ -5,12 +5,23 @@ import type { ReportChartType, ReportRunResult } from '@taskapp/shared-types';
 // warm-leaning categorical set, with enough hue spread to stay distinguishable across 8 series.
 const COLORS = ['#2b6357', '#c98a2c', '#6b4fa0', '#b4483a', '#3f7cac', '#7a8b4f', '#a2586b', '#4e8b8b'];
 
-export function ReportChart({ result, chartType }: { result: ReportRunResult; chartType: ReportChartType }) {
-  const data = result.rows.map((r) => ({ name: r.dimension_label, value: r.value }));
+interface Props {
+  result: ReportRunResult;
+  chartType: ReportChartType;
+  /** Returns a /tasks?... href for a row, or null if that row has no honest task-list equivalent
+   *  (docs/10-OPEN-DECISIONS.md §M6 — see features/reports/drill.ts for which metrics qualify). */
+  drillHref?: (dimensionValue: string | null) => string | null;
+  onDrill?: (href: string) => void;
+}
+
+export function ReportChart({ result, chartType, drillHref, onDrill }: Props) {
+  const data = result.rows.map((r) => ({ name: r.dimension_label, value: r.value, href: drillHref?.(r.dimension_value) ?? null }));
 
   if (data.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">No data for the selected range.</p>;
   }
+
+  const anyDrillable = data.some((d) => d.href);
 
   if (chartType === 'table') {
     return (
@@ -19,13 +30,19 @@ export function ReportChart({ result, chartType }: { result: ReportRunResult; ch
           <tr>
             <th className="px-3 py-2">Dimension</th>
             <th className="px-3 py-2">Value</th>
+            {anyDrillable && <th className="px-3 py-2" />}
           </tr>
         </thead>
         <tbody>
           {data.map((d) => (
-            <tr key={d.name} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+            <tr
+              key={d.name}
+              onClick={() => d.href && onDrill?.(d.href)}
+              className={`border-b border-slate-100 dark:border-slate-800 last:border-0 ${d.href ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-950' : ''}`}
+            >
               <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{d.name}</td>
               <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{formatValue(d.value)}</td>
+              {anyDrillable && <td className="px-3 py-2 text-right text-brand-600 dark:text-brand-400">{d.href && '→'}</td>}
             </tr>
           ))}
         </tbody>
@@ -38,8 +55,13 @@ export function ReportChart({ result, chartType }: { result: ReportRunResult; ch
       <ResponsiveContainer width="100%" height={280}>
         <PieChart>
           <Pie data={data} dataKey="value" nameKey="name" outerRadius={100} label>
-            {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+            {data.map((d, i) => (
+              <Cell
+                key={i}
+                fill={COLORS[i % COLORS.length]}
+                cursor={d.href ? 'pointer' : 'default'}
+                onClick={() => d.href && onDrill?.(d.href)}
+              />
             ))}
           </Pie>
           <Tooltip />
@@ -69,7 +91,16 @@ export function ReportChart({ result, chartType }: { result: ReportRunResult; ch
         <XAxis dataKey="name" tick={{ fontSize: 11 }} />
         <YAxis tick={{ fontSize: 11 }} />
         <Tooltip />
-        <Bar dataKey="value" fill="#2b6357" radius={[4, 4, 0, 0]} />
+        <Bar
+          dataKey="value"
+          fill="#2b6357"
+          radius={[4, 4, 0, 0]}
+          cursor={anyDrillable ? 'pointer' : 'default'}
+          onClick={(point: unknown) => {
+            const href = (point as { href: string | null } | undefined)?.href;
+            if (href) onDrill?.(href);
+          }}
+        />
       </BarChart>
     </ResponsiveContainer>
   );

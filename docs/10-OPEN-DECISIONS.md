@@ -890,6 +890,46 @@ existed:
   the new navigation/query code confirmed present in the compiled output (on-device rendering
   still isn't checkable in this sandbox, same standing gap as §M3).
 
+### M6. Reports chart drill-down (web only) — closes the deferred item from §M5
+
+§M5 explicitly scoped Power BI-style drill-down to Team Dashboard + Scorecard and deferred
+Reports/Timeline to "next round." Picked that back up: Timeline turned out to already drill to
+the most granular level (task bars already link to `/tasks/:id`), so no changes there. Reports
+was the real gap — every chart showed only an aggregate number per dimension, with no way to
+see which tasks it counted.
+
+**What `dimension_value` actually is, discovered by reading `reports.service.ts`'s
+`labelFor()`**: it's not a generic "dimension," it's whatever real id that particular metric's
+aggregate cache row is keyed by — `status_id` for `task_counts_by_status`, `department_id` for
+`task_counts_by_department`, `user_id` for the three assignee-keyed metrics, `priority_id` for
+`task_counts_by_priority`. For the remaining six metrics (`overdue_count`, `overdue_rate`,
+`over_budget_count`, `over_budget_rate`, `avg_time_to_completion_hours`,
+`sla_compliance_rate`, `completion_throughput`) it's literally the string `"all"` — these are
+single-number-per-department aggregates, not a breakdown of individual tasks, so there's no
+per-row entity to link to at all. `apps/web/src/features/reports/drill.ts`'s `reportDrillHref()`
+encodes exactly this: real-id metrics map straight to a `/tasks?status_id=...` /
+`department_id=...` / `priority_id=...` / `assignee_id=...` link (`"unassigned"` stays
+non-clickable — not a real user id); `overdue_count`/`over_budget_count` only become clickable
+when the *report itself* is department-filtered (`report.config.filters.department_id`), since
+that's the only case where "all" resolves to something real; everything else stays
+non-interactive. Wired into `ReportChart.tsx` (bar `onClick`, pie `<Cell onClick>`, table row
+`onClick` + `cursor-pointer` + a "→" affordance column only shown when at least one row in that
+chart is drillable) and `ReportViewerPage.tsx`.
+
+**Verified for real, and caught a real bug doing it**: first pass, clicking a "Task Counts by
+Status" bar navigated to `/tasks?status_id=...` correctly, but the task list page ignored the
+param entirely — `TaskListPage.tsx` had only ever read `department_id`/`assignee_id`/
+`overdue`/`over_budget` from the URL (added in §M5), never `status_id`/`priority_id`, so the
+"filtered" list silently showed everything. Playwright caught this immediately (screenshot
+showed all four statuses mixed together, no filter banner) — fixed by adding both params to
+`TaskListPage`'s URL reading, `useTasks()` call, and the filter banner (labels derived from the
+already-loaded rows' own `status.label`/`priority.label`, same zero-extra-request trick as the
+existing assignee label). Re-verified: clicking "Todo" (bar height 4) landed on exactly 4 Todo
+tasks with a "Filtered: Status: Todo" banner. Separately verified the honesty path: the
+"Overdue Tasks" starter template (no department filter) renders its `overdue_count`/
+`overdue_rate` rows as plain, non-clickable table rows — no arrow, no broken link — exactly as
+designed, since dimension_value is "all" with nothing real to filter to.
+
 ---
 
 ## How to keep this log current
