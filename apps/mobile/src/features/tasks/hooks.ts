@@ -60,6 +60,40 @@ export function useDepartmentDashboard(departmentId: string | undefined) {
   });
 }
 
+/** Role-adaptive team view (docs/10-OPEN-DECISIONS.md §K/§N) — same query, different shape per active role. */
+export function useTeamDashboard(departmentId?: string) {
+  return useQuery({
+    queryKey: ['dashboards', 'team', departmentId],
+    queryFn: () => apiClient.dashboards.team(departmentId),
+  });
+}
+
+// --- Phase 4/§N: employee scorecard + department leaderboard ---
+
+export function useMyScorecard(start: string, end: string) {
+  return useQuery({
+    queryKey: ['scorecards', 'me', start, end],
+    queryFn: () => apiClient.scorecards.me(start, end),
+  });
+}
+
+/** Leaderboard drill-down (docs/10-OPEN-DECISIONS.md §M5) — same GET /scorecards/users/:id web uses. */
+export function useUserScorecard(userId: string | undefined, start: string, end: string) {
+  return useQuery({
+    queryKey: ['scorecards', 'users', userId, start, end],
+    queryFn: () => apiClient.scorecards.forUser(userId!, start, end),
+    enabled: !!userId,
+  });
+}
+
+export function useLeaderboard(departmentId: string | undefined, start: string, end: string) {
+  return useQuery({
+    queryKey: ['scorecards', 'leaderboard', departmentId, start, end],
+    queryFn: () => apiClient.scorecards.leaderboard(departmentId!, start, end),
+    enabled: !!departmentId,
+  });
+}
+
 export function useDepartments() {
   return useQuery({ queryKey: ['departments'], queryFn: () => apiClient.departments.list() });
 }

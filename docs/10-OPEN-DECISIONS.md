@@ -245,6 +245,11 @@ Firebase JS SDK, set `FIREBASE_PROJECT_ID` on the API service, then change
 `AUTH_PROVIDERS` back to `"google"` only in
 `infra/environments/dev/main.tf` and redeploy.
 
+**Status: code-complete, still open** — see §M4. The frontend wiring, Firebase JS SDK
+integration, and `FIREBASE_PROJECT_ID` Terraform plumbing are all done; what's left is
+provisioning the actual Firebase project under the right GCP account and setting the real
+values, then flipping `AUTH_PROVIDERS` and redeploying.
+
 ---
 
 ## G. Post-launch feature expansion (subtasks, effort/time tracking, org hierarchy, redesign)
@@ -483,17 +488,7 @@ admin-added `done → todo` transition — `reworked_count` correctly went to
 `completed_count(0) + reworked_count(1)` once the reopen zeroed out
 `completedAt`).
 
-### J4. Known gap: Zod validation errors surface as 500, not 400 (pre-existing, not introduced here)
-`ScorecardsController.updateConfig()` calls
-`updateScorecardConfigSchema.parse(body)` the same way
-`OrganizationController.update()` already does — neither is caught by a
-global exception filter, so a validation failure (e.g. weights not summing
-to 1) currently returns `500 INTERNAL_SERVER_ERROR` with the raw Zod issue
-array as the message, not a clean `400`. Confirmed this is systemic, not a
-Phase 4 regression, by reproducing the same 500 against the pre-existing
-`/organization-settings` endpoint with a bad payload. Worth a dedicated
-Zod-to-`BadRequestException` exception filter at some point, but out of
-scope for this feature — logged here rather than silently left unfixed.
+### J4. ~~Known gap: Zod validation errors surface as 500, not 400~~ — fixed, see §M1
 
 ---
 
@@ -642,7 +637,7 @@ Admin Scorecard Weights, and a full Task Detail page. No visual defects found be
 form-control bug already fixed in §L4. Flagging this as the honest scope boundary rather than
 claiming exhaustive per-page verification.
 
-### L8. Mobile app intentionally untouched in this phase
+### L8. ~~Mobile app intentionally untouched in this phase~~ — closed, see §M2
 The user's "soulless and monotonous" complaint was about the web app specifically (they were
 using it live in a browser); the Expo mobile app already went through its own design-system
 redesign earlier in this project (tasks #42-50: theme + UI primitives, navigation, and a
@@ -650,6 +645,250 @@ per-screen redesign of Login/MyTasks/TaskList/TaskDetail/TeamDashboard/Notificat
 did not touch mobile — no new mobile screens were added since that redesign (Scorecard/Team
 role-adaptive views from Phases 4-5 are web-only so far), so mobile parity with those two new
 web pages is a real, currently-unaddressed gap if mobile parity turns out to matter.
+
+---
+
+## M. Post-launch gap fixes
+
+### M1. Fixed — Zod validation errors now return a clean 400, not a raw 500 (closes §J4)
+Several controllers (`ScorecardsController.updateConfig()`, `OrganizationController.update()`)
+validate their body with a shared-types zod schema's `.parse(body)` directly rather than
+going through Nest's class-validator `ValidationPipe` — an uncaught `ZodError` previously fell
+through to `AllExceptionsFilter`'s generic `Error` branch and came back as a
+`500 INTERNAL_SERVER_ERROR` with the raw zod issue array dumped into the message.
+
+Fixed at the source, not per-controller: added a `ZodError` branch to the existing global
+`AllExceptionsFilter` (`apps/api/src/common/filters/all-exceptions.filter.ts`) that maps it to
+`400 VALIDATION_ERROR` with a readable `"path: message"` summary plus the full issue array
+under `details.validation` — matching the shape class-validator errors already return. This
+fixes every current and future `.parse()` call site at once, not just the two that surfaced
+it, without requiring each controller to wrap its own call in a try/catch.
+
+Verified live: re-ran the exact two payloads that previously produced a 500 (scorecard
+weights not summing to 1; `organization-settings` with `timezone` as a number) — both now
+return a clean `400` with a readable message. Confirmed no regression on the pre-existing
+class-validator DTO path (`POST /tasks` with a missing/invalid body) and on a valid
+scorecard-weights payload (still `200`).
+
+### M2. Fixed — mobile parity gap (closes §L8)
+Closes the mobile-parity gap flagged when Phase 6 shipped: the Expo app had its own,
+earlier, separate redesign (tasks #42-50) that predates web's Phase 6 palette/dark-mode work
+and Phases 4-5's Scorecard/role-adaptive Team pages, so it had drifted behind on both looks
+and features. Brought fully current in one pass:
+
+- **Dark mode.** React Native has no CSS custom-property equivalent to the `dark:` class
+  trick web's Phase 6 used, so every color has to be resolved per-render instead of baked
+  into a module-level `StyleSheet.create()`. Added `src/theme/ThemeProvider.tsx` — a
+  `useAppTheme()` hook exposing `{ colors, typography, shadow }` for the current scheme —
+  and converted every component/screen's static `colors`/`typography` import to call the
+  hook and build its `StyleSheet` inline. Preference (`light`/`dark`/`system`) persists via
+  `expo-secure-store` (already a dependency, for the session refresh token) rather than
+  adding `AsyncStorage` as a new one, mirroring web's `useTheme.ts` in spirit.
+- **Palette.** Replaced the flat single-blue scale with the same indigo/teal system as web's
+  `tailwind.config.js`, resolved into concrete light/dark hex pairs (RN can't consume
+  Tailwind classes) instead of a token-name mapping.
+- **Scorecard screen.** New tab (`ScorecardTab`, trophy icon) — own overall score + six
+  sub-scores, department leaderboard with the own-row highlighted — hitting the same
+  `/scorecards/me` and `/scorecards/leaderboard` endpoints web's Phase 4 page uses. Fixed to
+  a 30-day range rather than reproducing web's free-form date pickers, keeping this one
+  glanceable screen instead of a form.
+- **Role-adaptive Team tab.** Rewrote `TeamDashboardScreen` to call `/dashboards/team` (the
+  same Phase 5 endpoint web's Team page uses) and render per-scope — Manager sees direct
+  reports only, Head/Management see a department or org-wide summary with drill-down —
+  replacing the old fixed department-picker that showed identical content to every role.
+- **My Tasks dashboard.** Added an "Over budget" stat card next to Overdue — the
+  `personal` dashboard endpoint already returned `over_budget_count` since Phase 3, mobile
+  just wasn't displaying it.
+
+**Update — Expo now runs, and three real, pre-existing bugs got fixed along the way (§M3).**
+The initial version of this fix shipped without live verification (the Expo dev bundler
+wasn't reachable in the sandbox). Asked to actually run it before merging, three genuine,
+previously-undiagnosed bugs were found and fixed — none introduced by this change, all three
+would have blocked *anyone* from running `expo start` on this project, on any machine. See §M3.
+
+### M3. Fixed — Expo genuinely would not start on this project at all, on any machine
+Asked to actually run the mobile app before merging §M2. The very first `expo start` attempt
+failed, and the failure had nothing to do with the mobile-parity change — it was three
+separate, pre-existing structural bugs, apparently never caught because (per §M2's own
+original disclosure, and #42-50's) nobody had run this Expo app end-to-end before. Each was
+diagnosed from the actual Metro/Expo CLI source, not guessed at:
+
+1. **`src/app` collides with Expo CLI's Router auto-detection.** Modern `@expo/cli`
+   unconditionally treats a directory literally named `src/app` as an Expo Router root
+   (`getRouterDirectory()` in `@expo/cli`'s own source — a bare filesystem check, no
+   `expo-router` dependency required to trigger it). This project's `src/app/Navigation.tsx`
+   predates Expo Router entirely and has nothing to do with it — the name collision alone
+   was enough to break entry resolution. Fixed by renaming `src/app` → `src/navigation`
+   (`git mv`, plus updating the 4 files that imported `TasksStackParamList` from it).
+2. **`package.json`'s `main` field assumed a non-hoisted install.** `"main": "node_modules/expo/AppEntry.js"` is Expo's standard scaffold value, but it's a literal relative
+   filesystem path — correct only when `expo` lives inside this package's *own*
+   `node_modules`. In this npm workspace, `expo` is hoisted to the repo root, so that path
+   pointed nowhere. Worse, Expo's shared `AppEntry.js` template itself does
+   `import App from '../../App'`, a relative reach-up that only works when the file
+   physically sits inside the consuming package's node_modules — hoisting breaks that
+   assumption too, independent of the `main` field. Fixed the standard, Expo-documented way
+   for monorepos: added a local `apps/mobile/index.js` (`registerRootComponent(App)` against
+   a local `./App` import) and pointed `main` at it directly, sidestepping hoisting entirely.
+3. **The committed lockfile pinned an incompatible nested `react-native`.** `package-lock.json`
+   had `node_modules/expo/node_modules/react-native` pinned to `0.86.2` — despite `expo`'s own
+   `package.json` declaring `"react-native": "0.74.5"` (identical to this project's top-level
+   pin, which should have deduped to a single copy with zero nested duplicates). That stray
+   0.86.2 copy's `index.js` uses syntax (`} as ReactNativePublicAPI;`, a type assertion in a
+   plain `.js` file) this project's Metro/Babel config can't parse, hard-crashing every bundle
+   attempt. Confirmed this wasn't sandbox-specific contamination by reproducing it from a full
+   `rm -rf node_modules && npm install` — a genuinely fresh install, matching what the user's
+   own machine would produce, hit the identical crash. Fixed durably with `npm dedupe`
+   (removed 1300 lines of redundant nested-dependency lockfile entries), re-verified with
+   another full clean reinstall from scratch.
+
+Also fixed, surfaced only after the above three: a TypeScript error in the three mobile files
+using `<>...</>` fragment shorthand (`App.tsx`, `TeamDashboardScreen.tsx`,
+`ScorecardScreen.tsx`) — the classic RN JSX transform needs `React` in scope for fragment
+shorthand, and none of the three had an explicit `import React from 'react'` (relying on
+named imports only). Added it to all three.
+
+**Verified, for real this time:** with every fix above applied and node_modules rebuilt from
+scratch, `expo start` serves a working Metro dev server; requested a full bundle for both
+`platform=ios` and `platform=android` directly against the running server (the same request
+Expo Go itself makes) — both compiled with **zero errors and zero warnings**, 1122 and 1127
+modules respectively. Grepped the compiled output to confirm the new Scorecard screen, the
+`ThemeProvider`/`useAppTheme` code, and the role-adaptive Team dashboard are actually present
+in the shipped bundle (163+ matches), not stale cache. Re-ran the entire sequence after a full
+`rm -rf node_modules && npm install` to confirm every fix is durable and not an artifact of
+this session's own node_modules history. `tsc --noEmit` passes clean across every package in
+the monorepo (api, api-client, shared-types, web, mobile) after all fixes.
+
+**What's still not verified:** actual on-screen rendering. A successful, error-free,
+zero-warning Metro bundle compile is strong evidence the code is structurally correct (every
+import resolves, no syntax errors, no React version conflicts, all new screens are reachable
+from the navigator) — but it is not the same as seeing the app render in Expo Go or a
+simulator/emulator, neither of which exists in this sandbox. Genuinely worth a quick real
+device/Expo-Go check before this reaches real users, though the risk profile is now much
+lower than an untested change: the JS bundle Expo Go would load is now proven to build clean.
+
+### M4. Google Sign-In wired end-to-end on web + mobile — code-complete, blocked only on real Firebase project values (partially closes §F4)
+`GoogleAuthProvider` (backend) has existed since #4 but nothing ever called it — both frontends
+had a permanently-disabled "Sign in with Google" placeholder, and `FIREBASE_PROJECT_ID` was
+missing from all three Terraform environments' `env_vars` entirely (not even an empty
+placeholder — the "google" provider would have thrown `UnauthorizedException` at runtime in
+every deployed environment even with a correct real value elsewhere). Fixed all of it:
+
+- **Terraform**: added a `firebase_project_id` variable (default `""`) and
+  `FIREBASE_PROJECT_ID = var.firebase_project_id` to `env_vars` in `infra/environments/{dev,staging,prod}/main.tf`.
+  Not secret — `verifyIdToken()` only uses it to check the token's `aud` claim against Google's
+  *public* JWKS endpoint, no IAM/ADC project match required — so a plain variable is correct,
+  no Secret Manager entry needed. (`GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET`, by
+  contrast, turned out to be dead: grepped the entire backend and nothing reads either — left
+  as-is rather than touching already-applied Secret Manager resources out of scope.)
+- **Web** (`apps/web/src/lib/firebase/client.ts`, `LoginPage.tsx`): added the `firebase` dep,
+  `signInWithGoogle()` via `signInWithPopup` + `GoogleAuthProvider`, wired to the previously-dead
+  button. Reads `VITE_FIREBASE_{API_KEY,AUTH_DOMAIN,PROJECT_ID,APP_ID}` — a public, embeddable
+  config, not a secret — with an `firebaseEnabled` guard that keeps the button honestly disabled
+  ("pending GCP setup") until all four are set. Threaded through as new Docker build args
+  (`apps/web/Dockerfile`, `cloudbuild.yaml`) alongside the existing `VITE_API_BASE_URL` pattern,
+  since Vite bakes these in at build time, not runtime.
+- **Mobile** (`apps/mobile/src/screens/auth/LoginScreen.tsx`): added `expo-auth-session` +
+  `expo-web-browser` + `expo-crypto` (SDK-51-pinned versions read from `expo`'s own
+  `bundledNativeModules.json`, since the registry-version-check `expo install` step fails in
+  this sandbox the same way §M3 already worked around). Uses
+  `Google.useIdTokenAuthRequest({ webClientId })` — the chosen approach from the earlier
+  discussion, reusing the single Web OAuth Client ID rather than a native client (no EAS custom
+  dev client / SHA-1 fingerprint needed, still works inside plain Expo Go via Expo's auth
+  proxy). Client ID read from `app.json`'s `extra.googleOAuthClientId`, mirroring the existing
+  `extra.apiBaseUrl` convention.
+- **Verified the same way as §M3**: both apps typecheck clean; re-ran the iOS/Android Metro
+  bundle-compile check after adding the new deps (both still 200 OK, zero errors) and grepped
+  the compiled output to confirm the new Google sign-in code is actually present in both
+  platform bundles, not stale cache.
+
+**Why this landed as code-complete but not flag-flipped**: the Firebase project created so far
+(`task-management-e12d2`) was created under a personal Google account, not the official one the
+real GCP infra (`econz-task-management-app` et al.) lives under — caught before any secrets were
+committed. Decision: keep building the integration against env vars (which don't care which
+Firebase project supplies the values) rather than block on resolving ownership first, since
+none of the code above hardcodes project-specific values.
+
+**Remaining before this can actually be used**:
+1. Provision (or transfer) a Firebase project under the official GCP account, enable Google as a
+   sign-in provider, register a Web app to get the `VITE_FIREBASE_*` config values.
+2. Get the **Web OAuth Client ID** (Google Cloud Console → APIs & Services → Credentials — the
+   client Firebase auto-creates once Google sign-in is enabled) for mobile's
+   `extra.googleOAuthClientId`.
+3. Add Expo's auth-proxy redirect URI (`https://auth.expo.io/@<owner>/<slug>`) to that OAuth
+   client's Authorized redirect URIs — required for `promptAsync()` to complete inside Expo Go;
+   not yet done since the client doesn't exist yet.
+4. Set the real `firebase_project_id` Terraform var (`-var` or CI secret store) and re-apply;
+   set the real `VITE_FIREBASE_*` / `VITE_ALLOWED_EMAIL_DOMAIN` values in the web Cloud Build
+   substitutions and rebuild/redeploy the web image.
+5. Only once (4) is confirmed working end-to-end in the deployed dev environment: flip
+   `AUTH_PROVIDERS` back to `"google"` alone in `infra/environments/dev/main.tf` (closing the
+   §F4 exposure for real) and redeploy.
+
+### M5. "Studio Desk" visual redesign + Power BI-style drill-down, web and mobile
+
+User picked "Studio Desk" (one of three original mockups — warm putty neutral, forest-green
+primary, serif headings) and separately asked for "every click gives nested, more granular
+detail," citing Power BI. Two independent pieces of work, both shipped app-wide:
+
+**Palette + typography — mechanical sweep, same trick as §L3's dark-mode rollout.** Rather than
+touching every component file, redefined the *scales themselves*:
+- Web (`apps/web/tailwind.config.js`): `brand` (was indigo) → forest green 50-950, `accent`
+  (was teal) → ochre, and — the new part — overrode Tailwind's built-in `slate` scale itself
+  with a warm putty/greige ramp, so every existing `slate-*`/`dark:slate-*` utility across the
+  whole app (body bg, borders, muted text) picked up the new neutral with zero per-file edits.
+  Bumped `borderRadius.{md,lg,xl,2xl}` up one notch for the softer "unhurried" feel. Added
+  Fraunces (headings) + Karla (body) via Google Fonts `<link>` in `index.html`, with a single
+  `@layer base { h1,h2,h3,h4 { font-family: ... } }` rule in `index.css` picking up every
+  semantic heading tag app-wide — confirmed via `grep` that all 22 heading usages in the
+  codebase are real `<h1>`-`<h3>` tags, not styled `<div>`s, before relying on this.
+- Mobile (`apps/mobile/src/theme/index.ts`): same forest-green/ochre/putty values ported to the
+  `buildColors()` scheme resolver (light *and* dark — dark stayed warm/brownish, not the old
+  cool navy, so dark mode carries the same character). Added `expo-font` +
+  `@expo-google-fonts/{fraunces,karla}` (SDK-51-pinned versions read from `expo`'s own
+  `bundledNativeModules.json`, same registry-network workaround as §M3) and gated `App.tsx`'s
+  first render on `useFonts()` resolving, since `makeTypography()` now references exact
+  per-weight family names.
+- **Verified for real**: typechecked clean across all 7 packages; screenshotted the actual
+  running web app (Playwright, both themes, logged in via dev auth against a freshly
+  migrated+reseeded local Postgres) — fonts and colors render correctly, not just "compiles."
+  Mobile verified the same way as §M2/§M3: zero-error Metro bundle compile for both platforms,
+  grepped for the new font family strings in the compiled output.
+
+**Drill-down.** Design: Team Dashboard's Org → Department → Manager → Member hierarchy and
+Scorecard's leaderboard both terminate in filtered detail, using data that mostly already
+existed:
+- `/dashboards/team`'s department-scope response already returned every member with their
+  `managerId` — the department→manager→member drill needed zero backend changes, just UI to
+  expose it (web: click-to-expand rows; mobile: same, `Ionicons` chevron).
+- Added `overdue`/`over_budget` boolean filters to `GET /tasks` (`TaskListQueryDto`,
+  `TasksService.list()`), reusing the *exact* business-day/logged-vs-estimate definitions
+  `dashboards.controller.ts`'s `computeTaskStats()` already computes the dashboard counts
+  from (per-assignee holiday-calendar-cached, same as that method) — so a dashboard's
+  "Overdue: 3" number and the task list you land on after clicking it agree, not two subtly
+  different definitions. Computed in-memory (holiday calendars aren't a DB predicate), so this
+  path skips cursor pagination in favor of one bounded 500-row fetch — fine at
+  department/team scale, not fine as a general-purpose filter, which is why it's gated behind
+  the boolean flags rather than always active.
+- `assignee_id` extended from a single UUID to an optional comma-separated list (`@Transform` +
+  `@IsUUID('all', {each:true})`, normalized to `string[]` in the DTO) so a manager's *whole
+  team's* aggregate Overdue/Over budget count can link to one task-list view, not just a single
+  person's.
+- Scorecard leaderboard rows drill into `GET /scorecards/users/:userId` — already implemented,
+  never called by any page until now. Sub-score tiles expand in place to show the raw counters
+  (`completed_count`, `on_time_count`, etc.) already returned alongside `sub_scores`, rather
+  than linking to a task list: the scorecard's overdue/over_budget are a **date-range-scoped
+  historical** count, a genuinely different definition from the live one the tasks endpoint's
+  new filters use — linking them would show a list whose row count doesn't match the number
+  just clicked, which is worse than not linking at all.
+- **Verified for real, not just typechecked**: logged into the actual running app (Playwright,
+  dev auth) and clicked through every hop — Organization → Development → expand a manager →
+  click "Overdue: 0" → landed on `/tasks?department_id=...&overdue=true` showing "No tasks
+  found" (0 overdue, 0 rows: the numbers agree); Scorecard leaderboard row → "Mike Management's
+  scorecard" with a working back link → clicked "On-time completion" → tile expanded showing
+  "Completed on time: 0 / Completed (with a due date): 0". Mobile side verified the same way as
+  every other mobile change this session: zero-error bundle compiles for both platforms with
+  the new navigation/query code confirmed present in the compiled output (on-device rendering
+  still isn't checkable in this sandbox, same standing gap as §M3).
 
 ---
 

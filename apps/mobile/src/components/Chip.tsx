@@ -1,7 +1,24 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors, radius, spacing } from '../theme';
+import { useAppTheme } from '../theme';
 
 export function Chip({ label, active, onPress }: { label: string; active?: boolean; onPress: () => void }) {
+  const { colors, radius, spacing } = useAppTheme();
+  const styles = StyleSheet.create({
+    chip: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 7,
+      marginRight: spacing.xs,
+      backgroundColor: colors.surface,
+    },
+    chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    label: { fontSize: 13, fontWeight: '600', color: colors.slate[600] },
+    labelActive: { color: colors.white },
+    pressed: { opacity: 0.75 },
+  });
+
   return (
     <Pressable
       onPress={onPress}
@@ -11,19 +28,3 @@ export function Chip({ label, active, onPress }: { label: string; active?: boole
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  chip: {
-    borderWidth: 1,
-    borderColor: colors.slate[300],
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-    marginRight: spacing.xs,
-    backgroundColor: colors.white,
-  },
-  chipActive: { backgroundColor: colors.brand[600], borderColor: colors.brand[600] },
-  label: { fontSize: 13, fontWeight: '600', color: colors.slate[600] },
-  labelActive: { color: colors.white },
-  pressed: { opacity: 0.75 },
-});

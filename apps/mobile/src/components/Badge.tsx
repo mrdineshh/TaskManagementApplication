@@ -1,7 +1,9 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { useAppTheme } from '../theme';
 
 export function Badge({ label, color }: { label: string; color?: string | null }) {
-  const c = color ?? '#94a3b8';
+  const { colors } = useAppTheme();
+  const c = color ?? colors.slate[400];
   return (
     <View style={[styles.badge, { backgroundColor: `${c}33` }]}>
       <Text style={[styles.text, { color: c }]}>{label}</Text>

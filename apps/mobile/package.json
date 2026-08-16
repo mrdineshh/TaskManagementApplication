@@ -2,7 +2,7 @@
   "name": "@taskapp/mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "node_modules/expo/AppEntry.js",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@expo-google-fonts/fraunces": "^0.4.1",
+    "@expo-google-fonts/karla": "^0.4.2",
     "@expo/vector-icons": "^14.0.3",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.18",
@@ -18,11 +20,15 @@
     "@taskapp/api-client": "*",
     "@taskapp/shared-types": "*",
     "expo": "~51.0.28",
+    "expo-auth-session": "~5.5.2",
     "expo-constants": "~16.0.2",
+    "expo-font": "~12.0.10",
+    "expo-crypto": "~13.0.2",
     "expo-device": "~6.0.2",
     "expo-notifications": "~0.28.19",
     "expo-secure-store": "~13.0.2",
     "expo-status-bar": "~1.12.1",
+    "expo-web-browser": "~13.0.3",
     "react": "18.2.0",
     "react-hook-form": "^7.53.1",
     "react-native": "0.74.5",

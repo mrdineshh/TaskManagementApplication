@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../lib/api-client/client';
 import { useSessionStore } from '../../lib/auth/session-store';
+import { firebaseEnabled, signInWithGoogle } from '../../lib/firebase/client';
 
 /**
- * Google Sign-In is the v1 auth method (docs/03-RBAC-AUTH.md §1.1), but until real
- * Firebase/GCP OAuth credentials are provided, this page uses the dev auth provider
- * (see apps/api/src/auth/providers/dev-auth.provider.ts) — enter any seeded @econz.net
- * email to exercise the exact same login → JWT → session flow the Google button will use.
+ * Google Sign-In (docs/03-RBAC-AUTH.md §1.1) is enabled once VITE_FIREBASE_* env vars are set
+ * at build time (docs/10-OPEN-DECISIONS.md §M4); the dev auth provider (see
+ * apps/api/src/auth/providers/dev-auth.provider.ts) stays available underneath for local
+ * development and exercises the exact same login → JWT → session flow.
  */
 export function LoginPage() {
   const [email, setEmail] = useState('admin@econz.net');
@@ -16,18 +17,36 @@ export function LoginPage() {
   const { setTokens, setCurrentUser } = useSessionStore();
   const navigate = useNavigate();
 
+  async function finishLogin(accessToken: string, refreshToken: string) {
+    setTokens(accessToken, refreshToken);
+    const me = await apiClient.me.get();
+    setCurrentUser(me as never);
+    navigate('/', { replace: true });
+  }
+
   async function handleDevLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
       const { access_token, refresh_token } = await apiClient.auth.dev(email);
-      setTokens(access_token, refresh_token);
-      const me = await apiClient.me.get();
-      setCurrentUser(me as never);
-      navigate('/', { replace: true });
+      await finishLogin(access_token, refresh_token);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign-in failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setLoading(true);
+    setError(null);
+    try {
+      const idToken = await signInWithGoogle();
+      const { access_token, refresh_token } = await apiClient.auth.google(idToken);
+      await finishLogin(access_token, refresh_token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google sign-in failed');
     } finally {
       setLoading(false);
     }
@@ -52,11 +71,12 @@ export function LoginPage() {
 
         <button
           type="button"
-          disabled
-          title="Enabled once Firebase/Google OAuth credentials are configured"
-          className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-400 dark:text-slate-500 opacity-60"
+          onClick={handleGoogleLogin}
+          disabled={!firebaseEnabled || loading}
+          title={firebaseEnabled ? undefined : 'Enabled once Firebase/Google OAuth credentials are configured'}
+          className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60 disabled:hover:bg-white dark:disabled:hover:bg-slate-900"
         >
-          Sign in with Google (pending GCP setup)
+          {firebaseEnabled ? 'Sign in with Google' : 'Sign in with Google (pending GCP setup)'}
         </button>
 
         <div className="mb-4 flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">

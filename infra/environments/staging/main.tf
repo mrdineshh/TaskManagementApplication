@@ -94,6 +94,7 @@ module "api" {
     PORT                 = "3000"
     ALLOWED_EMAIL_DOMAIN = "econz.net"
     AUTH_PROVIDERS       = "google"
+    FIREBASE_PROJECT_ID  = var.firebase_project_id
     ATTACHMENTS_BUCKET   = module.attachments_bucket.bucket_name
     DEV_KMS_KEY_ID       = google_kms_crypto_key.integration_settings.id
   }

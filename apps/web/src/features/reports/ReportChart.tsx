@@ -1,7 +1,9 @@
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { ReportChartType, ReportRunResult } from '@taskapp/shared-types';
 
-const COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
+// Studio Desk direction (docs/10-OPEN-DECISIONS.md §M5) — forest green (brand-500) leading a
+// warm-leaning categorical set, with enough hue spread to stay distinguishable across 8 series.
+const COLORS = ['#2b6357', '#c98a2c', '#6b4fa0', '#b4483a', '#3f7cac', '#7a8b4f', '#a2586b', '#4e8b8b'];
 
 export function ReportChart({ result, chartType }: { result: ReportRunResult; chartType: ReportChartType }) {
   const data = result.rows.map((r) => ({ name: r.dimension_label, value: r.value }));
@@ -54,7 +56,7 @@ export function ReportChart({ result, chartType }: { result: ReportRunResult; ch
           <XAxis dataKey="name" tick={{ fontSize: 11 }} />
           <YAxis tick={{ fontSize: 11 }} />
           <Tooltip />
-          <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} />
+          <Line type="monotone" dataKey="value" stroke="#2b6357" strokeWidth={2} />
         </LineChart>
       </ResponsiveContainer>
     );
@@ -67,7 +69,7 @@ export function ReportChart({ result, chartType }: { result: ReportRunResult; ch
         <XAxis dataKey="name" tick={{ fontSize: 11 }} />
         <YAxis tick={{ fontSize: 11 }} />
         <Tooltip />
-        <Bar dataKey="value" fill="#2563eb" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="value" fill="#2b6357" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

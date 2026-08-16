@@ -12,6 +12,20 @@ body {
   @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
 }
 
+/* Studio Desk (docs/10-OPEN-DECISIONS.md §M5): every semantic heading picks up the serif
+   display face automatically — mirrors the slate/brand scale-override trick above so no
+   per-file edits were needed to carry the new typography across the whole app. */
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: theme('fontFamily.serif');
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+}
+
 /* Form controls don't inherit page background the way text color does — the browser's own
    UA stylesheet gives every <input>/<select>/<textarea> a plain white background regardless
    of theme. Rather than auditing every one of the ~32 <select>s and every <input>/<textarea>

@@ -15,8 +15,8 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { LoadingView } from '../../components/LoadingView';
 import { EmptyState } from '../../components/EmptyState';
-import { colors, radius, spacing, typography } from '../../theme';
-import type { TasksStackParamList } from '../../app/Navigation';
+import { useAppTheme } from '../../theme';
+import type { TasksStackParamList } from '../../navigation/Navigation';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'TaskDetail'>;
 
@@ -45,6 +45,42 @@ export function TaskDetailScreen({ route }: Props) {
   const transitionTask = useTransitionTask(id);
   const addComment = useAddComment(id);
   const [commentBody, setCommentBody] = useState('');
+  const { colors, radius, spacing, typography } = useAppTheme();
+
+  const styles = StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.bg },
+    container: { flex: 1, padding: 16 },
+    title: { ...typography.h2, marginBottom: 6 },
+    description: { ...typography.body, marginBottom: spacing.md },
+    badgeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+    metaRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.lg },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    metaText: { ...typography.caption },
+    section: { marginBottom: spacing.lg },
+    sectionLabel: { ...typography.label, marginBottom: spacing.sm },
+    transitionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    commentBody: { ...typography.body, marginBottom: 4 },
+    commentTime: { ...typography.caption },
+    commentInputRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: spacing.sm,
+      padding: spacing.md,
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    commentInput: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.slate[300],
+      borderRadius: radius.md,
+      padding: 10,
+      fontSize: 13,
+      color: colors.text,
+      maxHeight: 100,
+    },
+  });
 
   if (isLoading || !task) return <LoadingView />;
 
@@ -143,38 +179,3 @@ export function TaskDetailScreen({ route }: Props) {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.slate[50] },
-  container: { flex: 1, padding: 16 },
-  title: { ...typography.h2, marginBottom: 6 },
-  description: { ...typography.body, marginBottom: spacing.md },
-  badgeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  metaRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.lg },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaText: { ...typography.caption },
-  section: { marginBottom: spacing.lg },
-  sectionLabel: { ...typography.label, marginBottom: spacing.sm },
-  transitionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  commentBody: { ...typography.body, marginBottom: 4 },
-  commentTime: { ...typography.caption },
-  commentInputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-    padding: spacing.md,
-    backgroundColor: colors.white,
-    borderTopWidth: 1,
-    borderTopColor: colors.slate[200],
-  },
-  commentInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.slate[300],
-    borderRadius: radius.md,
-    padding: 10,
-    fontSize: 13,
-    color: colors.slate[900],
-    maxHeight: 100,
-  },
-});

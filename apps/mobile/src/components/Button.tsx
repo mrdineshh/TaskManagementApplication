@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, type ViewStyle } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { useAppTheme } from '../theme';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'md' | 'sm';
@@ -21,7 +21,32 @@ export function Button({
   loading?: boolean;
   style?: ViewStyle;
 }) {
+  const { colors, radius, spacing, typography } = useAppTheme();
   const isDisabled = disabled || loading;
+
+  const styles = StyleSheet.create({
+    base: {
+      borderRadius: radius.md,
+      paddingVertical: 12,
+      paddingHorizontal: spacing.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+    },
+    sm: { paddingVertical: 8, paddingHorizontal: spacing.md },
+    label: { ...typography.title, fontWeight: '600' },
+    labelSm: { fontSize: 13 },
+    disabled: { opacity: 0.5 },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
+  });
+
+  const variantStyles: Record<Variant, { container: ViewStyle; label: { color: string } }> = {
+    primary: { container: { backgroundColor: colors.primary }, label: { color: colors.white } },
+    danger: { container: { backgroundColor: colors.danger }, label: { color: colors.white } },
+    secondary: { container: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }, label: { color: colors.slate[700] } },
+    ghost: { container: { backgroundColor: 'transparent' }, label: { color: colors.primary } },
+  };
+
   return (
     <Pressable
       onPress={onPress}
@@ -36,33 +61,10 @@ export function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={variant === 'primary' || variant === 'danger' ? colors.white : colors.brand[600]} />
+        <ActivityIndicator size="small" color={variant === 'primary' || variant === 'danger' ? colors.white : colors.primary} />
       ) : (
         <Text style={[styles.label, size === 'sm' && styles.labelSm, variantStyles[variant].label]}>{label}</Text>
       )}
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: radius.md,
-    paddingVertical: 12,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  sm: { paddingVertical: 8, paddingHorizontal: spacing.md },
-  label: { ...typography.title, fontWeight: '600' },
-  labelSm: { fontSize: 13 },
-  disabled: { opacity: 0.5 },
-  pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
-});
-
-const variantStyles: Record<Variant, { container: ViewStyle; label: { color: string } }> = {
-  primary: { container: { backgroundColor: colors.brand[600] }, label: { color: colors.white } },
-  danger: { container: { backgroundColor: colors.danger }, label: { color: colors.white } },
-  secondary: { container: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.slate[300] }, label: { color: colors.slate[700] } },
-  ghost: { container: { backgroundColor: 'transparent' }, label: { color: colors.brand[600] } },
-};
