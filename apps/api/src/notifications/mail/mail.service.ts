@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { createTransport, type Transporter } from 'nodemailer';
 import { PrismaService } from '../../prisma/prisma.service';
 import { decryptSecret } from '../../common/crypto/kms.util';
 
@@ -47,10 +48,30 @@ export class MailService {
       return;
     }
 
-    // Real network send is wired up once GCP/Google Workspace SMTP relay access is provided —
-    // the config/decryption plumbing above is already exercised against real Admin-saved values.
-    this.logger.log(
-      `[mock email — SMTP configured but network send not yet enabled] to=${to} via ${config.host}:${config.port} subject="${subject}"${attachmentNote}`,
-    );
+    // A fresh transporter per send, not a cached/pooled one — SMTP settings are editable at
+    // runtime via the Admin UI with no redeploy, and this app's email volume is low enough that
+    // connection reuse isn't worth the staleness risk (an Admin changing credentials mid-run
+    // shouldn't have the old ones linger in a pool).
+    const transporter: Transporter = createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.use_tls,
+      auth: { user: config.username, pass: password },
+    });
+
+    try {
+      await transporter.sendMail({
+        from: config.from_address,
+        to,
+        subject,
+        text: body,
+        attachments: attachments.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType })),
+      });
+      this.logger.log(`Email sent to=${to} via ${config.host}:${config.port} subject="${subject}"${attachmentNote}`);
+    } catch (err) {
+      // Non-fatal by design, matching PushService — a bad SMTP send shouldn't fail the caller's
+      // own operation (task assignment, report scheduling, etc.), just the notification.
+      this.logger.warn(`SMTP send failed to=${to} via ${config.host}:${config.port}: ${(err as Error).message}`);
+    }
   }
 }

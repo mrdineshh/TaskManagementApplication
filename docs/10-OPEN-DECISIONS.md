@@ -973,6 +973,56 @@ picker on creation or detail) and wasn't touched by this fix — scoped to web o
 where the question came from. Worth the same fix on `apps/mobile` for parity, same as §M5/§M6's
 mobile follow-ups, if wanted.
 
+### M8. Real push + email delivery — the trigger side (§M7) was already fully wired; only the last-mile send was mocked
+
+Follow-up to §M7: user asked for tasks to default to "Todo" and for assignment to trigger an
+email + a mobile push. Checked each claim against the actual code rather than assuming a gap:
+
+- **Default "Todo" status**: already correct, no change needed. `TasksService.create()` always
+  picks the workflow status with the lowest `displayOrder`, and `SEED_WORKFLOW_STATUSES` (
+  `packages/shared-types/src/workflow.ts`) seeds "Todo" at `display_order: 0` — the lowest by
+  construction. A custom admin-authored workflow could reorder this, which is intentional
+  ("admin-configurable everything"), not a gap.
+- **Assignment → notification trigger**: already fully wired for both channels, confirmed
+  working in §M7's own testing (the mock-email log entries). `NotificationsService.notify()`
+  auto-adds the `push` channel to every notification the instant a user has *any* registered
+  device (`user.pushToken` set) — callers never opt in per-event. Nothing needed building here.
+
+**What was genuinely missing**: `MailService.send()` and `PushService.send()` both just logged
+a line and returned — the trigger fired, but delivery was 100% mocked, not partially.
+
+- **Push (`push.service.ts`), rebuilt to actually send**: realized while checking the mobile
+  registration code (`usePushNotifications.ts`) that it calls `getExpoPushTokenAsync()` — a
+  real **Expo** push token, not a raw FCM/APNs token — meaning real delivery is a plain HTTPS
+  POST to Expo's own push relay (`exp.host/--/api/v2/push/send`), which fans out to FCM/APNs on
+  our behalf. **No Firebase project or GCP credentials needed** — genuinely unblocked, unlike
+  Google Sign-In (§M4). Implemented with a plain `fetch()` (no new dependency), format-validates
+  the token first, and treats a delivery failure (stale token, etc.) as a warning, not a thrown
+  error, so one bad token never breaks the notification for anyone else.
+- **Email (`mail.service.ts`), rebuilt to actually send**: added `nodemailer` and replaced the
+  mock log with a real `createTransport()` + `sendMail()` call against the config an Admin
+  already saves via the existing Integration Settings page (`host`/`port`/`from_address`/
+  `username`/KMS-encrypted password) — confirmed the web form's field names match the
+  `SmtpConfig` shape exactly, so no UI changes were needed either. A fresh transporter per send,
+  not pooled — SMTP creds are editable at runtime with no redeploy, and this app's volume is low
+  enough that connection reuse isn't worth an Admin's credential change lingering in a stale
+  pool. The existing `POST /integration-settings/smtp/test` button now genuinely tests SMTP
+  connectivity as a side effect, with zero changes to that endpoint.
+
+**Verified for real, working around this sandbox's network policy**: attempting the actual Expo
+API call from here hit a hard proxy denial — `curl -sS "$HTTPS_PROXY/__agentproxy/status"`
+showed `"connect_rejected"`/`"gateway answered 403 to CONNECT"` specifically for `exp.host:443`,
+confirming it's this sandbox's own egress allowlist, not a code problem (Cloud Run has ordinary
+outbound internet access). Verified the request/response handling instead against a local mock
+server reproducing Expo's exact documented response shape — success, a rejected/stale token, and
+a malformed-token pre-check all handled correctly. For email, went one step further: ran a real
+local SMTP server (`smtp-server` + `mailparser`, scratch-only, not a repo dependency) and pointed
+the *exact* `createTransport`/`sendMail` call `MailService` makes at it — confirmed a full real
+SMTP handshake including AUTH, and the received message's from/to/subject/body/attachment all
+matched exactly. This is as close to "delivered for real" as this sandbox allows; the genuine
+end-to-end check (a real inbox, a real phone buzzing) needs the user's own deployed environment
+with real SMTP credentials entered via Admin → Integrations.
+
 ---
 
 ## How to keep this log current
