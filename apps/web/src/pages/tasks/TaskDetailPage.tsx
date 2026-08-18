@@ -11,6 +11,8 @@ import {
   useOnHoldReasons,
   useCreateTask,
   useTasks,
+  useAssignTask,
+  useUsers,
 } from '../../features/tasks/hooks';
 import { Badge } from '../../components/Badge';
 import { TimeLogWidget } from '../../features/tasks/TimeLogWidget';
@@ -30,6 +32,10 @@ export function TaskDetailPage() {
   const { data: parentTask } = useTask(task?.parent_task_id ?? undefined);
   const createTask = useCreateTask();
   const transitionTask = useTransitionTask(id!);
+  const assignTask = useAssignTask(id!);
+  // Scoped to the task's own department (docs/10-OPEN-DECISIONS.md §M7) — matches New Task's
+  // assignee picker and how everything else in this app treats department as the boundary.
+  const { data: members } = useUsers(task?.department_id);
   const addComment = useAddComment(id!);
   const [commentBody, setCommentBody] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
@@ -110,6 +116,24 @@ export function TaskDetailPage() {
                 const reason = onHoldReasons?.find((r) => r.id === (task as any).on_hold_reason_id);
                 return reason ? <Badge label={`On Hold: ${reason.label}`} color="#a855f7" /> : null;
               })()}
+          </div>
+
+          <div className="mt-3 flex items-center gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+            <span className="text-xs font-medium uppercase text-slate-400 dark:text-slate-500">Assigned to</span>
+            <select
+              value={task.assignee_id ?? ''}
+              onChange={(e) => assignTask.mutate(e.target.value || null)}
+              disabled={assignTask.isPending}
+              className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm disabled:opacity-50"
+            >
+              <option value="">Unassigned</option>
+              {(members as { id: string; full_name: string }[] | undefined)?.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.full_name}
+                </option>
+              ))}
+            </select>
+            {assignTask.isError && <span className="text-xs text-red-600 dark:text-red-400">{(assignTask.error as Error).message}</span>}
           </div>
 
           {availableTransitions.length > 0 && (

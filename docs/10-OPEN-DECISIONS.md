@@ -930,6 +930,49 @@ tasks with a "Filtered: Status: Todo" banner. Separately verified the honesty pa
 `overdue_rate` rows as plain, non-clickable table rows — no arrow, no broken link — exactly as
 designed, since dimension_value is "all" with nothing real to filter to.
 
+### M7. Web: task assignment UI — real gap found while user was testing the deployed app, not just an oversight in the ask
+
+User asked, while clicking around the freshly-deployed dev environment: after creating a task
+and mapping it to a department, how does it actually get assigned to a specific person? Checked
+both places you'd expect this and found neither had it: `NewTaskForm.tsx` only ever collected
+department + priority, and `TaskDetailPage.tsx` didn't display or let you change the assignee at
+all — not a partial gap, a complete one. The backend (`POST /tasks/:id/assign`,
+`assignee_id` already accepted on `POST /tasks`) and even a `useAssignTask()` client hook were
+already fully built and wired since #4/#8 — nothing in the UI ever called any of it. Web only;
+mobile has the same gap (`apps/mobile` `NewTaskForm`/`TaskDetailScreen` equivalents also never
+surfaced assignment) and hasn't been addressed here.
+
+Fixed on web, confirmed via the user's own explicit choices (both at creation and after, scoped
+to the task's own department — matches how every other assignment surface in this app already
+treats department as the boundary):
+- New Task form: added an assignee `<select>`, populated from the selected department's active
+  members (new `useUsers(departmentId)` hook, `GET /users?department_id=...&is_active=true`,
+  already existed server-side, just never called from a task-creation context), defaulting to
+  "Unassigned." Resets when the department changes, since the previous department's member
+  likely isn't in the new one.
+- Task Detail page: added an "Assigned to" `<select>` (same department-scoped member list,
+  `useAssignTask()`) directly under the status/priority badges — always editable, not gated
+  behind a separate edit button, matching this page's existing direct-manipulation pattern
+  (department filter dropdowns elsewhere behave the same way).
+
+**Verified against the running app** (same Playwright-against-`localhost` method as every other
+verification this session — the user's own deployed Cloud Run instance isn't reachable from
+here, so this sandbox's own dev server stood in, same code): created a task in the Development
+department, picked "Hana Head" from the new assignee dropdown
+→ task detail page loads showing "ASSIGNED TO: Hana Head". Confirmed server-side persistence (not
+just optimistic UI) two ways: reassigning to "Ravi Employee" via the detail-page dropdown and
+re-fetching, and — better evidence — the API's own mock-email notification log firing for real:
+`"Task assigned to you: Verify assignee picker"` to Hana Head on the initial assign, then
+`"Task reassigned"` + `"Task assigned to you"` to Ravi Employee on the change. That notification
+pipeline (assign → notify) was already built and wired (Notifications module, #10) and had
+simply never fired in practice because nothing ever called assign — the fix exercises code that
+was correct but dead until now.
+
+**Known gap, called out rather than silently left**: mobile has the identical hole (no assignee
+picker on creation or detail) and wasn't touched by this fix — scoped to web only since that's
+where the question came from. Worth the same fix on `apps/mobile` for parity, same as §M5/§M6's
+mobile follow-ups, if wanted.
+
 ---
 
 ## How to keep this log current

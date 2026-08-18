@@ -1,16 +1,25 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCreateTask, useDepartments, usePriorities } from './hooks';
+import { useCreateTask, useDepartments, usePriorities, useUsers } from './hooks';
 
 export function NewTaskForm({ onDone }: { onDone: () => void }) {
   const { data: departments } = useDepartments();
   const [title, setTitle] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [priorityId, setPriorityId] = useState('');
+  const [assigneeId, setAssigneeId] = useState('');
   const [dueDate, setDueDate] = useState('');
   const { data: priorities } = usePriorities(departmentId || undefined);
+  // Scoped to the selected department (docs/10-OPEN-DECISIONS.md §M7) — matches how everything
+  // else in this app treats department as the assignment boundary.
+  const { data: members } = useUsers(departmentId || undefined);
   const createTask = useCreateTask();
   const navigate = useNavigate();
+
+  function handleDepartmentChange(id: string) {
+    setDepartmentId(id);
+    setAssigneeId(''); // last department's member likely isn't in the new one
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,6 +28,7 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
       title,
       department_id: departmentId,
       priority_id: priorityId || undefined,
+      assignee_id: assigneeId || undefined,
       due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
     });
     onDone();
@@ -34,10 +44,10 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
         className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm"
         required
       />
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <select
           value={departmentId}
-          onChange={(e) => setDepartmentId(e.target.value)}
+          onChange={(e) => handleDepartmentChange(e.target.value)}
           className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm"
           required
         >
@@ -45,6 +55,19 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
           {departments?.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={assigneeId}
+          onChange={(e) => setAssigneeId(e.target.value)}
+          disabled={!departmentId}
+          className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm disabled:opacity-50"
+        >
+          <option value="">Unassigned</option>
+          {(members as { id: string; full_name: string }[] | undefined)?.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.full_name}
             </option>
           ))}
         </select>

@@ -103,6 +103,15 @@ export function useDepartments() {
   return useQuery({ queryKey: ['departments'], queryFn: () => apiClient.departments.list() });
 }
 
+/** Department members, for the assignee picker on task creation/detail (docs/10-OPEN-DECISIONS.md §M7). */
+export function useUsers(departmentId?: string) {
+  return useQuery({
+    queryKey: ['users', departmentId],
+    queryFn: () => apiClient.users.list({ department_id: departmentId, is_active: true }),
+    enabled: !!departmentId,
+  });
+}
+
 export function usePriorities(departmentId?: string) {
   return useQuery({
     queryKey: ['priorities', departmentId],
