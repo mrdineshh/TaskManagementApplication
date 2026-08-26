@@ -28,7 +28,7 @@ variable "google_oauth_client_secret" {
 }
 
 variable "firebase_project_id" {
-  description = "GCP project ID hosting the Firebase project used for Google Sign-In (docs/10-OPEN-DECISIONS.md §M4). Not secret — it's the JWT audience the API checks ID tokens against — but left unset by default until a real Firebase project is provisioned."
+  description = "GCP project ID hosting the Firebase project used for Google Sign-In (docs/10-OPEN-DECISIONS.md §M4). Not secret — it's the JWT audience the API checks ID tokens against."
   type        = string
-  default     = ""
+  default     = "task-management-applicat-5e5d6"
 }

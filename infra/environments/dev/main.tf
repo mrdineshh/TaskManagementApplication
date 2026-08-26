@@ -176,12 +176,13 @@ module "api" {
     # already reads process.env.PORT with a 3000 fallback only for local dev, so this needs
     # no code change — Cloud Run's own value just flows straight through.
     ALLOWED_EMAIL_DOMAIN = "econz.net"
-    # "dev" temporarily enabled here (docs/10-OPEN-DECISIONS.md §F4) — no real Firebase project
-    # is available yet to wire up "google" end-to-end, and this is the only way to reach the
-    # app at all right now. SECURITY: the dev provider accepts ANY email as a bare token with
-    # zero verification, and this Cloud Run service is allow_unauthenticated — anyone with the
-    # URL can sign in as any @econz.net user, including admins, until this is reverted to
-    # "google" only once real Firebase credentials are set up.
+    # "dev" re-enabled deliberately (docs/10-OPEN-DECISIONS.md §F4/§M4) — real Google Sign-In
+    # works, but the user needs to keep exercising multiple roles (Admin/Manager/Head/Employee)
+    # against the seeded dev accounts, which real Google Sign-In can't do without a separate
+    # real Google account per role. SECURITY: same live exposure as before while this stays
+    # enabled — DevAuthProvider accepts ANY email as a fully-trusted identity, zero verification,
+    # on an allow_unauthenticated Cloud Run service. Revert to "google" alone (see git history
+    # for the exact prior state) once role-based testing is done.
     AUTH_PROVIDERS      = "google,dev"
     FIREBASE_PROJECT_ID = var.firebase_project_id
     ATTACHMENTS_BUCKET  = module.attachments_bucket.bucket_name

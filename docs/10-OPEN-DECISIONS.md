@@ -218,7 +218,7 @@ real chicken-and-egg problem: Cloud Run's deploy validates that every
 referenced secret has at least one version at deploy time, so leaving these
 null (as originally written) made the very first deploy fail outright.
 
-### F4. "dev" mock auth provider temporarily enabled on the deployed dev API — SECURITY EXPOSURE, revert once Firebase is set up
+### F4. "dev" mock auth provider on the deployed dev API — proven closeable (§M4), deliberately still open for role-based testing
 `AUTH_PROVIDERS` on the deployed `taskapp-api` Cloud Run service is
 currently `"google,dev"`, not `"google"` alone as originally deployed. Real
 Google Sign-In (`GoogleAuthProvider`, `docs/03-RBAC-AUTH.md` §1.1) is Firebase
@@ -245,10 +245,15 @@ Firebase JS SDK, set `FIREBASE_PROJECT_ID` on the API service, then change
 `AUTH_PROVIDERS` back to `"google"` only in
 `infra/environments/dev/main.tf` and redeploy.
 
-**Status: code-complete, still open** — see §M4. The frontend wiring, Firebase JS SDK
-integration, and `FIREBASE_PROJECT_ID` Terraform plumbing are all done; what's left is
-provisioning the actual Firebase project under the right GCP account and setting the real
-values, then flipping `AUTH_PROVIDERS` and redeploying.
+**Status: proven, not yet enforced.** Real Google Sign-In confirmed working end-to-end in the
+deployed dev environment (user tested it directly) — `AUTH_PROVIDERS` was briefly reverted to
+`"google"` alone, then deliberately put back to `"google,dev"` at the user's request: testing
+multiple roles (Admin/Manager/Head/Employee) against the seeded dev accounts needs dev sign-in,
+since that isn't achievable through one person's real Google account. See §M4 for the full
+story. **The exposure is real and known-accepted for now**, not forgotten — re-close it (see
+git history around this line for the exact prior `"google"`-only state, applied the same way:
+edit `infra/environments/dev/main.tf` *and* the live Cloud Run env var, since this deployment
+doesn't run `terraform apply`) once role-based testing is done.
 
 ---
 
@@ -766,7 +771,7 @@ simulator/emulator, neither of which exists in this sandbox. Genuinely worth a q
 device/Expo-Go check before this reaches real users, though the risk profile is now much
 lower than an untested change: the JS bundle Expo Go would load is now proven to build clean.
 
-### M4. Google Sign-In wired end-to-end on web + mobile — code-complete, blocked only on real Firebase project values (partially closes §F4)
+### M4. Google Sign-In wired end-to-end on web — WORKING IN THE DEPLOYED DEV ENVIRONMENT (proves §F4 closeable; kept open for role testing)
 `GoogleAuthProvider` (backend) has existed since #4 but nothing ever called it — both frontends
 had a permanently-disabled "Sign in with Google" placeholder, and `FIREBASE_PROJECT_ID` was
 missing from all three Terraform environments' `env_vars` entirely (not even an empty
@@ -808,21 +813,36 @@ committed. Decision: keep building the integration against env vars (which don't
 Firebase project supplies the values) rather than block on resolving ownership first, since
 none of the code above hardcodes project-specific values.
 
-**Remaining before this can actually be used**:
-1. Provision (or transfer) a Firebase project under the official GCP account, enable Google as a
-   sign-in provider, register a Web app to get the `VITE_FIREBASE_*` config values.
-2. Get the **Web OAuth Client ID** (Google Cloud Console → APIs & Services → Credentials — the
-   client Firebase auto-creates once Google sign-in is enabled) for mobile's
-   `extra.googleOAuthClientId`.
-3. Add Expo's auth-proxy redirect URI (`https://auth.expo.io/@<owner>/<slug>`) to that OAuth
-   client's Authorized redirect URIs — required for `promptAsync()` to complete inside Expo Go;
-   not yet done since the client doesn't exist yet.
-4. Set the real `firebase_project_id` Terraform var (`-var` or CI secret store) and re-apply;
-   set the real `VITE_FIREBASE_*` / `VITE_ALLOWED_EMAIL_DOMAIN` values in the web Cloud Build
-   substitutions and rebuild/redeploy the web image.
-5. Only once (4) is confirmed working end-to-end in the deployed dev environment: flip
-   `AUTH_PROVIDERS` back to `"google"` alone in `infra/environments/dev/main.tf` (closing the
-   §F4 exposure for real) and redeploy.
+**Web: proven working, `dev` kept enabled alongside it by choice.** All of the following done
+and confirmed working — the user signed in through the real "Sign in with Google" button on the
+deployed dev web app:
+1. ~~Provision a Firebase project~~ Done: `task-management-applicat-5e5d6` (backing GCP project
+   `883580624459`).
+2. ~~Get the Web OAuth Client ID.~~ Done: `883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com`.
+3. ~~Confirm authorized domains.~~ Done — plus one caught live: the deployed web app's real URL
+   is Cloud Run's auto-generated `taskapp-web-717975906785.us-central1.run.app`, not `econz.net`
+   (no custom domain mapping exists yet), which the original authorized-domains list didn't
+   cover — hit `auth/unauthorized-domain` on the first real attempt, fixed by adding that exact
+   `*.run.app` host to Firebase Authentication → Settings → Authorized domains. Worth remembering
+   for staging/prod later: each Cloud Run environment's own `*.run.app` host needs adding too,
+   independent of any custom domain.
+4. ~~Set the real values in the deployed environment~~ Done, via the manual Cloud Run
+   Console + Cloud Build trigger path this project's actual deploys use (not `terraform apply`):
+   `FIREBASE_PROJECT_ID` added to `taskapp-api`'s env vars, `VITE_FIREBASE_*` added to the
+   `deploy-web-manual` trigger's substitutions and rebuilt.
+5. Flip `AUTH_PROVIDERS` back to `"google"` alone — done *and reverted*. Briefly set to
+   `"google"` only in `infra/environments/dev/main.tf` once (5) was proven working, then the
+   user asked to keep `"dev"` enabled a while longer: testing multiple roles
+   (Admin/Manager/Head/Employee) against the seeded dev accounts isn't achievable through one
+   person's real Google account. Back to `"google,dev"` — see §F4 for current status and how to
+   re-close it later. `firebase_project_id`'s default is still updated to the real value
+   regardless, so a future `terraform apply` doesn't revert that part.
+
+**Mobile: still open.** `extra.googleOAuthClientId` in `app.json` has the real value, but
+`promptAsync()` can't complete inside Expo Go until Expo's auth-proxy redirect URI
+(`https://auth.expo.io/@<owner>/<slug>`) is added to the OAuth client's Authorized redirect
+URIs — blocked on the Expo account username the mobile project is published under (`app.json`
+has no `owner` field set), which only the user can supply.
 
 ### M5. "Studio Desk" visual redesign + Power BI-style drill-down, web and mobile
 
@@ -889,6 +909,139 @@ existed:
   every other mobile change this session: zero-error bundle compiles for both platforms with
   the new navigation/query code confirmed present in the compiled output (on-device rendering
   still isn't checkable in this sandbox, same standing gap as §M3).
+
+### M6. Reports chart drill-down (web only) — closes the deferred item from §M5
+
+§M5 explicitly scoped Power BI-style drill-down to Team Dashboard + Scorecard and deferred
+Reports/Timeline to "next round." Picked that back up: Timeline turned out to already drill to
+the most granular level (task bars already link to `/tasks/:id`), so no changes there. Reports
+was the real gap — every chart showed only an aggregate number per dimension, with no way to
+see which tasks it counted.
+
+**What `dimension_value` actually is, discovered by reading `reports.service.ts`'s
+`labelFor()`**: it's not a generic "dimension," it's whatever real id that particular metric's
+aggregate cache row is keyed by — `status_id` for `task_counts_by_status`, `department_id` for
+`task_counts_by_department`, `user_id` for the three assignee-keyed metrics, `priority_id` for
+`task_counts_by_priority`. For the remaining six metrics (`overdue_count`, `overdue_rate`,
+`over_budget_count`, `over_budget_rate`, `avg_time_to_completion_hours`,
+`sla_compliance_rate`, `completion_throughput`) it's literally the string `"all"` — these are
+single-number-per-department aggregates, not a breakdown of individual tasks, so there's no
+per-row entity to link to at all. `apps/web/src/features/reports/drill.ts`'s `reportDrillHref()`
+encodes exactly this: real-id metrics map straight to a `/tasks?status_id=...` /
+`department_id=...` / `priority_id=...` / `assignee_id=...` link (`"unassigned"` stays
+non-clickable — not a real user id); `overdue_count`/`over_budget_count` only become clickable
+when the *report itself* is department-filtered (`report.config.filters.department_id`), since
+that's the only case where "all" resolves to something real; everything else stays
+non-interactive. Wired into `ReportChart.tsx` (bar `onClick`, pie `<Cell onClick>`, table row
+`onClick` + `cursor-pointer` + a "→" affordance column only shown when at least one row in that
+chart is drillable) and `ReportViewerPage.tsx`.
+
+**Verified for real, and caught a real bug doing it**: first pass, clicking a "Task Counts by
+Status" bar navigated to `/tasks?status_id=...` correctly, but the task list page ignored the
+param entirely — `TaskListPage.tsx` had only ever read `department_id`/`assignee_id`/
+`overdue`/`over_budget` from the URL (added in §M5), never `status_id`/`priority_id`, so the
+"filtered" list silently showed everything. Playwright caught this immediately (screenshot
+showed all four statuses mixed together, no filter banner) — fixed by adding both params to
+`TaskListPage`'s URL reading, `useTasks()` call, and the filter banner (labels derived from the
+already-loaded rows' own `status.label`/`priority.label`, same zero-extra-request trick as the
+existing assignee label). Re-verified: clicking "Todo" (bar height 4) landed on exactly 4 Todo
+tasks with a "Filtered: Status: Todo" banner. Separately verified the honesty path: the
+"Overdue Tasks" starter template (no department filter) renders its `overdue_count`/
+`overdue_rate` rows as plain, non-clickable table rows — no arrow, no broken link — exactly as
+designed, since dimension_value is "all" with nothing real to filter to.
+
+### M7. Web: task assignment UI — real gap found while user was testing the deployed app, not just an oversight in the ask
+
+User asked, while clicking around the freshly-deployed dev environment: after creating a task
+and mapping it to a department, how does it actually get assigned to a specific person? Checked
+both places you'd expect this and found neither had it: `NewTaskForm.tsx` only ever collected
+department + priority, and `TaskDetailPage.tsx` didn't display or let you change the assignee at
+all — not a partial gap, a complete one. The backend (`POST /tasks/:id/assign`,
+`assignee_id` already accepted on `POST /tasks`) and even a `useAssignTask()` client hook were
+already fully built and wired since #4/#8 — nothing in the UI ever called any of it. Web only;
+mobile has the same gap (`apps/mobile` `NewTaskForm`/`TaskDetailScreen` equivalents also never
+surfaced assignment) and hasn't been addressed here.
+
+Fixed on web, confirmed via the user's own explicit choices (both at creation and after, scoped
+to the task's own department — matches how every other assignment surface in this app already
+treats department as the boundary):
+- New Task form: added an assignee `<select>`, populated from the selected department's active
+  members (new `useUsers(departmentId)` hook, `GET /users?department_id=...&is_active=true`,
+  already existed server-side, just never called from a task-creation context), defaulting to
+  "Unassigned." Resets when the department changes, since the previous department's member
+  likely isn't in the new one.
+- Task Detail page: added an "Assigned to" `<select>` (same department-scoped member list,
+  `useAssignTask()`) directly under the status/priority badges — always editable, not gated
+  behind a separate edit button, matching this page's existing direct-manipulation pattern
+  (department filter dropdowns elsewhere behave the same way).
+
+**Verified against the running app** (same Playwright-against-`localhost` method as every other
+verification this session — the user's own deployed Cloud Run instance isn't reachable from
+here, so this sandbox's own dev server stood in, same code): created a task in the Development
+department, picked "Hana Head" from the new assignee dropdown
+→ task detail page loads showing "ASSIGNED TO: Hana Head". Confirmed server-side persistence (not
+just optimistic UI) two ways: reassigning to "Ravi Employee" via the detail-page dropdown and
+re-fetching, and — better evidence — the API's own mock-email notification log firing for real:
+`"Task assigned to you: Verify assignee picker"` to Hana Head on the initial assign, then
+`"Task reassigned"` + `"Task assigned to you"` to Ravi Employee on the change. That notification
+pipeline (assign → notify) was already built and wired (Notifications module, #10) and had
+simply never fired in practice because nothing ever called assign — the fix exercises code that
+was correct but dead until now.
+
+**Known gap, called out rather than silently left**: mobile has the identical hole (no assignee
+picker on creation or detail) and wasn't touched by this fix — scoped to web only since that's
+where the question came from. Worth the same fix on `apps/mobile` for parity, same as §M5/§M6's
+mobile follow-ups, if wanted.
+
+### M8. Real push + email delivery — the trigger side (§M7) was already fully wired; only the last-mile send was mocked
+
+Follow-up to §M7: user asked for tasks to default to "Todo" and for assignment to trigger an
+email + a mobile push. Checked each claim against the actual code rather than assuming a gap:
+
+- **Default "Todo" status**: already correct, no change needed. `TasksService.create()` always
+  picks the workflow status with the lowest `displayOrder`, and `SEED_WORKFLOW_STATUSES` (
+  `packages/shared-types/src/workflow.ts`) seeds "Todo" at `display_order: 0` — the lowest by
+  construction. A custom admin-authored workflow could reorder this, which is intentional
+  ("admin-configurable everything"), not a gap.
+- **Assignment → notification trigger**: already fully wired for both channels, confirmed
+  working in §M7's own testing (the mock-email log entries). `NotificationsService.notify()`
+  auto-adds the `push` channel to every notification the instant a user has *any* registered
+  device (`user.pushToken` set) — callers never opt in per-event. Nothing needed building here.
+
+**What was genuinely missing**: `MailService.send()` and `PushService.send()` both just logged
+a line and returned — the trigger fired, but delivery was 100% mocked, not partially.
+
+- **Push (`push.service.ts`), rebuilt to actually send**: realized while checking the mobile
+  registration code (`usePushNotifications.ts`) that it calls `getExpoPushTokenAsync()` — a
+  real **Expo** push token, not a raw FCM/APNs token — meaning real delivery is a plain HTTPS
+  POST to Expo's own push relay (`exp.host/--/api/v2/push/send`), which fans out to FCM/APNs on
+  our behalf. **No Firebase project or GCP credentials needed** — genuinely unblocked, unlike
+  Google Sign-In (§M4). Implemented with a plain `fetch()` (no new dependency), format-validates
+  the token first, and treats a delivery failure (stale token, etc.) as a warning, not a thrown
+  error, so one bad token never breaks the notification for anyone else.
+- **Email (`mail.service.ts`), rebuilt to actually send**: added `nodemailer` and replaced the
+  mock log with a real `createTransport()` + `sendMail()` call against the config an Admin
+  already saves via the existing Integration Settings page (`host`/`port`/`from_address`/
+  `username`/KMS-encrypted password) — confirmed the web form's field names match the
+  `SmtpConfig` shape exactly, so no UI changes were needed either. A fresh transporter per send,
+  not pooled — SMTP creds are editable at runtime with no redeploy, and this app's volume is low
+  enough that connection reuse isn't worth an Admin's credential change lingering in a stale
+  pool. The existing `POST /integration-settings/smtp/test` button now genuinely tests SMTP
+  connectivity as a side effect, with zero changes to that endpoint.
+
+**Verified for real, working around this sandbox's network policy**: attempting the actual Expo
+API call from here hit a hard proxy denial — `curl -sS "$HTTPS_PROXY/__agentproxy/status"`
+showed `"connect_rejected"`/`"gateway answered 403 to CONNECT"` specifically for `exp.host:443`,
+confirming it's this sandbox's own egress allowlist, not a code problem (Cloud Run has ordinary
+outbound internet access). Verified the request/response handling instead against a local mock
+server reproducing Expo's exact documented response shape — success, a rejected/stale token, and
+a malformed-token pre-check all handled correctly. For email, went one step further: ran a real
+local SMTP server (`smtp-server` + `mailparser`, scratch-only, not a repo dependency) and pointed
+the *exact* `createTransport`/`sendMail` call `MailService` makes at it — confirmed a full real
+SMTP handshake including AUTH, and the received message's from/to/subject/body/attachment all
+matched exactly. This is as close to "delivered for real" as this sandbox allows; the genuine
+end-to-end check (a real inbox, a real phone buzzing) needs the user's own deployed environment
+with real SMTP credentials entered via Admin → Integrations.
 
 ---
 

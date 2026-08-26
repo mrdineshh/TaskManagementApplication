@@ -15,7 +15,7 @@
     },
     "extra": {
       "apiBaseUrl": "http://localhost:3000",
-      "googleOAuthClientId": ""
+      "googleOAuthClientId": "883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com"
     }
   }
 }
