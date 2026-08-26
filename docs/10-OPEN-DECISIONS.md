@@ -814,10 +814,13 @@ none of the code above hardcodes project-specific values.
    `task-management-applicat-5e5d6` (backing GCP project `883580624459`), config below.
 2. ~~Get the Web OAuth Client ID.~~ Done: `883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com`,
    written into `apps/mobile/app.json`'s `extra.googleOAuthClientId`.
-3. Add Expo's auth-proxy redirect URI (`https://auth.expo.io/@<owner>/<slug>`) to that OAuth
-   client's Authorized redirect URIs — required for `promptAsync()` to complete inside Expo Go.
-   Still open: needs the Expo account username the mobile project is published under (`app.json`
-   has no `owner` field set), which only the user can supply.
+3. ~~Confirm authorized domains.~~ Done: `localhost`, `task-management-applicat-5e5d6.firebaseapp.com`,
+   `task-management-applicat-5e5d6.web.app` (defaults) plus `econz.net` (custom) — no
+   `demo.econz.net` on this project yet; add it here if/when staging gets its own subdomain.
+   Separately, add Expo's auth-proxy redirect URI (`https://auth.expo.io/@<owner>/<slug>`) to
+   the OAuth client's Authorized redirect URIs — required for `promptAsync()` to complete inside
+   Expo Go. Still open: needs the Expo account username the mobile project is published under
+   (`app.json` has no `owner` field set), which only the user can supply.
 4. Set the real values in the **deployed** environment. Note the actual deploy path here is
    manual Cloud Build triggers + Cloud Run Console "Deploy New Revision" (§ see the chat, not
    `terraform apply`), so the Terraform `firebase_project_id` var this repo defines won't reach
