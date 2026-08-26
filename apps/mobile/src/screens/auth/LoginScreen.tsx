@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Google from 'expo-auth-session/providers/google';
@@ -13,8 +13,14 @@ WebBrowser.maybeCompleteAuthSession();
 
 /**
  * Google Sign-In (docs/03-RBAC-AUTH.md §1.1) is enabled once app.json's extra.googleOAuthClientId
- * is set (docs/10-OPEN-DECISIONS.md §M4); the dev auth provider stays available underneath for
- * local development and exercises the exact same login → JWT → session flow.
+ * (web) and extra.googleAndroidClientId (native) are set (docs/10-OPEN-DECISIONS.md §M4); the dev
+ * auth provider stays available underneath for local development and exercises the exact same
+ * login → JWT → session flow.
+ *
+ * expo-auth-session's proxy (auth.expo.io) is deprecated and no longer wired into this SDK's
+ * makeRedirectUri() — Android/iOS need their own native OAuth client (registered against this
+ * app's package name + signing certificate, docs/10-OPEN-DECISIONS.md §M4) and a real
+ * development build (Expo Go can't hold a stable native redirect scheme), not just a webClientId.
  */
 export function LoginScreen() {
   const [email, setEmail] = useState('admin@econz.net');
@@ -23,10 +29,32 @@ export function LoginScreen() {
   const { setTokens, setCurrentUser } = useSessionStore();
   const { colors, radius, spacing, typography } = useAppTheme();
 
-  const googleClientId = Constants.expoConfig?.extra?.googleOAuthClientId as string | undefined;
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: googleClientId || undefined,
-  });
+  const webClientId = Constants.expoConfig?.extra?.googleOAuthClientId as string | undefined;
+  const androidClientId = Constants.expoConfig?.extra?.googleAndroidClientId as string | undefined;
+
+  // The web id as a platform id is a harmless placeholder, never actually used for sign-in — it
+  // only exists so useIdTokenAuthRequest's internal useMemo has *some* string to read on Android
+  // before a real androidClientId is configured, since it throws synchronously at render time
+  // otherwise (confirmed by reading expo-auth-session's source: ProviderUtils.invariantClientId).
+  // Whether Google Sign-In actually works is gated by googleSignInReady below, not by this.
+  const platformClientId = Platform.OS === 'android' ? androidClientId : webClientId;
+  const googleSignInReady = Platform.OS === 'android' ? !!androidClientId : !!webClientId;
+
+  // Android/iOS OAuth clients from Google use a redirect scheme derived from the client id itself
+  // (reversed), not the app's own package id — see docs.expo.dev/guides/google-authentication.
+  const nativeRedirectScheme = useMemo(() => {
+    if (!androidClientId) return undefined;
+    const prefix = androidClientId.split('.apps.googleusercontent.com')[0];
+    return `com.googleusercontent.apps.${prefix}:/oauthredirect`;
+  }, [androidClientId]);
+
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest(
+    {
+      webClientId: webClientId || undefined,
+      androidClientId: (platformClientId || webClientId) || undefined,
+    },
+    nativeRedirectScheme ? { native: nativeRedirectScheme } : {}
+  );
 
   async function finishLogin(accessToken: string, refreshToken: string) {
     setTokens(accessToken, refreshToken);
@@ -118,13 +146,13 @@ export function LoginScreen() {
 
         <View style={styles.card}>
           <Pressable
-            style={[styles.googleButton, (!googleClientId || !request || loading) && styles.googleButtonDisabled]}
+            style={[styles.googleButton, (!googleSignInReady || !request || loading) && styles.googleButtonDisabled]}
             onPress={() => promptAsync()}
-            disabled={!googleClientId || !request || loading}
+            disabled={!googleSignInReady || !request || loading}
           >
             <Ionicons name="logo-google" size={16} color={colors.slate[400]} style={{ marginRight: 8 }} />
             <Text style={styles.googleButtonText}>
-              {googleClientId ? 'Sign in with Google' : 'Sign in with Google (pending GCP setup)'}
+              {googleSignInReady ? 'Sign in with Google' : 'Sign in with Google (pending GCP setup)'}
             </Text>
           </Pressable>
 

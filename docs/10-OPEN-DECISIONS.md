@@ -838,11 +838,38 @@ deployed dev web app:
    re-close it later. `firebase_project_id`'s default is still updated to the real value
    regardless, so a future `terraform apply` doesn't revert that part.
 
-**Mobile: still open.** `extra.googleOAuthClientId` in `app.json` has the real value, but
-`promptAsync()` can't complete inside Expo Go until Expo's auth-proxy redirect URI
-(`https://auth.expo.io/@<owner>/<slug>`) is added to the OAuth client's Authorized redirect
-URIs — blocked on the Expo account username the mobile project is published under (`app.json`
-has no `owner` field set), which only the user can supply.
+**Mobile: still open — the auth-proxy plan above was wrong, corrected once discovered.** The
+original plan (add `https://auth.expo.io/@<owner>/<slug>` as an Authorized redirect URI) doesn't
+work: read `expo-auth-session@5.5.2`'s own source (the version SDK 51 pins) and confirmed
+`makeRedirectUri()` no longer calls into `SessionUrlProvider` at all — the proxy code is present
+but dead, disconnected from the public API. In Expo Go, `makeRedirectUri()` instead falls back to
+a per-session `exp://<lan-ip>:8081/...` address that changes every dev-server start, which Google
+can't accept as a static Authorized redirect URI either way. Real fix needs a development build
+(`eas build --profile development`, not Expo Go) plus a native Android OAuth client (package name
++ signing certificate, no redirect-URI list — Android/iOS client types work differently from Web
+ones). User chose to do this rather than defer it.
+
+Also found and fixed a second, independent bug while wiring this up: `LoginScreen.tsx` only ever
+passed `webClientId` to `Google.useIdTokenAuthRequest()`. On a real device, `Platform.OS` is never
+`'web'`, so the hook looks for `androidClientId`/`iosClientId` instead — undefined, and
+`invariantClientId()` throws synchronously inside a `useMemo`, i.e. the whole screen would have
+crashed on mount the moment `googleOAuthClientId` went non-empty, before anyone even tapped the
+button. Fixed: `app.json` gained `extra.googleAndroidClientId` (empty placeholder, mirroring the
+existing web one); `LoginScreen.tsx` now reads it, uses it as the platform id on Android, falls
+back to the (harmless, non-functional-for-sign-in) web id only to keep the hook from throwing pre-
+configuration, and derives the native redirect scheme Google's Android client type actually
+expects — `com.googleusercontent.apps.<client-id-prefix>:/oauthredirect`, not the app's own
+package id — from the Android client ID itself, per Expo's current Google-auth guide. Added
+`expo-dev-client` (required for `eas build --profile development`) to `package.json` and a new
+`eas.json` with `development`/`preview`/`production` profiles (development: internal APK, so it
+installs directly on a phone with no Play Store/Apple Developer account needed for this step).
+
+Remaining, blocked on the user: create an Android OAuth client in Google Cloud Console (package
+`net.econz.taskapp` + the SHA-1 fingerprint of the EAS-managed development keystore, obtained via
+`eas credentials`), then paste the resulting Android Client ID back so it can be set as
+`extra.googleAndroidClientId`. No rebuild needed for that last step — development builds load JS
+from the Metro dev server at runtime, same as Expo Go, so only genuinely native changes (like
+adding `expo-dev-client` itself) require a fresh `eas build`.
 
 ### M5. "Studio Desk" visual redesign + Power BI-style drill-down, web and mobile
 

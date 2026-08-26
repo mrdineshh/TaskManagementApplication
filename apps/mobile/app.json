@@ -2,6 +2,7 @@
   "expo": {
     "name": "Task Management",
     "slug": "taskapp-mobile",
+    "owner": "dinesh-econz",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -15,7 +16,8 @@
     },
     "extra": {
       "apiBaseUrl": "http://localhost:3000",
-      "googleOAuthClientId": "883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com"
+      "googleOAuthClientId": "883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com",
+      "googleAndroidClientId": ""
     }
   }
 }
