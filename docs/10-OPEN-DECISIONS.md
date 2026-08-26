@@ -808,18 +808,27 @@ committed. Decision: keep building the integration against env vars (which don't
 Firebase project supplies the values) rather than block on resolving ownership first, since
 none of the code above hardcodes project-specific values.
 
-**Remaining before this can actually be used**:
-1. Provision (or transfer) a Firebase project under the official GCP account, enable Google as a
-   sign-in provider, register a Web app to get the `VITE_FIREBASE_*` config values.
-2. Get the **Web OAuth Client ID** (Google Cloud Console → APIs & Services → Credentials — the
-   client Firebase auto-creates once Google sign-in is enabled) for mobile's
-   `extra.googleOAuthClientId`.
+**Remaining before this can actually be used** (updated — 1 and 2 done):
+1. ~~Provision a Firebase project under the official GCP account, enable Google as a sign-in
+   provider, register a Web app to get the `VITE_FIREBASE_*` config values.~~ Done:
+   `task-management-applicat-5e5d6` (backing GCP project `883580624459`), config below.
+2. ~~Get the Web OAuth Client ID.~~ Done: `883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com`,
+   written into `apps/mobile/app.json`'s `extra.googleOAuthClientId`.
 3. Add Expo's auth-proxy redirect URI (`https://auth.expo.io/@<owner>/<slug>`) to that OAuth
-   client's Authorized redirect URIs — required for `promptAsync()` to complete inside Expo Go;
-   not yet done since the client doesn't exist yet.
-4. Set the real `firebase_project_id` Terraform var (`-var` or CI secret store) and re-apply;
-   set the real `VITE_FIREBASE_*` / `VITE_ALLOWED_EMAIL_DOMAIN` values in the web Cloud Build
-   substitutions and rebuild/redeploy the web image.
+   client's Authorized redirect URIs — required for `promptAsync()` to complete inside Expo Go.
+   Still open: needs the Expo account username the mobile project is published under (`app.json`
+   has no `owner` field set), which only the user can supply.
+4. Set the real values in the **deployed** environment. Note the actual deploy path here is
+   manual Cloud Build triggers + Cloud Run Console "Deploy New Revision" (§ see the chat, not
+   `terraform apply`), so the Terraform `firebase_project_id` var this repo defines won't reach
+   the running service on its own:
+   - API: Cloud Run → `taskapp-api` → Edit & Deploy New Revision → Variables & Secrets → add
+     `FIREBASE_PROJECT_ID=task-management-applicat-5e5d6` → Deploy.
+   - Web: Cloud Build → Triggers → `deploy-web-manual` → Edit → Substitution variables → set
+     `_FIREBASE_API_KEY`, `_FIREBASE_AUTH_DOMAIN=task-management-applicat-5e5d6.firebaseapp.com`,
+     `_FIREBASE_PROJECT_ID=task-management-applicat-5e5d6`,
+     `_FIREBASE_APP_ID=1:883580624459:web:96044f18355f33d05a37ce` → Run the trigger → Cloud Run
+     → `taskapp-web` → Deploy New Revision with the freshly built image.
 5. Only once (4) is confirmed working end-to-end in the deployed dev environment: flip
    `AUTH_PROVIDERS` back to `"google"` alone in `infra/environments/dev/main.tf` (closing the
    §F4 exposure for real) and redeploy.
