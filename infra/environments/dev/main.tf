@@ -176,14 +176,14 @@ module "api" {
     # already reads process.env.PORT with a 3000 fallback only for local dev, so this needs
     # no code change — Cloud Run's own value just flows straight through.
     ALLOWED_EMAIL_DOMAIN = "econz.net"
-    # Reverted from "google,dev" — real Google Sign-In (Firebase project
-    # task-management-applicat-5e5d6) is confirmed working end-to-end in this environment as of
-    # docs/10-OPEN-DECISIONS.md §M4, so the "dev" mock provider (accepted ANY email as a bare
-    # token, zero verification, on an allow_unauthenticated service — anyone with the URL could
-    # sign in as any @econz.net user) is no longer needed and closing it removes a real, live
-    # exposure. Re-enable temporarily only if Google Sign-In itself breaks and dev access is
-    # needed to fix it.
-    AUTH_PROVIDERS      = "google"
+    # "dev" re-enabled deliberately (docs/10-OPEN-DECISIONS.md §F4/§M4) — real Google Sign-In
+    # works, but the user needs to keep exercising multiple roles (Admin/Manager/Head/Employee)
+    # against the seeded dev accounts, which real Google Sign-In can't do without a separate
+    # real Google account per role. SECURITY: same live exposure as before while this stays
+    # enabled — DevAuthProvider accepts ANY email as a fully-trusted identity, zero verification,
+    # on an allow_unauthenticated Cloud Run service. Revert to "google" alone (see git history
+    # for the exact prior state) once role-based testing is done.
+    AUTH_PROVIDERS      = "google,dev"
     FIREBASE_PROJECT_ID = var.firebase_project_id
     ATTACHMENTS_BUCKET  = module.attachments_bucket.bucket_name
     DEV_KMS_KEY_ID      = google_kms_crypto_key.integration_settings.id

@@ -218,7 +218,7 @@ real chicken-and-egg problem: Cloud Run's deploy validates that every
 referenced secret has at least one version at deploy time, so leaving these
 null (as originally written) made the very first deploy fail outright.
 
-### F4. ~~"dev" mock auth provider temporarily enabled on the deployed dev API~~ — closed, see §M4
+### F4. "dev" mock auth provider on the deployed dev API — proven closeable (§M4), deliberately still open for role-based testing
 `AUTH_PROVIDERS` on the deployed `taskapp-api` Cloud Run service is
 currently `"google,dev"`, not `"google"` alone as originally deployed. Real
 Google Sign-In (`GoogleAuthProvider`, `docs/03-RBAC-AUTH.md` §1.1) is Firebase
@@ -245,11 +245,15 @@ Firebase JS SDK, set `FIREBASE_PROJECT_ID` on the API service, then change
 `AUTH_PROVIDERS` back to `"google"` only in
 `infra/environments/dev/main.tf` and redeploy.
 
-**Status: closed.** Real Google Sign-In confirmed working end-to-end in the deployed dev
-environment (user tested it directly), and `AUTH_PROVIDERS` reverted to `"google"` alone in
-`infra/environments/dev/main.tf` — see §M4 for the full story. The dev-sign-in mock provider is
-still registered in code (`apps/api/src/auth/providers/dev-auth.provider.ts`) for local
-development, it's just no longer in the deployed environment's active provider list.
+**Status: proven, not yet enforced.** Real Google Sign-In confirmed working end-to-end in the
+deployed dev environment (user tested it directly) — `AUTH_PROVIDERS` was briefly reverted to
+`"google"` alone, then deliberately put back to `"google,dev"` at the user's request: testing
+multiple roles (Admin/Manager/Head/Employee) against the seeded dev accounts needs dev sign-in,
+since that isn't achievable through one person's real Google account. See §M4 for the full
+story. **The exposure is real and known-accepted for now**, not forgotten — re-close it (see
+git history around this line for the exact prior `"google"`-only state, applied the same way:
+edit `infra/environments/dev/main.tf` *and* the live Cloud Run env var, since this deployment
+doesn't run `terraform apply`) once role-based testing is done.
 
 ---
 
@@ -767,7 +771,7 @@ simulator/emulator, neither of which exists in this sandbox. Genuinely worth a q
 device/Expo-Go check before this reaches real users, though the risk profile is now much
 lower than an untested change: the JS bundle Expo Go would load is now proven to build clean.
 
-### M4. Google Sign-In wired end-to-end on web — WORKING IN THE DEPLOYED DEV ENVIRONMENT (closes §F4 for web)
+### M4. Google Sign-In wired end-to-end on web — WORKING IN THE DEPLOYED DEV ENVIRONMENT (proves §F4 closeable; kept open for role testing)
 `GoogleAuthProvider` (backend) has existed since #4 but nothing ever called it — both frontends
 had a permanently-disabled "Sign in with Google" placeholder, and `FIREBASE_PROJECT_ID` was
 missing from all three Terraform environments' `env_vars` entirely (not even an empty
@@ -809,8 +813,9 @@ committed. Decision: keep building the integration against env vars (which don't
 Firebase project supplies the values) rather than block on resolving ownership first, since
 none of the code above hardcodes project-specific values.
 
-**Web: fully closed.** All of the following done and confirmed working — the user signed in
-through the real "Sign in with Google" button on the deployed dev web app:
+**Web: proven working, `dev` kept enabled alongside it by choice.** All of the following done
+and confirmed working — the user signed in through the real "Sign in with Google" button on the
+deployed dev web app:
 1. ~~Provision a Firebase project~~ Done: `task-management-applicat-5e5d6` (backing GCP project
    `883580624459`).
 2. ~~Get the Web OAuth Client ID.~~ Done: `883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com`.
@@ -825,11 +830,13 @@ through the real "Sign in with Google" button on the deployed dev web app:
    Console + Cloud Build trigger path this project's actual deploys use (not `terraform apply`):
    `FIREBASE_PROJECT_ID` added to `taskapp-api`'s env vars, `VITE_FIREBASE_*` added to the
    `deploy-web-manual` trigger's substitutions and rebuilt.
-5. ~~Flip `AUTH_PROVIDERS` back to `"google"` alone.~~ Done in `infra/environments/dev/main.tf`
-   (and `firebase_project_id`'s default updated to the real value, so a future `terraform apply`
-   matches live reality instead of reverting it) — **plus the same manual Cloud Run env var edit
-   as (4)**, since this deployment doesn't run `terraform apply`; the file change alone doesn't
-   reach the live service.
+5. Flip `AUTH_PROVIDERS` back to `"google"` alone — done *and reverted*. Briefly set to
+   `"google"` only in `infra/environments/dev/main.tf` once (5) was proven working, then the
+   user asked to keep `"dev"` enabled a while longer: testing multiple roles
+   (Admin/Manager/Head/Employee) against the seeded dev accounts isn't achievable through one
+   person's real Google account. Back to `"google,dev"` — see §F4 for current status and how to
+   re-close it later. `firebase_project_id`'s default is still updated to the real value
+   regardless, so a future `terraform apply` doesn't revert that part.
 
 **Mobile: still open.** `extra.googleOAuthClientId` in `app.json` has the real value, but
 `promptAsync()` can't complete inside Expo Go until Expo's auth-proxy redirect URI
