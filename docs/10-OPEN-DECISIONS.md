@@ -218,7 +218,7 @@ real chicken-and-egg problem: Cloud Run's deploy validates that every
 referenced secret has at least one version at deploy time, so leaving these
 null (as originally written) made the very first deploy fail outright.
 
-### F4. "dev" mock auth provider temporarily enabled on the deployed dev API — SECURITY EXPOSURE, revert once Firebase is set up
+### F4. ~~"dev" mock auth provider temporarily enabled on the deployed dev API~~ — closed, see §M4
 `AUTH_PROVIDERS` on the deployed `taskapp-api` Cloud Run service is
 currently `"google,dev"`, not `"google"` alone as originally deployed. Real
 Google Sign-In (`GoogleAuthProvider`, `docs/03-RBAC-AUTH.md` §1.1) is Firebase
@@ -245,10 +245,11 @@ Firebase JS SDK, set `FIREBASE_PROJECT_ID` on the API service, then change
 `AUTH_PROVIDERS` back to `"google"` only in
 `infra/environments/dev/main.tf` and redeploy.
 
-**Status: code-complete, still open** — see §M4. The frontend wiring, Firebase JS SDK
-integration, and `FIREBASE_PROJECT_ID` Terraform plumbing are all done; what's left is
-provisioning the actual Firebase project under the right GCP account and setting the real
-values, then flipping `AUTH_PROVIDERS` and redeploying.
+**Status: closed.** Real Google Sign-In confirmed working end-to-end in the deployed dev
+environment (user tested it directly), and `AUTH_PROVIDERS` reverted to `"google"` alone in
+`infra/environments/dev/main.tf` — see §M4 for the full story. The dev-sign-in mock provider is
+still registered in code (`apps/api/src/auth/providers/dev-auth.provider.ts`) for local
+development, it's just no longer in the deployed environment's active provider list.
 
 ---
 
@@ -766,7 +767,7 @@ simulator/emulator, neither of which exists in this sandbox. Genuinely worth a q
 device/Expo-Go check before this reaches real users, though the risk profile is now much
 lower than an untested change: the JS bundle Expo Go would load is now proven to build clean.
 
-### M4. Google Sign-In wired end-to-end on web + mobile — code-complete, blocked only on real Firebase project values (partially closes §F4)
+### M4. Google Sign-In wired end-to-end on web — WORKING IN THE DEPLOYED DEV ENVIRONMENT (closes §F4 for web)
 `GoogleAuthProvider` (backend) has existed since #4 but nothing ever called it — both frontends
 had a permanently-disabled "Sign in with Google" placeholder, and `FIREBASE_PROJECT_ID` was
 missing from all three Terraform environments' `env_vars` entirely (not even an empty
@@ -808,33 +809,33 @@ committed. Decision: keep building the integration against env vars (which don't
 Firebase project supplies the values) rather than block on resolving ownership first, since
 none of the code above hardcodes project-specific values.
 
-**Remaining before this can actually be used** (updated — 1 and 2 done):
-1. ~~Provision a Firebase project under the official GCP account, enable Google as a sign-in
-   provider, register a Web app to get the `VITE_FIREBASE_*` config values.~~ Done:
-   `task-management-applicat-5e5d6` (backing GCP project `883580624459`), config below.
-2. ~~Get the Web OAuth Client ID.~~ Done: `883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com`,
-   written into `apps/mobile/app.json`'s `extra.googleOAuthClientId`.
-3. ~~Confirm authorized domains.~~ Done: `localhost`, `task-management-applicat-5e5d6.firebaseapp.com`,
-   `task-management-applicat-5e5d6.web.app` (defaults) plus `econz.net` (custom) — no
-   `demo.econz.net` on this project yet; add it here if/when staging gets its own subdomain.
-   Separately, add Expo's auth-proxy redirect URI (`https://auth.expo.io/@<owner>/<slug>`) to
-   the OAuth client's Authorized redirect URIs — required for `promptAsync()` to complete inside
-   Expo Go. Still open: needs the Expo account username the mobile project is published under
-   (`app.json` has no `owner` field set), which only the user can supply.
-4. Set the real values in the **deployed** environment. Note the actual deploy path here is
-   manual Cloud Build triggers + Cloud Run Console "Deploy New Revision" (§ see the chat, not
-   `terraform apply`), so the Terraform `firebase_project_id` var this repo defines won't reach
-   the running service on its own:
-   - API: Cloud Run → `taskapp-api` → Edit & Deploy New Revision → Variables & Secrets → add
-     `FIREBASE_PROJECT_ID=task-management-applicat-5e5d6` → Deploy.
-   - Web: Cloud Build → Triggers → `deploy-web-manual` → Edit → Substitution variables → set
-     `_FIREBASE_API_KEY`, `_FIREBASE_AUTH_DOMAIN=task-management-applicat-5e5d6.firebaseapp.com`,
-     `_FIREBASE_PROJECT_ID=task-management-applicat-5e5d6`,
-     `_FIREBASE_APP_ID=1:883580624459:web:96044f18355f33d05a37ce` → Run the trigger → Cloud Run
-     → `taskapp-web` → Deploy New Revision with the freshly built image.
-5. Only once (4) is confirmed working end-to-end in the deployed dev environment: flip
-   `AUTH_PROVIDERS` back to `"google"` alone in `infra/environments/dev/main.tf` (closing the
-   §F4 exposure for real) and redeploy.
+**Web: fully closed.** All of the following done and confirmed working — the user signed in
+through the real "Sign in with Google" button on the deployed dev web app:
+1. ~~Provision a Firebase project~~ Done: `task-management-applicat-5e5d6` (backing GCP project
+   `883580624459`).
+2. ~~Get the Web OAuth Client ID.~~ Done: `883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com`.
+3. ~~Confirm authorized domains.~~ Done — plus one caught live: the deployed web app's real URL
+   is Cloud Run's auto-generated `taskapp-web-717975906785.us-central1.run.app`, not `econz.net`
+   (no custom domain mapping exists yet), which the original authorized-domains list didn't
+   cover — hit `auth/unauthorized-domain` on the first real attempt, fixed by adding that exact
+   `*.run.app` host to Firebase Authentication → Settings → Authorized domains. Worth remembering
+   for staging/prod later: each Cloud Run environment's own `*.run.app` host needs adding too,
+   independent of any custom domain.
+4. ~~Set the real values in the deployed environment~~ Done, via the manual Cloud Run
+   Console + Cloud Build trigger path this project's actual deploys use (not `terraform apply`):
+   `FIREBASE_PROJECT_ID` added to `taskapp-api`'s env vars, `VITE_FIREBASE_*` added to the
+   `deploy-web-manual` trigger's substitutions and rebuilt.
+5. ~~Flip `AUTH_PROVIDERS` back to `"google"` alone.~~ Done in `infra/environments/dev/main.tf`
+   (and `firebase_project_id`'s default updated to the real value, so a future `terraform apply`
+   matches live reality instead of reverting it) — **plus the same manual Cloud Run env var edit
+   as (4)**, since this deployment doesn't run `terraform apply`; the file change alone doesn't
+   reach the live service.
+
+**Mobile: still open.** `extra.googleOAuthClientId` in `app.json` has the real value, but
+`promptAsync()` can't complete inside Expo Go until Expo's auth-proxy redirect URI
+(`https://auth.expo.io/@<owner>/<slug>`) is added to the OAuth client's Authorized redirect
+URIs — blocked on the Expo account username the mobile project is published under (`app.json`
+has no `owner` field set), which only the user can supply.
 
 ### M5. "Studio Desk" visual redesign + Power BI-style drill-down, web and mobile
 
