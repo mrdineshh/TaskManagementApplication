@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NotificationPreference } from '@taskapp/shared-types';
 import { apiClient } from '../../lib/api-client/client';
 import { useSessionStore } from '../../lib/auth/session-store';
+import { toast } from '../../lib/toast/toast-store';
 
 export function useUpdateProfile() {
   const setCurrentUser = useSessionStore((s) => s.setCurrentUser);
@@ -10,6 +11,7 @@ export function useUpdateProfile() {
     mutationFn: (data: { full_name?: string; avatar_url?: string }) => apiClient.me.update(data),
     onSuccess: (_result, vars) => {
       if (currentUser) setCurrentUser({ ...currentUser, ...vars });
+      toast.success('Profile updated');
     },
   });
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCreateDepartment, useDepartmentsAdmin, useUpdateDepartment, useUsersAdmin } from '../../features/admin/hooks';
 import { Toggle } from '../../components/Toggle';
+import { Spinner } from '../../components/Spinner';
 
 export function DepartmentsAdminPage() {
   const { data: departments, isLoading } = useDepartmentsAdmin();
@@ -52,9 +53,10 @@ export function DepartmentsAdminPage() {
         <button
           type="submit"
           disabled={createDept.isPending}
-          className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+          className="flex items-center gap-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
         >
-          Add
+          {createDept.isPending && <Spinner className="h-4 w-4" />}
+          {createDept.isPending ? 'Adding…' : 'Add'}
         </button>
       </form>
 

@@ -7,6 +7,7 @@ import { resolveActiveRoleName } from '../lib/auth/roles';
 import { RoleSwitcher } from './RoleSwitcher';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ThemeToggle } from './ThemeToggle';
+import { ToastContainer } from '../components/ToastContainer';
 
 const baseNavItems = [
   { to: '/', label: 'My Tasks', end: true },
@@ -124,6 +125,7 @@ export function Shell() {
           <Outlet />
         </div>
       </main>
+      <ToastContainer />
     </div>
   );
 }

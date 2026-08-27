@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../lib/api-client/client';
 import { useSessionStore } from '../../lib/auth/session-store';
 import { firebaseEnabled, signInWithGoogle } from '../../lib/firebase/client';
+import { Spinner } from '../../components/Spinner';
 
 /**
  * Google Sign-In (docs/03-RBAC-AUTH.md §1.1) is enabled once VITE_FIREBASE_* env vars are set
@@ -76,7 +77,8 @@ export function LoginPage() {
           title={firebaseEnabled ? undefined : 'Enabled once Firebase/Google OAuth credentials are configured'}
           className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60 disabled:hover:bg-white dark:disabled:hover:bg-slate-900"
         >
-          {firebaseEnabled ? 'Sign in with Google' : 'Sign in with Google (pending GCP setup)'}
+          {loading && <Spinner className="h-4 w-4" />}
+          {firebaseEnabled ? (loading ? 'Signing in…' : 'Sign in with Google') : 'Sign in with Google (pending GCP setup)'}
         </button>
 
         <div className="mb-4 flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
@@ -97,8 +99,9 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
           >
+            {loading && <Spinner className="h-4 w-4" />}
             {loading ? 'Signing in…' : 'Sign in (dev)'}
           </button>
         </form>
