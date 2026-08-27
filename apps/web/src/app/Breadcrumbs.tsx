@@ -9,7 +9,6 @@ const STATIC_LABELS: Record<string, string> = {
   reports: 'Reports',
   builder: 'Report Builder',
   edit: 'Edit',
-  notifications: 'Notifications',
   settings: 'Settings',
   admin: 'Admin',
   departments: 'Departments',

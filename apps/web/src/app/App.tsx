@@ -15,7 +15,6 @@ import { ReportsListPage } from '../pages/reports/ReportsListPage';
 import { ReportBuilderPage } from '../pages/reports/ReportBuilderPage';
 import { ReportViewerPage } from '../pages/reports/ReportViewerPage';
 import { SettingsPage } from '../pages/settings/SettingsPage';
-import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { AdminLayout } from '../pages/admin/AdminLayout';
 import { AdminHomePage } from '../pages/admin/AdminHomePage';
 import { DepartmentsAdminPage } from '../pages/admin/DepartmentsAdminPage';
@@ -56,7 +55,6 @@ function AppRoutes() {
           <Route path="reports/builder" element={<ReportBuilderPage />} />
           <Route path="reports/:id" element={<ReportViewerPage />} />
           <Route path="reports/:id/edit" element={<ReportBuilderPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="admin" element={<AdminLayout />}>
             <Route index element={<AdminHomePage />} />
