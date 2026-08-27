@@ -318,5 +318,11 @@ function resolveDateRange(range: ReportDateRange): { start: Date; end: Date } {
         end: endOfDay(new Date(Date.UTC(fyStartYear + 1, FISCAL_YEAR_START_MONTH, 0))),
       };
     }
+    default:
+      // A saved report from before this preset set changed (e.g. the removed last_7_days/
+      // last_30_days) — the DB row itself was never migrated, so this can still show up on a
+      // report saved through the old UI. Fall back rather than returning undefined and crashing
+      // whatever called resolveDateRange().
+      return { start: new Date(Date.UTC(y, m, 1)), end: endOfDay(new Date(Date.UTC(y, m + 1, 0))) };
   }
 }

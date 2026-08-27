@@ -94,6 +94,11 @@ export function resolvePreset(preset: DateRangePreset, now = new Date()): { star
         end: new Date(fyStartYear + 1, FISCAL_YEAR_START_MONTH, 0),
       };
     }
+    default:
+      // A saved report from before this preset set changed (e.g. the removed last_7_days/
+      // last_30_days) — fall back rather than returning undefined, matching the same defensive
+      // default in apps/api/src/reports/reports.service.ts's resolveDateRange().
+      return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 0) };
   }
 }
 
