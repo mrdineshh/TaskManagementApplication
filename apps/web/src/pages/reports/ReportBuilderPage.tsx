@@ -7,6 +7,7 @@ import { ReportChart } from '../../features/reports/ReportChart';
 import { useDepartments } from '../../features/tasks/hooks';
 import { useRoles } from '../../features/admin/hooks';
 import { DateRangePicker, resolvePreset, type DateRangeResult } from '../../components/DateRangePicker';
+import { reportDrillHref } from '../../features/reports/drill';
 
 function defaultDateRange(): DateRangeResult {
   const { start, end } = resolvePreset('this_month');
@@ -207,7 +208,12 @@ export function ReportBuilderPage() {
           {previewReport.data?.map((result) => (
             <div key={result.metric} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h2 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">{result.metric.replace(/_/g, ' ')}</h2>
-              <ReportChart result={result} chartType={chartType} />
+              <ReportChart
+                result={result}
+                chartType={chartType}
+                drillHref={(dimensionValue) => reportDrillHref(result.metric, dimensionValue, departmentId || undefined)}
+                onDrill={(href) => navigate(href)}
+              />
             </div>
           ))}
           {!previewReport.data && <p className="text-sm text-slate-400 dark:text-slate-500">Pick metrics and click Preview to see the data.</p>}
