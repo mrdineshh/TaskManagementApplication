@@ -272,23 +272,51 @@ function labelFor(metricKey: ReportMetricKey, dimensionValue: string, labels: La
   return dimensionValue;
 }
 
+// India-standard fiscal year (April-March) — mirrors apps/web/src/components/DateRangePicker.tsx's
+// FISCAL_YEAR_START_MONTH; no org-level fiscal-year-start setting exists yet to read instead.
+const FISCAL_YEAR_START_MONTH = 3; // 0-indexed: April
+
 function resolveDateRange(range: ReportDateRange): { start: Date; end: Date } {
   if ('start' in range) return { start: new Date(range.start), end: new Date(range.end) };
 
   const now = new Date();
-  const end = now;
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const d = now.getUTCDate();
+  const today = new Date(Date.UTC(y, m, d));
+  const endOfDay = (date: Date) => new Date(date.getTime() + 24 * 60 * 60 * 1000 - 1);
+
   switch (range.preset) {
-    case 'last_7_days':
-      return { start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), end };
-    case 'last_30_days':
-      return { start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000), end };
-    case 'this_month':
-      return { start: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)), end };
-    case 'this_quarter': {
-      const quarterStartMonth = Math.floor(now.getUTCMonth() / 3) * 3;
-      return { start: new Date(Date.UTC(now.getUTCFullYear(), quarterStartMonth, 1)), end };
+    case 'today':
+      return { start: today, end: endOfDay(today) };
+    case 'this_week': {
+      const start = new Date(Date.UTC(y, m, d - today.getUTCDay()));
+      return { start, end: endOfDay(new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000)) };
     }
-    case 'this_year':
-      return { start: new Date(Date.UTC(now.getUTCFullYear(), 0, 1)), end };
+    case 'last_week': {
+      const start = new Date(Date.UTC(y, m, d - today.getUTCDay() - 7));
+      return { start, end: endOfDay(new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000)) };
+    }
+    case 'this_month':
+      return { start: new Date(Date.UTC(y, m, 1)), end: endOfDay(new Date(Date.UTC(y, m + 1, 0))) };
+    case 'last_month':
+      return { start: new Date(Date.UTC(y, m - 1, 1)), end: endOfDay(new Date(Date.UTC(y, m, 0))) };
+    case 'this_quarter': {
+      const qStart = Math.floor(m / 3) * 3;
+      return { start: new Date(Date.UTC(y, qStart, 1)), end: endOfDay(new Date(Date.UTC(y, qStart + 3, 0))) };
+    }
+    case 'last_quarter': {
+      const qStart = Math.floor(m / 3) * 3 - 3;
+      return { start: new Date(Date.UTC(y, qStart, 1)), end: endOfDay(new Date(Date.UTC(y, qStart + 3, 0))) };
+    }
+    case 'this_year_calendar':
+      return { start: new Date(Date.UTC(y, 0, 1)), end: endOfDay(new Date(Date.UTC(y, 11, 31))) };
+    case 'this_year_fiscal': {
+      const fyStartYear = m >= FISCAL_YEAR_START_MONTH ? y : y - 1;
+      return {
+        start: new Date(Date.UTC(fyStartYear, FISCAL_YEAR_START_MONTH, 1)),
+        end: endOfDay(new Date(Date.UTC(fyStartYear + 1, FISCAL_YEAR_START_MONTH, 0))),
+      };
+    }
   }
 }

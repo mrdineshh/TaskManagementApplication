@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useDepartments, useLeaderboard, useMyScorecard, useUserScorecard } from '../../features/tasks/hooks';
 import { useSessionStore } from '../../lib/auth/session-store';
+import { DateRangePicker, resolvePreset, type DateRangeResult } from '../../components/DateRangePicker';
 
-function isoDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+function defaultDateRange(): DateRangeResult {
+  const { start, end } = resolvePreset('this_month');
+  return { preset: 'this_month', start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
 const SUB_SCORE_LABELS: Record<string, string> = {
@@ -46,12 +46,11 @@ function subScoreDetail(key: string, raw: Record<string, number | null>): { labe
 }
 
 function ScorecardSection({ userId, userName, onBack }: { userId?: string; userName?: string; onBack?: () => void }) {
-  const [start, setStart] = useState(isoDaysAgo(30));
-  const [end, setEnd] = useState(isoDaysAgo(0));
+  const [dateRange, setDateRange] = useState<DateRangeResult>(defaultDateRange());
   const [expandedKey, setExpandedKey] = useState<string | undefined>(undefined);
 
-  const startIso = `${start}T00:00:00.000Z`;
-  const endIso = `${end}T23:59:59.999Z`;
+  const startIso = `${dateRange.start}T00:00:00.000Z`;
+  const endIso = `${dateRange.end}T23:59:59.999Z`;
 
   const mine = useMyScorecard(startIso, endIso);
   const forUser = useUserScorecard(userId, startIso, endIso);
@@ -68,25 +67,7 @@ function ScorecardSection({ userId, userName, onBack }: { userId?: string; userN
           )}
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{userName ? `${userName}'s scorecard` : 'My scorecard'}</h2>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <label className="text-slate-500 dark:text-slate-400">From</label>
-          <input
-            type="date"
-            value={start}
-            max={end}
-            onChange={(e) => setStart(e.target.value)}
-            className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5"
-          />
-          <label className="text-slate-500 dark:text-slate-400">To</label>
-          <input
-            type="date"
-            value={end}
-            min={start}
-            max={isoDaysAgo(0)}
-            onChange={(e) => setEnd(e.target.value)}
-            className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5"
-          />
-        </div>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
       {isLoading && <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>}
@@ -145,11 +126,10 @@ export function ScorecardPage() {
   const { data: departments } = useDepartments();
   const [departmentId, setDepartmentId] = useState(currentUser?.primary_department_id ?? '');
   const [viewing, setViewing] = useState<{ id: string; name: string } | undefined>(undefined);
+  const [leaderboardRange, setLeaderboardRange] = useState<DateRangeResult>(defaultDateRange());
 
-  const start = isoDaysAgo(30);
-  const end = isoDaysAgo(0);
-  const startIso = `${start}T00:00:00.000Z`;
-  const endIso = `${end}T23:59:59.999Z`;
+  const startIso = `${leaderboardRange.start}T00:00:00.000Z`;
+  const endIso = `${leaderboardRange.end}T23:59:59.999Z`;
   const { data: leaderboard, isLoading: leaderboardLoading } = useLeaderboard(departmentId || undefined, startIso, endIso);
 
   return (
@@ -159,19 +139,22 @@ export function ScorecardPage() {
       <ScorecardSection userId={viewing?.id} userName={viewing?.name} onBack={viewing ? () => setViewing(undefined) : undefined} />
 
       <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 px-5 py-3">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Department leaderboard</h2>
-          <select
-            value={departmentId}
-            onChange={(e) => setDepartmentId(e.target.value)}
-            className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
-          >
-            {departments?.map((dept) => (
-              <option key={dept.id} value={dept.id}>
-                {dept.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <DateRangePicker value={leaderboardRange} onChange={setLeaderboardRange} />
+            <select
+              value={departmentId}
+              onChange={(e) => setDepartmentId(e.target.value)}
+              className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
+            >
+              {departments?.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         {leaderboardLoading && <p className="px-5 py-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>}
         <ol>

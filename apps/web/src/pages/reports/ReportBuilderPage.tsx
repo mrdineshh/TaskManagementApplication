@@ -6,8 +6,12 @@ import { useCreateReport, useReport, useReportMetrics, usePreviewReport, useUpda
 import { ReportChart } from '../../features/reports/ReportChart';
 import { useDepartments } from '../../features/tasks/hooks';
 import { useRoles } from '../../features/admin/hooks';
+import { DateRangePicker, resolvePreset, type DateRangeResult } from '../../components/DateRangePicker';
 
-const DATE_PRESETS = ['last_7_days', 'last_30_days', 'this_month', 'this_quarter', 'this_year'] as const;
+function defaultDateRange(): DateRangeResult {
+  const { start, end } = resolvePreset('this_month');
+  return { preset: 'this_month', start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
 
 /** Custom report builder (docs/05-FEATURES.md §3.3) — pick metrics, dimensions, date range, chart type, filters. */
 export function ReportBuilderPage() {
@@ -26,7 +30,7 @@ export function ReportBuilderPage() {
   const [name, setName] = useState('');
   const [metrics, setMetrics] = useState<ReportMetricKey[]>([]);
   const [dimensions, setDimensions] = useState<ReportDimension[]>([]);
-  const [preset, setPreset] = useState<(typeof DATE_PRESETS)[number]>('last_30_days');
+  const [dateRange, setDateRange] = useState<DateRangeResult>(defaultDateRange());
   const [chartType, setChartType] = useState<ReportChartType>('bar');
   const [departmentId, setDepartmentId] = useState('');
   const [visibility, setVisibility] = useState<SavedReport['visibility']>('private');
@@ -37,7 +41,13 @@ export function ReportBuilderPage() {
     setName(existing.name);
     setMetrics(existing.config.metrics);
     setDimensions(existing.config.dimensions);
-    if ('preset' in existing.config.date_range) setPreset(existing.config.date_range.preset);
+    const existingRange = existing.config.date_range;
+    if ('preset' in existingRange) {
+      const { start, end } = resolvePreset(existingRange.preset);
+      setDateRange({ preset: existingRange.preset, start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) });
+    } else {
+      setDateRange({ preset: null, start: existingRange.start.slice(0, 10), end: existingRange.end.slice(0, 10) });
+    }
     setChartType(existing.config.chart_type);
     setDepartmentId(existing.config.filters.department_id ?? '');
     setVisibility(existing.visibility);
@@ -53,11 +63,16 @@ export function ReportBuilderPage() {
   }
 
   function buildConfig(): ReportConfig {
-    const dateRange: ReportDateRange = { preset };
+    // A preset is stored as itself (re-resolved server-side each run, docs/10-OPEN-DECISIONS.md
+    // §M9 — so a scheduled report's "this month" always means the month it runs in); a custom
+    // range is stored as concrete start/end since there's no preset identity to re-resolve.
+    const range: ReportDateRange = dateRange.preset
+      ? { preset: dateRange.preset }
+      : { start: new Date(`${dateRange.start}T00:00:00.000Z`).toISOString(), end: new Date(`${dateRange.end}T23:59:59.999Z`).toISOString() };
     return {
       metrics,
       dimensions,
-      date_range: dateRange,
+      date_range: range,
       chart_type: chartType,
       filters: departmentId ? { department_id: departmentId } : {},
     };
@@ -116,13 +131,7 @@ export function ReportBuilderPage() {
           <div className="flex flex-wrap gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Date range</label>
-              <select value={preset} onChange={(e) => setPreset(e.target.value as (typeof DATE_PRESETS)[number])} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
-                {DATE_PRESETS.map((p) => (
-                  <option key={p} value={p}>
-                    {p.replace(/_/g, ' ')}
-                  </option>
-                ))}
-              </select>
+              <DateRangePicker value={dateRange} onChange={setDateRange} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Chart type</label>
