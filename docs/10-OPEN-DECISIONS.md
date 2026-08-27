@@ -871,6 +871,55 @@ Remaining, blocked on the user: create an Android OAuth client in Google Cloud C
 from the Metro dev server at runtime, same as Expo Go, so only genuinely native changes (like
 adding `expo-dev-client` itself) require a fresh `eas build`.
 
+**Third bug found and fixed while getting the actual dev build to compile: a monorepo/hoisting
+gap in Expo's own Android Gradle scripts, real root cause of the `eas build` failures.** The
+first `eas build --profile development --platform android` attempt failed on
+`:expo-dev-launcher` with `Process 'command 'node'' finished with non-zero exit value 1`, and on
+`:expo` with `Could not get unknown property 'release' for SoftwareComponent container`. Two
+plausible-but-wrong fixes tried first and ruled out by identical re-failures: regenerating
+`package-lock.json` (it was genuinely stale — `expo-dev-client` had been hand-added to
+`package.json` without a matching install — but wasn't the actual cause), and pinning
+`eas.json`'s Android build image to `"sdk-51"` (harmless, kept, but Gradle still downloaded the
+same `gradle-8.8-all.zip` either way — the image tag doesn't control that).
+
+Root cause, found by reading `node_modules/expo-dev-launcher/android/build.gradle`,
+`node_modules/expo/android/build.gradle`, and `node_modules/expo-modules-core/android/
+ExpoModulesCorePlugin.gradle` directly and reproducing locally: three of Expo's own native
+modules (`expo`, `expo-dev-launcher`, `expo-dev-menu`) each run
+`node -e "require('react-native/package.json')"` with `workingDir(projectDir)` — their *own*
+Android folder inside `node_modules/<package>/android`. That only resolves `react-native` if
+it's hoisted to the same `node_modules` these packages live in. In this repo it isn't:
+`react-native@0.74.5`'s exact peer requirement on `react@18.2.0` conflicts with a newer
+`react@18.3.1` some other workspace package pulls in, so npm — correctly — nests
+`react-native` under `apps/mobile/node_modules/react-native` instead of hoisting it to the
+workspace root, while `expo`/`expo-dev-launcher`/`expo-dev-menu` (no such conflict) do get
+hoisted to root. Confirmed by literally running the exact failing command from each location:
+fails from `node_modules/expo-dev-launcher/android` (`MODULE_NOT_FOUND`), succeeds from
+`apps/mobile` (prints `0.74.5`). The `:expo` project's `android {}` block configures both this
+same lookup *and* the `publishing { singleVariant("release") }` AGP component the second error
+complains about — one exception aborting that block's evaluation mid-way explains both crashes
+as the same root cause, not two unrelated bugs.
+
+Confirmed *not* fixable by forcing the hoist: temporarily adding `react-native` as a root
+`devDependency` to test this reproduced npm's real `ERESOLVE` peer conflict outright (`peer
+react@"18.2.0" from react-native@0.74.5` vs. whatever pulls `18.3.1`) — reverted immediately, npm
+was right to nest it.
+
+**Fix: `patch-package`.** Can't edit `node_modules` durably (not committed, and EAS reinstalls
+fresh from the lockfile every build) or touch upstream Expo packages, so added `patch-package` as
+a root devDependency + `"postinstall": "patch-package"` in the root `package.json`, and patched
+all three files' `workingDir(projectDir)` → `workingDir(rootProject.projectDir.parentFile)` —
+`rootProject` for every subproject in the generated Android build is `apps/mobile/android`
+(confirmed from the build logs' own `Running 'gradlew :app:assembleDebug' in
+.../apps/mobile/android`), so `.parentFile` is `apps/mobile` — exactly where `react-native` is
+actually reachable from, regardless of hoisting. Three `.patch` files committed under
+`patches/`; verified by deleting and reinstalling all three packages locally and confirming
+`postinstall` reapplies the patches automatically (`patch-package` printed `✔` for all three) —
+same install path EAS's remote build will take. Not yet confirmed against a real `eas build`
+run (waiting on the user's next attempt) since this sandbox has no Android/Gradle toolchain to
+run the actual native build itself, only Node, which is what let this be reproduced and fixed
+without one.
+
 ### M5. "Studio Desk" visual redesign + Power BI-style drill-down, web and mobile
 
 User picked "Studio Desk" (one of three original mockups — warm putty neutral, forest-green
