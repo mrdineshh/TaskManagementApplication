@@ -20,7 +20,7 @@
     "extra": {
       "apiBaseUrl": "http://localhost:3000",
       "googleOAuthClientId": "883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com",
-      "googleAndroidClientId": "",
+      "googleAndroidClientId": "717975906785-bca86momod4qj8mr52kfs558clp6bmlr.apps.googleusercontent.com",
       "eas": {
         "projectId": "3d32212b-9675-4cb5-ba6a-9d690f9f68f2"
       }
