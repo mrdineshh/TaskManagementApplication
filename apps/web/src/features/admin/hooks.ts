@@ -384,6 +384,18 @@ export function useAddHoliday() {
     },
   });
 }
+export function useBulkAddHolidays() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ calendarId, holidays }: { calendarId: string; holidays: { date: string; name: string }[] }) =>
+      apiClient.holidayCalendars.bulkAddHolidays(calendarId, holidays),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['holiday-calendars'] });
+      const skipped = result.submitted - result.created;
+      toast.success(skipped > 0 ? `${result.created} holidays added (${skipped} already existed)` : `${result.created} holidays added`);
+    },
+  });
+}
 export function useRemoveHoliday() {
   const qc = useQueryClient();
   return useMutation({

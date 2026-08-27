@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, NotFoundException, Param, Post } from '@
 import { ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
-import { CreateHolidayCalendarDto, CreateHolidayDto } from './dto/holiday-calendar.dto';
+import { BulkCreateHolidaysDto, CreateHolidayCalendarDto, CreateHolidayDto } from './dto/holiday-calendar.dto';
 
 /**
  * Admin-configurable holiday calendars, keyed by Country+State (docs/10-OPEN-DECISIONS.md §G2).
@@ -50,6 +50,20 @@ export class HolidayCalendarsController {
     return this.prisma.holiday.create({
       data: { calendarId, date: new Date(dto.date), name: dto.name },
     });
+  }
+
+  @Post(':id/holidays/bulk')
+  @RequirePermission('holiday_calendar.manage')
+  async bulkAddHolidays(@Param('id') calendarId: string, @Body() dto: BulkCreateHolidaysDto) {
+    const calendar = await this.prisma.holidayCalendar.findUnique({ where: { id: calendarId } });
+    if (!calendar) throw new NotFoundException('Holiday calendar not found');
+    // skipDuplicates relies on the (calendarId, date) unique constraint — re-uploading the same
+    // CSV (or one with overlapping dates) is a safe no-op for the overlap, not a 500.
+    const result = await this.prisma.holiday.createMany({
+      data: dto.holidays.map((h) => ({ calendarId, date: new Date(h.date), name: h.name })),
+      skipDuplicates: true,
+    });
+    return { created: result.count, submitted: dto.holidays.length };
   }
 
   @Delete(':id/holidays/:holidayId')

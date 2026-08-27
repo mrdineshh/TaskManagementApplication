@@ -8,6 +8,7 @@ import {
   useRoles,
   useUsersAdmin,
 } from '../../features/admin/hooks';
+import { CountryStateSelect } from '../../components/CountryStateSelect';
 
 export function UsersAdminPage() {
   const { data: users, isLoading } = useUsersAdmin();
@@ -78,18 +79,7 @@ export function UsersAdminPage() {
             </option>
           ))}
         </select>
-        <input
-          value={workCountry}
-          onChange={(e) => setWorkCountry(e.target.value)}
-          placeholder="Country"
-          className="w-28 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
-        />
-        <input
-          value={workState}
-          onChange={(e) => setWorkState(e.target.value)}
-          placeholder="State"
-          className="w-28 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
-        />
+        <CountryStateSelect country={workCountry} state={workState} onCountryChange={setWorkCountry} onStateChange={setWorkState} />
         <select
           value={managerId}
           onChange={(e) => setManagerId(e.target.value)}
