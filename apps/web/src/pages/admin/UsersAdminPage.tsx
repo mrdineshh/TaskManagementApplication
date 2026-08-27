@@ -6,6 +6,7 @@ import {
   useInviteUser,
   useRemoveRole,
   useRoles,
+  useUpdateUser,
   useUsersAdmin,
 } from '../../features/admin/hooks';
 import { CountryStateSelect } from '../../components/CountryStateSelect';
@@ -15,9 +16,28 @@ export function UsersAdminPage() {
   const { data: departments } = useDepartmentsAdmin();
   const { data: roles } = useRoles();
   const inviteUser = useInviteUser();
+  const updateUser = useUpdateUser();
   const deactivate = useDeactivateUser();
   const assignRole = useAssignRole();
   const removeRole = useRemoveRole();
+
+  const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  const [editName, setEditName] = useState('');
+  const [editCountry, setEditCountry] = useState('');
+  const [editState, setEditState] = useState('');
+
+  function startEdit(u: { id: string; full_name: string; work_country: string; work_state: string }) {
+    setEditingId(u.id);
+    setEditName(u.full_name);
+    setEditCountry(u.work_country);
+    setEditState(u.work_state);
+  }
+
+  async function saveEdit(id: string) {
+    if (!editName.trim() || !editCountry || !editState) return;
+    await updateUser.mutateAsync({ id, data: { full_name: editName, work_country: editCountry, work_state: editState } });
+    setEditingId(undefined);
+  }
 
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
@@ -109,6 +129,7 @@ export function UsersAdminPage() {
               <th className="px-4 py-2">Roles</th>
               <th className="px-4 py-2">Assign role</th>
               <th className="px-4 py-2">Active</th>
+              <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -119,13 +140,31 @@ export function UsersAdminPage() {
                 </td>
               </tr>
             )}
-            {(users as any[])?.map((u) => (
+            {(users as any[])?.map((u) => {
+              const isEditing = editingId === u.id;
+              return (
               <tr key={u.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
-                <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{u.full_name}</td>
+                <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">
+                  {isEditing ? (
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
+                    />
+                  ) : (
+                    u.full_name
+                  )}
+                </td>
                 <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{u.email}</td>
                 <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
-                  {u.work_country}
-                  {u.work_state ? `, ${u.work_state}` : ''}
+                  {isEditing ? (
+                    <CountryStateSelect country={editCountry} state={editState} onCountryChange={setEditCountry} onStateChange={setEditState} />
+                  ) : (
+                    <>
+                      {u.work_country}
+                      {u.work_state ? `, ${u.work_state}` : ''}
+                    </>
+                  )}
                 </td>
                 <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
                   {(users as any[])?.find((m) => m.id === u.manager_id)?.full_name ?? '—'}
@@ -172,8 +211,29 @@ export function UsersAdminPage() {
                     {u.is_active ? 'Deactivate' : 'Deactivated'}
                   </button>
                 </td>
+                <td className="px-4 py-2 text-right">
+                  {isEditing ? (
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => saveEdit(u.id)}
+                        disabled={updateUser.isPending}
+                        className="text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                      <button onClick={() => setEditingId(undefined)} className="text-xs text-slate-400 hover:underline">
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => startEdit(u)} className="text-xs text-brand-700 dark:text-brand-300 hover:underline">
+                      Edit
+                    </button>
+                  )}
+                </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

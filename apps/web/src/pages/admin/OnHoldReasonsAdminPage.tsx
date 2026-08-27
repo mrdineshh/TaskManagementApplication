@@ -19,6 +19,13 @@ function useToggleOnHoldReason() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['on-hold-reasons'] }),
   });
 }
+function useUpdateOnHoldReasonLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, label }: { id: string; label: string }) => apiClient.onHoldReasons.update(id, { label }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['on-hold-reasons'] }),
+  });
+}
 
 /** Admin-configurable On-Hold reasons (docs/10-OPEN-DECISIONS.md §H1) — picked by the assignee
  * whenever a task moves into a status flagged "requires a hold reason" (e.g. On Hold). */
@@ -26,7 +33,16 @@ export function OnHoldReasonsAdminPage() {
   const { data: reasons, isLoading } = useOnHoldReasonsAdmin();
   const createReason = useCreateOnHoldReason();
   const toggleReason = useToggleOnHoldReason();
+  const updateLabel = useUpdateOnHoldReasonLabel();
   const [label, setLabel] = useState('');
+  const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  const [editLabel, setEditLabel] = useState('');
+
+  async function saveEdit(id: string) {
+    if (!editLabel.trim()) return;
+    await updateLabel.mutateAsync({ id, label: editLabel });
+    setEditingId(undefined);
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -70,20 +86,58 @@ export function OnHoldReasonsAdminPage() {
                 </td>
               </tr>
             )}
-            {reasons?.map((r) => (
-              <tr key={r.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
-                <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{r.label}</td>
-                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{r.is_active ? 'Yes' : 'No'}</td>
-                <td className="px-4 py-2 text-right">
-                  <button
-                    onClick={() => toggleReason.mutate({ id: r.id, isActive: !r.is_active })}
-                    className="text-xs text-brand-700 dark:text-brand-300 hover:underline"
-                  >
-                    {r.is_active ? 'Deactivate' : 'Activate'}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {reasons?.map((r) => {
+              const isEditing = editingId === r.id;
+              return (
+                <tr key={r.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                  <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">
+                    {isEditing ? (
+                      <input
+                        value={editLabel}
+                        onChange={(e) => setEditLabel(e.target.value)}
+                        autoFocus
+                        className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
+                      />
+                    ) : (
+                      r.label
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{r.is_active ? 'Yes' : 'No'}</td>
+                  <td className="px-4 py-2 text-right">
+                    <div className="flex justify-end gap-2">
+                      {isEditing ? (
+                        <>
+                          <button onClick={() => saveEdit(r.id)} className="text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline">
+                            Save
+                          </button>
+                          <button onClick={() => setEditingId(undefined)} className="text-xs text-slate-400 hover:underline">
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              setEditingId(r.id);
+                              setEditLabel(r.label);
+                            }}
+                            className="text-xs text-brand-700 dark:text-brand-300 hover:underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => toggleReason.mutate({ id: r.id, isActive: !r.is_active })}
+                            className="text-xs text-brand-700 dark:text-brand-300 hover:underline"
+                          >
+                            {r.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
