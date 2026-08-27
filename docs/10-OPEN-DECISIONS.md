@@ -1143,6 +1143,108 @@ matched exactly. This is as close to "delivered for real" as this sandbox allows
 end-to-end check (a real inbox, a real phone buzzing) needs the user's own deployed environment
 with real SMTP credentials entered via Admin → Integrations.
 
+### M9. First real-world usability pass — 15-item feedback batch from testing the deployed web app
+
+User tested the deployed dev environment across all six seeded roles and came back with a mixed
+batch: quick UI fixes, real bugs, and several requests for genuinely new functionality. Triaged
+rather than built blind — see chat for the full original list; tracked as tasks #72-#86.
+
+**Done this round**: Timeline page cut from nav/routes/breadcrumbs (user's own call — "not worth
+it as a good-to-have"; `TimelinePage.tsx` left in place, just unreachable, in case it's revived).
+Departments admin gained inline Name/Slug editing — `UpdateDepartmentDto` was missing `slug`
+entirely, and even once added the controller's explicit field-mapping (see the comment at
+`departments.controller.ts`'s `update()` — snake_case DTO keys silently no-op against Prisma's
+camelCase fields unless mapped by hand) would have dropped it just like `is_active` once did.
+Added a shared `Toggle` component (`apps/web/src/components/Toggle.tsx`) replacing the
+Activate/Deactivate text link, plus a Slug tooltip. Reports bar/line charts no longer show
+decimal Y-axis ticks (0.5, 1.5, ...) for count-style metrics — `allowDecimals` is now computed
+per-chart (`data.every(Number.isInteger)`) rather than always left at Recharts' default, so
+legitimately fractional rate/average metrics aren't affected.
+
+**Clarified with the user, not yet built**:
+- Kanban (item #1): existing drag-drop-by-status board stays, adding swimlanes (group by
+  assignee/priority) and richer cards (avatar, priority color, due-date proximity, subtask
+  count) — not a rebuild, not becoming the default view.
+- Timeline (item #2): cut, per above — user chose "not worth it" over the other two options
+  offered (wire into real planning workflows, or keep read-only and deprioritize).
+- OKRs (items #14/15): user explicitly asked for a plan before code, given the size — see §M10.
+
+**Two reported bugs I could not confirm from reading the code alone** (#5 — Admin sees no Team
+view; #13 — Scorecard page stuck loading): `dashboards.controller.ts`'s `team()` method and
+`TeamDashboardPage.tsx`'s `scope === 'org'` branch both look structurally correct for Admin (an
+org-wide by-department breakdown, not gated on Admin's own department membership at all, so the
+user's "Admin isn't part of any department" theory doesn't match what the code actually does);
+`scorecards.controller.ts`'s `me()` endpoint has no obvious hang (no unbounded query, no missing
+await). Waiting on screenshots / a Network-tab check from the user before touching either — risk
+of "fixing" something that isn't actually broken, or missing the real cause, is too high to guess
+here blind.
+
+**Still queued, straightforward scope**: #3 (one shared date-range preset dropdown — Today/This
+week/Last week/This month/Last month/This quarter/Last quarter/This year calendar/This year
+fiscal/Custom range — replacing every ad-hoc date filter app-wide), #4 (notification bell in the
+top nav replacing the standalone Notifications page — unread count badge, 30-day history,
+bold/unbold read state), #6A/C (report counts drill into the actual contributing tasks, extending
+§M6's drill-down rather than just linking to a filtered list), #7's remaining pieces are done,
+#8 (audit every admin module — Roles, Custom Fields, Workflow, Priorities, Users, Integrations,
+SLA Policies — for complete Create/Edit/Delete, not just Departments), #9 (form reset + success
+toast standardized app-wide — needs a shared toast system, doesn't exist yet), #10 (Country/State
+as cascading dropdowns, not free text), #11 (holiday calendar CSV upload mapped to Country+State
+— current creation flow doesn't serve the purpose), #12 (loading indicators on every async
+action, app-wide).
+
+### M10. OKR module — plan, not yet built (items #14/15)
+
+User wants individuals able to add their own OKRs, HR able to add/edit OKRs for anyone, and a
+recurring review cycle (monthly/quarterly/half-yearly/yearly) that gives HODs and HR real
+visibility into individual performance — explicitly asked for this to be scoped and reviewed
+before any code gets written, since a wrong assumption here costs real rework.
+
+**Data model** (new Prisma models, following this schema's existing conventions — e.g.
+`User.managerId`'s self-relation already gives every user a "reports to" chain to hang the review
+workflow off of, same as the Head/Manager structure §G1 already established):
+
+- `Objective` — `id`, `ownerId` (the user it's about), `createdById` (self or an HR/Admin user —
+  distinct fields, since "who does this belong to" and "who set it" aren't always the same
+  person), `title`, `description`, `periodType` (`MONTHLY`/`QUARTERLY`/`HALF_YEARLY`/`YEARLY`),
+  `periodStart`/`periodEnd`, `status` (`DRAFT`/`ACTIVE`/`COMPLETED`/`ARCHIVED`), timestamps.
+- `KeyResult` — `id`, `objectiveId`, `description`, `targetValue`, `currentValue`, `unit` (free
+  text — "%", "tasks", "₹", whatever the objective needs), `status`. An Objective without any
+  KeyResults is still a valid (if thin) OKR — not enforcing a minimum count at the DB level,
+  matching how flexible this app's other admin-configurable structures already are.
+- `OkrReview` — one row per (Objective × review-cycle instance): `id`, `objectiveId`,
+  `reviewerId` (resolved the same way §G1 already resolves "who manages this person" — their
+  `managerId`, falling back to their department's `headUserId` the same way
+  `dashboards.controller.ts`'s `team()` method already does for Head), `periodLabel` (e.g.
+  "2026-Q3"), `selfRating`/`selfComments`, `managerRating`/`managerComments`, `status`
+  (`PENDING`/`SELF_SUBMITTED`/`REVIEWED`/`ACKNOWLEDGED`), `submittedAt`/`reviewedAt`.
+
+**Review-cycle generation**: a scheduled job (same pattern as the existing aggregate-refresh and
+SLA-escalation jobs) that, at the start of each period, creates a `PENDING` `OkrReview` row for
+every `ACTIVE` Objective whose `periodType` cycle just elapsed — so reviews aren't something
+someone has to remember to create by hand, they just show up.
+
+**Permissions** (new, following the existing `resource.action` convention): `okr.manage_own`
+(every real role — add/edit/delete your own Objectives), `okr.manage_any` (HR/Admin — CRUD on
+anyone's), `okr.review` (Manager/Head — submit the manager side of a direct report's review).
+
+**Screens**:
+- "My OKRs" section on the Settings/Profile page — CRUD for your own Objectives + KeyResults,
+  see your review history.
+- HR/Admin "Manage OKRs" (new admin page) — CRUD for any user's OKRs, org-wide review-completion
+  visibility (who's overdue on submitting/reviewing this cycle).
+- A reviewer-facing queue (Team page addition, or its own page) — HOD/Manager sees direct
+  reports' pending reviews, submits rating + comments per cycle.
+
+**Open questions for the user before this gets built** (flagging now rather than guessing):
+1. Does `periodType` get set per-Objective (an individual can pick Monthly for one OKR and
+   Yearly for another) or is it one org-wide cadence?
+2. Is a numeric rating (e.g. 1-5, or 0-100 like the Scorecard's sub-scores) wanted, or is this
+   comments-only with KeyResult progress being the only quantified part?
+3. Should HR see every individual's review content directly, or only completion status
+   (submitted/not) with content staying between the employee and their HOD unless escalated?
+
+Not yet built — this is the plan for review, per the user's explicit request.
+
 ---
 
 ## How to keep this log current
