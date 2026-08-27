@@ -1,0 +1,13 @@
+diff --git a/node_modules/expo/android/build.gradle b/node_modules/expo/android/build.gradle
+index 5645b26..7c2006b 100644
+--- a/node_modules/expo/android/build.gradle
++++ b/node_modules/expo/android/build.gradle
+@@ -15,7 +15,7 @@ static def versionToNumber(major, minor, patch) {
+ 
+ def getRNVersion() {
+   def nodeModulesVersion = providers.exec {
+-    workingDir(projectDir)
++    workingDir(rootProject.projectDir.parentFile)
+     commandLine("node", "-e", "console.log(require('react-native/package.json').version);")
+   }.standardOutput.asText.get().trim()
+ 

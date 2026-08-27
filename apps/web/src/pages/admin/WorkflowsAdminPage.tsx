@@ -5,6 +5,7 @@ import {
   useCreateWorkflow,
   useRemoveStatus,
   useRemoveTransition,
+  useUpdateStatus,
   useWorkflowStatusesAdmin,
   useWorkflowTransitionsAdmin,
   useWorkflowsAdmin,
@@ -25,6 +26,7 @@ export function WorkflowsAdminPage() {
   const { data: statuses } = useWorkflowStatusesAdmin(workflowId || undefined);
   const { data: transitions } = useWorkflowTransitionsAdmin(workflowId || undefined);
   const addStatus = useAddStatus(workflowId);
+  const updateStatus = useUpdateStatus(workflowId);
   const removeStatus = useRemoveStatus(workflowId);
   const addTransition = useAddTransition(workflowId);
   const removeTransition = useRemoveTransition(workflowId);
@@ -35,6 +37,14 @@ export function WorkflowsAdminPage() {
   const [fromStatus, setFromStatus] = useState('');
   const [toStatus, setToStatus] = useState('');
   const [requiredPermission, setRequiredPermission] = useState('');
+  const [editingStatusId, setEditingStatusId] = useState<string | undefined>(undefined);
+  const [editStatusLabel, setEditStatusLabel] = useState('');
+
+  async function saveStatusLabel(id: string) {
+    if (!editStatusLabel.trim()) return;
+    await updateStatus.mutateAsync({ id, data: { label: editStatusLabel } });
+    setEditingStatusId(undefined);
+  }
 
   async function handleNewWorkflow() {
     const name = prompt('Workflow name?');
@@ -80,15 +90,40 @@ export function WorkflowsAdminPage() {
         <>
           <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
             <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">Statuses</h2>
-            <div className="mb-3 flex flex-wrap gap-2">
-              {statuses?.map((s) => (
-                <div key={s.id} className="flex items-center gap-1">
-                  <Badge label={s.label} color={s.color} />
-                  <button onClick={() => removeStatus.mutate(s.id)} className="text-xs text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400">
-                    ×
-                  </button>
-                </div>
-              ))}
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {statuses?.map((s) =>
+                editingStatusId === s.id ? (
+                  <div key={s.id} className="flex items-center gap-1">
+                    <input
+                      value={editStatusLabel}
+                      onChange={(e) => setEditStatusLabel(e.target.value)}
+                      autoFocus
+                      className="w-28 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-0.5 text-xs"
+                    />
+                    <button onClick={() => saveStatusLabel(s.id)} className="text-xs text-brand-700 dark:text-brand-300 hover:underline">
+                      Save
+                    </button>
+                    <button onClick={() => setEditingStatusId(undefined)} className="text-xs text-slate-400 hover:underline">
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div key={s.id} className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setEditingStatusId(s.id);
+                        setEditStatusLabel(s.label);
+                      }}
+                      title="Click to rename"
+                    >
+                      <Badge label={s.label} color={s.color} />
+                    </button>
+                    <button onClick={() => removeStatus.mutate(s.id)} className="text-xs text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400">
+                      ×
+                    </button>
+                  </div>
+                ),
+              )}
             </div>
             <form onSubmit={handleAddStatus} className="flex flex-wrap gap-2">
               <input value={statusKey} onChange={(e) => setStatusKey(e.target.value)} placeholder="key" className="w-28 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm" />

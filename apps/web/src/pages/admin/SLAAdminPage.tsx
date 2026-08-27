@@ -14,6 +14,27 @@ export function SLAAdminPage() {
   const [responseMinutes, setResponseMinutes] = useState('60');
   const [resolutionMinutes, setResolutionMinutes] = useState('480');
 
+  const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  const [editName, setEditName] = useState('');
+  const [editResponse, setEditResponse] = useState('');
+  const [editResolution, setEditResolution] = useState('');
+
+  function startEdit(p: { id: string; name: string; response_time_minutes: number; resolution_time_minutes: number }) {
+    setEditingId(p.id);
+    setEditName(p.name);
+    setEditResponse(String(p.response_time_minutes));
+    setEditResolution(String(p.resolution_time_minutes));
+  }
+
+  async function saveEdit(id: string) {
+    if (!editName.trim()) return;
+    await updatePolicy.mutateAsync({
+      id,
+      data: { name: editName, response_time_minutes: Number(editResponse), resolution_time_minutes: Number(editResolution) },
+    });
+    setEditingId(undefined);
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
@@ -90,26 +111,81 @@ export function SLAAdminPage() {
             </tr>
           </thead>
           <tbody>
-            {policies?.map((p) => (
-              <tr key={p.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
-                <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{p.name}</td>
-                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{p.response_time_minutes}m</td>
-                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{p.resolution_time_minutes}m</td>
-                <td className="px-4 py-2">
-                  <button
-                    onClick={() => updatePolicy.mutate({ id: p.id, data: { is_active: !p.is_active } })}
-                    className="text-xs text-brand-700 dark:text-brand-300 hover:underline"
-                  >
-                    {p.is_active ? 'Active' : 'Inactive'}
-                  </button>
-                </td>
-                <td className="px-4 py-2 text-right">
-                  <button onClick={() => deletePolicy.mutate(p.id)} className="text-xs text-red-600 dark:text-red-400 hover:underline">
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {policies?.map((p) => {
+              const isEditing = editingId === p.id;
+              return (
+                <tr key={p.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                  <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">
+                    {isEditing ? (
+                      <input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-32 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
+                      />
+                    ) : (
+                      p.name
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editResponse}
+                        onChange={(e) => setEditResponse(e.target.value)}
+                        className="w-20 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
+                      />
+                    ) : (
+                      `${p.response_time_minutes}m`
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editResolution}
+                        onChange={(e) => setEditResolution(e.target.value)}
+                        className="w-20 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
+                      />
+                    ) : (
+                      `${p.resolution_time_minutes}m`
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    <button
+                      onClick={() => updatePolicy.mutate({ id: p.id, data: { is_active: !p.is_active } })}
+                      className="text-xs text-brand-700 dark:text-brand-300 hover:underline"
+                    >
+                      {p.is_active ? 'Active' : 'Inactive'}
+                    </button>
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    {isEditing ? (
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => saveEdit(p.id)}
+                          disabled={updatePolicy.isPending}
+                          className="text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                        <button onClick={() => setEditingId(undefined)} className="text-xs text-slate-400 hover:underline">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => startEdit(p)} className="text-xs text-brand-700 dark:text-brand-300 hover:underline">
+                          Edit
+                        </button>
+                        <button onClick={() => deletePolicy.mutate(p.id)} className="text-xs text-red-600 dark:text-red-400 hover:underline">
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {policies?.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">

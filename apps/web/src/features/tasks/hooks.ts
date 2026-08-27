@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client/client';
+import { toast } from '../../lib/toast/toast-store';
 
 export function useTasks(params?: Record<string, string | undefined>) {
   return useQuery({
@@ -36,7 +37,10 @@ export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => apiClient.tasks.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Task created');
+    },
   });
 }
 
@@ -47,6 +51,7 @@ export function useUpdateTask(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks', id] });
       qc.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Task updated');
     },
   });
 }
@@ -58,6 +63,7 @@ export function useAssignTask(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks', id] });
       qc.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Task assigned');
     },
   });
 }
@@ -71,6 +77,7 @@ export function useTransitionTask(id: string) {
       qc.invalidateQueries({ queryKey: ['tasks', id] });
       qc.invalidateQueries({ queryKey: ['tasks', id, 'activity'] });
       qc.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Status updated');
     },
   });
 }
@@ -83,6 +90,7 @@ export function useSubmitEstimate(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks', id] });
       qc.invalidateQueries({ queryKey: ['tasks', id, 'activity'] });
+      toast.success('Estimate submitted');
     },
   });
 }
@@ -95,7 +103,10 @@ export function useAddComment(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: string) => apiClient.tasks.addComment(id, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'comments'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', id, 'comments'] });
+      toast.success('Comment added');
+    },
   });
 }
 
@@ -192,7 +203,10 @@ export function useUpdateScorecardConfig() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (weights: Parameters<typeof apiClient.scorecards.updateConfig>[0]) => apiClient.scorecards.updateConfig(weights),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['scorecards', 'config'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['scorecards', 'config'] });
+      toast.success('Scorecard weights saved');
+    },
   });
 }
 
@@ -207,7 +221,10 @@ export function useAddTimeLog(id: string) {
   return useMutation({
     mutationFn: ({ minutes, note, loggedAt }: { minutes: number; note?: string; loggedAt?: string }) =>
       apiClient.tasks.addTimeLog(id, minutes, note, loggedAt),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'time-logs'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', id, 'time-logs'] });
+      toast.success('Time logged');
+    },
   });
 }
 
@@ -217,7 +234,10 @@ export function useUpdateTimeLog(id: string) {
   return useMutation({
     mutationFn: ({ logId, data }: { logId: string; data: { minutes?: number; note?: string; logged_at?: string } }) =>
       apiClient.tasks.updateTimeLog(id, logId, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'time-logs'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', id, 'time-logs'] });
+      toast.success('Time log updated');
+    },
   });
 }
 
@@ -230,7 +250,10 @@ export function useAddDependency(id: string) {
   return useMutation({
     mutationFn: ({ dependsOnTaskId, type }: { dependsOnTaskId: string; type: 'blocks' | 'relates_to' }) =>
       apiClient.tasks.addDependency(id, dependsOnTaskId, type),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'dependencies'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', id, 'dependencies'] });
+      toast.success('Dependency added');
+    },
   });
 }
 
@@ -238,7 +261,10 @@ export function useRemoveDependency(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (depId: string) => apiClient.tasks.removeDependency(id, depId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', id, 'dependencies'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', id, 'dependencies'] });
+      toast.success('Dependency removed');
+    },
   });
 }
 
@@ -255,6 +281,7 @@ export function useDecideApprovalStep(taskId: string) {
       qc.invalidateQueries({ queryKey: ['tasks', taskId] });
       qc.invalidateQueries({ queryKey: ['tasks', taskId, 'approval-steps'] });
       qc.invalidateQueries({ queryKey: ['tasks', taskId, 'activity'] });
+      toast.success('Approval decision recorded');
     },
   });
 }

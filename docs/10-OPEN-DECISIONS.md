@@ -838,11 +838,111 @@ deployed dev web app:
    re-close it later. `firebase_project_id`'s default is still updated to the real value
    regardless, so a future `terraform apply` doesn't revert that part.
 
-**Mobile: still open.** `extra.googleOAuthClientId` in `app.json` has the real value, but
-`promptAsync()` can't complete inside Expo Go until Expo's auth-proxy redirect URI
-(`https://auth.expo.io/@<owner>/<slug>`) is added to the OAuth client's Authorized redirect
-URIs — blocked on the Expo account username the mobile project is published under (`app.json`
-has no `owner` field set), which only the user can supply.
+**Mobile: still open — the auth-proxy plan above was wrong, corrected once discovered.** The
+original plan (add `https://auth.expo.io/@<owner>/<slug>` as an Authorized redirect URI) doesn't
+work: read `expo-auth-session@5.5.2`'s own source (the version SDK 51 pins) and confirmed
+`makeRedirectUri()` no longer calls into `SessionUrlProvider` at all — the proxy code is present
+but dead, disconnected from the public API. In Expo Go, `makeRedirectUri()` instead falls back to
+a per-session `exp://<lan-ip>:8081/...` address that changes every dev-server start, which Google
+can't accept as a static Authorized redirect URI either way. Real fix needs a development build
+(`eas build --profile development`, not Expo Go) plus a native Android OAuth client (package name
++ signing certificate, no redirect-URI list — Android/iOS client types work differently from Web
+ones). User chose to do this rather than defer it.
+
+Also found and fixed a second, independent bug while wiring this up: `LoginScreen.tsx` only ever
+passed `webClientId` to `Google.useIdTokenAuthRequest()`. On a real device, `Platform.OS` is never
+`'web'`, so the hook looks for `androidClientId`/`iosClientId` instead — undefined, and
+`invariantClientId()` throws synchronously inside a `useMemo`, i.e. the whole screen would have
+crashed on mount the moment `googleOAuthClientId` went non-empty, before anyone even tapped the
+button. Fixed: `app.json` gained `extra.googleAndroidClientId` (empty placeholder, mirroring the
+existing web one); `LoginScreen.tsx` now reads it, uses it as the platform id on Android, falls
+back to the (harmless, non-functional-for-sign-in) web id only to keep the hook from throwing pre-
+configuration, and derives the native redirect scheme Google's Android client type actually
+expects — `com.googleusercontent.apps.<client-id-prefix>:/oauthredirect`, not the app's own
+package id — from the Android client ID itself, per Expo's current Google-auth guide. Added
+`expo-dev-client` (required for `eas build --profile development`) to `package.json` and a new
+`eas.json` with `development`/`preview`/`production` profiles (development: internal APK, so it
+installs directly on a phone with no Play Store/Apple Developer account needed for this step).
+
+Remaining, blocked on the user: create an Android OAuth client in Google Cloud Console (package
+`net.econz.taskapp` + the SHA-1 fingerprint of the EAS-managed development keystore, obtained via
+`eas credentials`), then paste the resulting Android Client ID back so it can be set as
+`extra.googleAndroidClientId`. No rebuild needed for that last step — development builds load JS
+from the Metro dev server at runtime, same as Expo Go, so only genuinely native changes (like
+adding `expo-dev-client` itself) require a fresh `eas build`.
+
+**Third bug found and fixed while getting the actual dev build to compile: a monorepo/hoisting
+gap in Expo's own Android Gradle scripts, real root cause of the `eas build` failures.** The
+first `eas build --profile development --platform android` attempt failed on
+`:expo-dev-launcher` with `Process 'command 'node'' finished with non-zero exit value 1`, and on
+`:expo` with `Could not get unknown property 'release' for SoftwareComponent container`. Two
+plausible-but-wrong fixes tried first and ruled out by identical re-failures: regenerating
+`package-lock.json` (it was genuinely stale — `expo-dev-client` had been hand-added to
+`package.json` without a matching install — but wasn't the actual cause), and pinning
+`eas.json`'s Android build image to `"sdk-51"` (harmless, kept, but Gradle still downloaded the
+same `gradle-8.8-all.zip` either way — the image tag doesn't control that).
+
+Root cause, found by reading `node_modules/expo-dev-launcher/android/build.gradle`,
+`node_modules/expo/android/build.gradle`, and `node_modules/expo-modules-core/android/
+ExpoModulesCorePlugin.gradle` directly and reproducing locally: three of Expo's own native
+modules (`expo`, `expo-dev-launcher`, `expo-dev-menu`) each run
+`node -e "require('react-native/package.json')"` with `workingDir(projectDir)` — their *own*
+Android folder inside `node_modules/<package>/android`. That only resolves `react-native` if
+it's hoisted to the same `node_modules` these packages live in. In this repo it isn't:
+`react-native@0.74.5`'s exact peer requirement on `react@18.2.0` conflicts with a newer
+`react@18.3.1` some other workspace package pulls in, so npm — correctly — nests
+`react-native` under `apps/mobile/node_modules/react-native` instead of hoisting it to the
+workspace root, while `expo`/`expo-dev-launcher`/`expo-dev-menu` (no such conflict) do get
+hoisted to root. Confirmed by literally running the exact failing command from each location:
+fails from `node_modules/expo-dev-launcher/android` (`MODULE_NOT_FOUND`), succeeds from
+`apps/mobile` (prints `0.74.5`). The `:expo` project's `android {}` block configures both this
+same lookup *and* the `publishing { singleVariant("release") }` AGP component the second error
+complains about — one exception aborting that block's evaluation mid-way explains both crashes
+as the same root cause, not two unrelated bugs.
+
+Confirmed *not* fixable by forcing the hoist: temporarily adding `react-native` as a root
+`devDependency` to test this reproduced npm's real `ERESOLVE` peer conflict outright (`peer
+react@"18.2.0" from react-native@0.74.5` vs. whatever pulls `18.3.1`) — reverted immediately, npm
+was right to nest it.
+
+**Confirmed working against a real `eas build` run** (not just locally) once the user actually
+built against the right commit — earlier attempts silently used a stale local checkout (`git
+pull` kept failing on the local, uncommitted `package-lock.json` change from running `npm
+install` in `apps/mobile` directly; `git checkout -- package-lock.json` before each pull fixed
+it, twice). The `:expo-dev-launcher`/`:expo`/`release`-property failures are gone — the build
+now runs all the way through native compilation (281 Gradle tasks) to a completely different,
+much more mundane failure: `AAPT: error: resource color/splashscreen_background not found`,
+because `app.json` had no `splash` config at all (no icon/splash assets exist in this project
+yet either — never mattered before since nothing had done a real native build). A known SDK 51
+regression when splash config is incomplete; fixed with a minimal color-only splash block:
+`"splash": { "backgroundColor": "#235247" }` (the Studio Desk forest-green brand primary, same
+value as `theme/index.ts`'s `brand[600]`), no image needed.
+
+**Confirmed: `eas build --profile development --platform android` now succeeds end to end.**
+One more local-only snag on the way there, worth recording since it'll recur: `eas build` itself
+writes `extra.eas.projectId` into `app.json` on first run, so a later `git pull` conflicted with
+that local edit — `git stash` (not `git checkout --`, which would have discarded the real
+`projectId`) surfaced the conflict correctly, but `git stash pop` left literal `<<<<<<<`
+conflict markers in `app.json`, breaking its JSON syntax and failing the *local*
+`expo config --json` step `eas build` runs before it even talks to EAS's servers. Fixed by hand
+(merging the kept `eas.projectId` block with the pushed `splash` block), verified via
+`npx expo config --json` printing valid JSON before retrying. `app.json`'s `eas.projectId` is
+now committed so this shouldn't resurface.
+
+**Fix: `patch-package`.** Can't edit `node_modules` durably (not committed, and EAS reinstalls
+fresh from the lockfile every build) or touch upstream Expo packages, so added `patch-package` as
+a root devDependency + `"postinstall": "patch-package"` in the root `package.json`, and patched
+all three files' `workingDir(projectDir)` → `workingDir(rootProject.projectDir.parentFile)` —
+`rootProject` for every subproject in the generated Android build is `apps/mobile/android`
+(confirmed from the build logs' own `Running 'gradlew :app:assembleDebug' in
+.../apps/mobile/android`), so `.parentFile` is `apps/mobile` — exactly where `react-native` is
+actually reachable from, regardless of hoisting. Three `.patch` files committed under
+`patches/`; verified by deleting and reinstalling all three packages locally and confirming
+`postinstall` reapplies the patches automatically (`patch-package` printed `✔` for all three) —
+same install path EAS's remote build will take. Not yet confirmed against a real `eas build`
+run (waiting on the user's next attempt) since this sandbox has no Android/Gradle toolchain to
+run the actual native build itself, only Node, which is what let this be reproduced and fixed
+without one.
 
 ### M5. "Studio Desk" visual redesign + Power BI-style drill-down, web and mobile
 
@@ -1042,6 +1142,108 @@ SMTP handshake including AUTH, and the received message's from/to/subject/body/a
 matched exactly. This is as close to "delivered for real" as this sandbox allows; the genuine
 end-to-end check (a real inbox, a real phone buzzing) needs the user's own deployed environment
 with real SMTP credentials entered via Admin → Integrations.
+
+### M9. First real-world usability pass — 15-item feedback batch from testing the deployed web app
+
+User tested the deployed dev environment across all six seeded roles and came back with a mixed
+batch: quick UI fixes, real bugs, and several requests for genuinely new functionality. Triaged
+rather than built blind — see chat for the full original list; tracked as tasks #72-#86.
+
+**Done this round**: Timeline page cut from nav/routes/breadcrumbs (user's own call — "not worth
+it as a good-to-have"; `TimelinePage.tsx` left in place, just unreachable, in case it's revived).
+Departments admin gained inline Name/Slug editing — `UpdateDepartmentDto` was missing `slug`
+entirely, and even once added the controller's explicit field-mapping (see the comment at
+`departments.controller.ts`'s `update()` — snake_case DTO keys silently no-op against Prisma's
+camelCase fields unless mapped by hand) would have dropped it just like `is_active` once did.
+Added a shared `Toggle` component (`apps/web/src/components/Toggle.tsx`) replacing the
+Activate/Deactivate text link, plus a Slug tooltip. Reports bar/line charts no longer show
+decimal Y-axis ticks (0.5, 1.5, ...) for count-style metrics — `allowDecimals` is now computed
+per-chart (`data.every(Number.isInteger)`) rather than always left at Recharts' default, so
+legitimately fractional rate/average metrics aren't affected.
+
+**Clarified with the user, not yet built**:
+- Kanban (item #1): existing drag-drop-by-status board stays, adding swimlanes (group by
+  assignee/priority) and richer cards (avatar, priority color, due-date proximity, subtask
+  count) — not a rebuild, not becoming the default view.
+- Timeline (item #2): cut, per above — user chose "not worth it" over the other two options
+  offered (wire into real planning workflows, or keep read-only and deprioritize).
+- OKRs (items #14/15): user explicitly asked for a plan before code, given the size — see §M10.
+
+**Two reported bugs I could not confirm from reading the code alone** (#5 — Admin sees no Team
+view; #13 — Scorecard page stuck loading): `dashboards.controller.ts`'s `team()` method and
+`TeamDashboardPage.tsx`'s `scope === 'org'` branch both look structurally correct for Admin (an
+org-wide by-department breakdown, not gated on Admin's own department membership at all, so the
+user's "Admin isn't part of any department" theory doesn't match what the code actually does);
+`scorecards.controller.ts`'s `me()` endpoint has no obvious hang (no unbounded query, no missing
+await). Waiting on screenshots / a Network-tab check from the user before touching either — risk
+of "fixing" something that isn't actually broken, or missing the real cause, is too high to guess
+here blind.
+
+**Still queued, straightforward scope**: #3 (one shared date-range preset dropdown — Today/This
+week/Last week/This month/Last month/This quarter/Last quarter/This year calendar/This year
+fiscal/Custom range — replacing every ad-hoc date filter app-wide), #4 (notification bell in the
+top nav replacing the standalone Notifications page — unread count badge, 30-day history,
+bold/unbold read state), #6A/C (report counts drill into the actual contributing tasks, extending
+§M6's drill-down rather than just linking to a filtered list), #7's remaining pieces are done,
+#8 (audit every admin module — Roles, Custom Fields, Workflow, Priorities, Users, Integrations,
+SLA Policies — for complete Create/Edit/Delete, not just Departments), #9 (form reset + success
+toast standardized app-wide — needs a shared toast system, doesn't exist yet), #10 (Country/State
+as cascading dropdowns, not free text), #11 (holiday calendar CSV upload mapped to Country+State
+— current creation flow doesn't serve the purpose), #12 (loading indicators on every async
+action, app-wide).
+
+### M10. OKR module — plan, not yet built (items #14/15)
+
+User wants individuals able to add their own OKRs, HR able to add/edit OKRs for anyone, and a
+recurring review cycle (monthly/quarterly/half-yearly/yearly) that gives HODs and HR real
+visibility into individual performance — explicitly asked for this to be scoped and reviewed
+before any code gets written, since a wrong assumption here costs real rework.
+
+**Data model** (new Prisma models, following this schema's existing conventions — e.g.
+`User.managerId`'s self-relation already gives every user a "reports to" chain to hang the review
+workflow off of, same as the Head/Manager structure §G1 already established):
+
+- `Objective` — `id`, `ownerId` (the user it's about), `createdById` (self or an HR/Admin user —
+  distinct fields, since "who does this belong to" and "who set it" aren't always the same
+  person), `title`, `description`, `periodType` (`MONTHLY`/`QUARTERLY`/`HALF_YEARLY`/`YEARLY`),
+  `periodStart`/`periodEnd`, `status` (`DRAFT`/`ACTIVE`/`COMPLETED`/`ARCHIVED`), timestamps.
+- `KeyResult` — `id`, `objectiveId`, `description`, `targetValue`, `currentValue`, `unit` (free
+  text — "%", "tasks", "₹", whatever the objective needs), `status`. An Objective without any
+  KeyResults is still a valid (if thin) OKR — not enforcing a minimum count at the DB level,
+  matching how flexible this app's other admin-configurable structures already are.
+- `OkrReview` — one row per (Objective × review-cycle instance): `id`, `objectiveId`,
+  `reviewerId` (resolved the same way §G1 already resolves "who manages this person" — their
+  `managerId`, falling back to their department's `headUserId` the same way
+  `dashboards.controller.ts`'s `team()` method already does for Head), `periodLabel` (e.g.
+  "2026-Q3"), `selfRating`/`selfComments`, `managerRating`/`managerComments`, `status`
+  (`PENDING`/`SELF_SUBMITTED`/`REVIEWED`/`ACKNOWLEDGED`), `submittedAt`/`reviewedAt`.
+
+**Review-cycle generation**: a scheduled job (same pattern as the existing aggregate-refresh and
+SLA-escalation jobs) that, at the start of each period, creates a `PENDING` `OkrReview` row for
+every `ACTIVE` Objective whose `periodType` cycle just elapsed — so reviews aren't something
+someone has to remember to create by hand, they just show up.
+
+**Permissions** (new, following the existing `resource.action` convention): `okr.manage_own`
+(every real role — add/edit/delete your own Objectives), `okr.manage_any` (HR/Admin — CRUD on
+anyone's), `okr.review` (Manager/Head — submit the manager side of a direct report's review).
+
+**Screens**:
+- "My OKRs" section on the Settings/Profile page — CRUD for your own Objectives + KeyResults,
+  see your review history.
+- HR/Admin "Manage OKRs" (new admin page) — CRUD for any user's OKRs, org-wide review-completion
+  visibility (who's overdue on submitting/reviewing this cycle).
+- A reviewer-facing queue (Team page addition, or its own page) — HOD/Manager sees direct
+  reports' pending reviews, submits rating + comments per cycle.
+
+**Open questions for the user before this gets built** (flagging now rather than guessing):
+1. Does `periodType` get set per-Objective (an individual can pick Monthly for one OKR and
+   Yearly for another) or is it one org-wide cadence?
+2. Is a numeric rating (e.g. 1-5, or 0-100 like the Scorecard's sub-scores) wanted, or is this
+   comments-only with KeyResult progress being the only quantified part?
+3. Should HR see every individual's review content directly, or only completion status
+   (submitted/not) with content staying between the employee and their HOD unless escalated?
+
+Not yet built — this is the plan for review, per the user's explicit request.
 
 ---
 

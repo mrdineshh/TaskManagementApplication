@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCreateTask, useDepartments, usePriorities, useUsers } from './hooks';
+import { Spinner } from '../../components/Spinner';
 
 export function NewTaskForm({ onDone }: { onDone: () => void }) {
   const { data: departments } = useDepartments();
@@ -94,8 +95,9 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
       <button
         type="submit"
         disabled={createTask.isPending}
-        className="rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+        className="flex items-center gap-2 rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
       >
+        {createTask.isPending && <Spinner className="h-4 w-4" />}
         {createTask.isPending ? 'Creating…' : 'Create task'}
       </button>
     </form>

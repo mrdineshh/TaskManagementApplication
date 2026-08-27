@@ -1,0 +1,13 @@
+diff --git a/node_modules/expo-dev-launcher/android/build.gradle b/node_modules/expo-dev-launcher/android/build.gradle
+index af1c53f..50f9312 100644
+--- a/node_modules/expo-dev-launcher/android/build.gradle
++++ b/node_modules/expo-dev-launcher/android/build.gradle
+@@ -141,7 +141,7 @@ def versionToNumber(major, minor, patch) {
+ 
+ def getNodeModulesPackageVersion(packageName, overridePropName) {
+   def nodeModulesVersion = providers.exec {
+-    workingDir(projectDir)
++    workingDir(rootProject.projectDir.parentFile)
+     commandLine("node", "-e", "console.log(require('$packageName/package.json').version);")
+   }.standardOutput.asText.get().trim()
+   def version = safeExtGet(overridePropName, nodeModulesVersion)

@@ -4,13 +4,11 @@ import { useTask } from '../features/tasks/hooks';
 const STATIC_LABELS: Record<string, string> = {
   tasks: 'Tasks',
   board: 'Kanban',
-  timeline: 'Timeline',
   team: 'Team',
   scorecard: 'Scorecard',
   reports: 'Reports',
   builder: 'Report Builder',
   edit: 'Edit',
-  notifications: 'Notifications',
   settings: 'Settings',
   admin: 'Admin',
   departments: 'Departments',

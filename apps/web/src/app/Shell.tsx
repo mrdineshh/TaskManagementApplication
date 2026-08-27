@@ -7,14 +7,14 @@ import { resolveActiveRoleName } from '../lib/auth/roles';
 import { RoleSwitcher } from './RoleSwitcher';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ThemeToggle } from './ThemeToggle';
+import { ToastContainer } from '../components/ToastContainer';
+import { NotificationBell } from '../components/NotificationBell';
 
 const baseNavItems = [
   { to: '/', label: 'My Tasks', end: true },
   { to: '/tasks', label: 'All Tasks' },
   { to: '/tasks/board', label: 'Kanban' },
-  { to: '/tasks/timeline', label: 'Timeline' },
   { to: '/scorecard', label: 'Scorecard' },
-  { to: '/notifications', label: 'Notifications' },
 ];
 
 /** Roles whose active view includes a "Team" page (docs/10-OPEN-DECISIONS.md §K) — an
@@ -120,11 +120,15 @@ export function Shell() {
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6">
-        <Breadcrumbs />
+        <div className="mb-2 flex items-center justify-between">
+          <Breadcrumbs />
+          <NotificationBell />
+        </div>
         <div key={location.pathname} className="animate-fade-in">
           <Outlet />
         </div>
       </main>
+      <ToastContainer />
     </div>
   );
 }

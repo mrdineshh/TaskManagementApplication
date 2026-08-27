@@ -67,8 +67,9 @@ export class TasksService {
       include: {
         status: true,
         priority: true,
-        assignee: { select: { id: true, fullName: true, email: true } },
+        assignee: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
         department: { select: { id: true, name: true } },
+        _count: { select: { subtasks: true } },
       },
     });
 

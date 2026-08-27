@@ -25,6 +25,11 @@ export class UpdateDepartmentDto {
 
   @IsOptional()
   @IsString()
+  @Matches(/^[a-z0-9-]+$/)
+  slug?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(500)
   description?: string;
 

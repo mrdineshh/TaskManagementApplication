@@ -48,6 +48,7 @@ export class DepartmentsController {
       where: { id },
       data: {
         name: dto.name,
+        slug: dto.slug,
         description: dto.description,
         isActive: dto.is_active,
         headUserId: dto.head_user_id,

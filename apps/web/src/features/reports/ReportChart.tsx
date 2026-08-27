@@ -22,6 +22,11 @@ export function ReportChart({ result, chartType, drillHref, onDrill }: Props) {
   }
 
   const anyDrillable = data.some((d) => d.href);
+  // Count-style metrics (task counts) are always whole numbers — Recharts otherwise picks
+  // decimal tick marks (0.5, 1.5, ...) for small ranges, which reads as nonsense for a count.
+  // Rate/average/throughput metrics are legitimately fractional, so only force this when every
+  // value in this particular chart actually is a whole number.
+  const allIntegers = data.every((d) => Number.isInteger(d.value));
 
   if (chartType === 'table') {
     return (
@@ -76,7 +81,7 @@ export function ReportChart({ result, chartType, drillHref, onDrill }: Props) {
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} allowDecimals={!allIntegers} />
           <Tooltip />
           <Line type="monotone" dataKey="value" stroke="#2b6357" strokeWidth={2} />
         </LineChart>
@@ -89,7 +94,7 @@ export function ReportChart({ result, chartType, drillHref, onDrill }: Props) {
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-        <YAxis tick={{ fontSize: 11 }} />
+        <YAxis tick={{ fontSize: 11 }} allowDecimals={!allIntegers} />
         <Tooltip />
         <Bar
           dataKey="value"

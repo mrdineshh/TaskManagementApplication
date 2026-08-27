@@ -42,9 +42,24 @@ export type ReportDimension = (typeof reportDimensions)[number];
 export const reportChartTypes = ['bar', 'line', 'pie', 'table'] as const;
 export type ReportChartType = (typeof reportChartTypes)[number];
 
+// Matches apps/web/src/components/DateRangePicker.tsx's DATE_RANGE_PRESETS (docs/10-OPEN-
+// DECISIONS.md §M9) — the same preset set is used for every date-range filter in the app, not
+// just reports. Stored as a preset (not resolved start/end) so a saved/scheduled report's "this
+// month" always means the month it *runs* in, not the month it was configured.
+export const reportDatePresets = [
+  'today',
+  'this_week',
+  'last_week',
+  'this_month',
+  'last_month',
+  'this_quarter',
+  'last_quarter',
+  'this_year_calendar',
+  'this_year_fiscal',
+] as const;
 export const reportDateRangeSchema = z.union([
   z.object({ start: z.string().datetime(), end: z.string().datetime() }),
-  z.object({ preset: z.enum(['last_7_days', 'last_30_days', 'this_month', 'this_quarter', 'this_year']) }),
+  z.object({ preset: z.enum(reportDatePresets) }),
 ]);
 export type ReportDateRange = z.infer<typeof reportDateRangeSchema>;
 

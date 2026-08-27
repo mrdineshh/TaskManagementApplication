@@ -67,9 +67,12 @@ export class NotificationsService {
     }
   }
 
+  // Notification bell (docs/10-OPEN-DECISIONS.md §M9) — a fixed 30-day window rather than
+  // pagination, since the bell is meant to show "what's recent," not be a full archive browser.
   list(userId: string, unreadOnly: boolean) {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     return this.prisma.notification.findMany({
-      where: { userId, ...(unreadOnly ? { isRead: false } : {}) },
+      where: { userId, createdAt: { gte: thirtyDaysAgo }, ...(unreadOnly ? { isRead: false } : {}) },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });

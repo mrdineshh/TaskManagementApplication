@@ -358,7 +358,7 @@ async function main() {
       config: {
         metrics: ['task_counts_by_status', 'task_counts_by_priority'],
         dimensions: [],
-        date_range: { preset: 'last_30_days' },
+        date_range: { preset: 'this_month' },
         chart_type: 'bar',
         filters: {},
       },
@@ -368,7 +368,7 @@ async function main() {
       config: {
         metrics: ['overdue_count', 'overdue_rate'],
         dimensions: [],
-        date_range: { preset: 'last_30_days' },
+        date_range: { preset: 'this_month' },
         chart_type: 'table',
         filters: {},
       },
@@ -378,7 +378,7 @@ async function main() {
       config: {
         metrics: ['workload_distribution'],
         dimensions: [],
-        date_range: { preset: 'last_30_days' },
+        date_range: { preset: 'this_month' },
         chart_type: 'bar',
         filters: {},
       },
@@ -388,7 +388,7 @@ async function main() {
       config: {
         metrics: ['sla_compliance_rate'],
         dimensions: [],
-        date_range: { preset: 'last_30_days' },
+        date_range: { preset: 'this_month' },
         chart_type: 'bar',
         filters: {},
       },

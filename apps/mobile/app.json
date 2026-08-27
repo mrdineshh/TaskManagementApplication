@@ -2,10 +2,14 @@
   "expo": {
     "name": "Task Management",
     "slug": "taskapp-mobile",
+    "owner": "dinesh-econz",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": ["**/*"],
+    "splash": {
+      "backgroundColor": "#235247"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "net.econz.taskapp"
@@ -15,7 +19,11 @@
     },
     "extra": {
       "apiBaseUrl": "http://localhost:3000",
-      "googleOAuthClientId": "883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com"
+      "googleOAuthClientId": "883580624459-ta8jj9sfs9it1dl02pncv7a84bgud5th.apps.googleusercontent.com",
+      "googleAndroidClientId": "717975906785-bca86momod4qj8mr52kfs558clp6bmlr.apps.googleusercontent.com",
+      "eas": {
+        "projectId": "3d32212b-9675-4cb5-ba6a-9d690f9f68f2"
+      }
     }
   }
 }

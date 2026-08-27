@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client/client';
+import { toast } from '../../lib/toast/toast-store';
 
 // --- Departments ---
 export function useDepartmentsAdmin() {
@@ -9,14 +10,20 @@ export function useCreateDepartment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; slug: string; description?: string }) => apiClient.departments.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['departments'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['departments'] });
+      toast.success('Department created');
+    },
   });
 }
 export function useUpdateDepartment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiClient.departments.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['departments'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['departments'] });
+      toast.success('Department updated');
+    },
   });
 }
 
@@ -32,21 +39,30 @@ export function useCreateRole() {
   return useMutation({
     mutationFn: (data: { name: string; description?: string; department_id?: string | null; permission_keys?: string[] }) =>
       apiClient.roles.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['roles'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['roles'] });
+      toast.success('Role created');
+    },
   });
 }
 export function useUpdateRole() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiClient.roles.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['roles'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['roles'] });
+      toast.success('Role updated');
+    },
   });
 }
 export function useDeleteRole() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.roles.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['roles'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['roles'] });
+      toast.success('Role deleted');
+    },
   });
 }
 
@@ -66,21 +82,30 @@ export function useInviteUser() {
       manager_id?: string;
       role_ids?: string[];
     }) => apiClient.users.invite(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('Invitation sent');
+    },
   });
 }
 export function useUpdateUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiClient.users.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('User updated');
+    },
   });
 }
 export function useDeactivateUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.users.deactivate(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('User deactivated');
+    },
   });
 }
 export function useAssignRole() {
@@ -88,14 +113,20 @@ export function useAssignRole() {
   return useMutation({
     mutationFn: ({ userId, roleId, departmentId }: { userId: string; roleId: string; departmentId?: string }) =>
       apiClient.roles.assignToUser(userId, roleId, departmentId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('Role assigned');
+    },
   });
 }
 export function useRemoveRole() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ userId, roleId }: { userId: string; roleId: string }) => apiClient.roles.removeFromUser(userId, roleId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('Role removed');
+    },
   });
 }
 
@@ -107,21 +138,30 @@ export function useCreateCustomField() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => apiClient.customFields.create(data as never),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['custom-fields'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['custom-fields'] });
+      toast.success('Custom field created');
+    },
   });
 }
 export function useUpdateCustomField() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiClient.customFields.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['custom-fields'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['custom-fields'] });
+      toast.success('Custom field updated');
+    },
   });
 }
 export function useDeleteCustomField() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.customFields.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['custom-fields'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['custom-fields'] });
+      toast.success('Custom field deleted');
+    },
   });
 }
 
@@ -147,28 +187,40 @@ export function useCreateWorkflow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; department_id?: string | null; is_default?: boolean }) => apiClient.workflows.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workflows'] });
+      toast.success('Workflow created');
+    },
   });
 }
 export function useAddStatus(workflowId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => apiClient.workflows.addStatus(workflowId, data as never),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', workflowId, 'statuses'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workflows', workflowId, 'statuses'] });
+      toast.success('Status added');
+    },
   });
 }
 export function useUpdateStatus(workflowId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiClient.workflows.updateStatus(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', workflowId, 'statuses'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workflows', workflowId, 'statuses'] });
+      toast.success('Status updated');
+    },
   });
 }
 export function useRemoveStatus(workflowId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.workflows.removeStatus(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', workflowId, 'statuses'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workflows', workflowId, 'statuses'] });
+      toast.success('Status removed');
+    },
   });
 }
 export function useAddTransition(workflowId: string) {
@@ -176,14 +228,20 @@ export function useAddTransition(workflowId: string) {
   return useMutation({
     mutationFn: (data: { from_status_id: string; to_status_id: string; required_permission?: string | null }) =>
       apiClient.workflows.addTransition(workflowId, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', workflowId, 'transitions'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workflows', workflowId, 'transitions'] });
+      toast.success('Transition added');
+    },
   });
 }
 export function useRemoveTransition(workflowId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.workflows.removeTransition(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', workflowId, 'transitions'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workflows', workflowId, 'transitions'] });
+      toast.success('Transition removed');
+    },
   });
 }
 
@@ -195,21 +253,30 @@ export function useCreatePriority() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => apiClient.priorities.create(data as never),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['priorities-admin'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['priorities-admin'] });
+      toast.success('Priority created');
+    },
   });
 }
 export function useUpdatePriority() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiClient.priorities.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['priorities-admin'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['priorities-admin'] });
+      toast.success('Priority updated');
+    },
   });
 }
 export function useDeletePriority() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.priorities.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['priorities-admin'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['priorities-admin'] });
+      toast.success('Priority deleted');
+    },
   });
 }
 
@@ -222,7 +289,10 @@ export function useUpsertIntegrationSetting(key: string) {
   return useMutation({
     mutationFn: ({ config, secret }: { config: Record<string, unknown>; secret?: string }) =>
       apiClient.integrationSettings.upsert(key, config, secret),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['integration-settings', key] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['integration-settings', key] });
+      toast.success('Integration settings saved');
+    },
   });
 }
 export function useTestIntegrationSetting(key: string) {
@@ -237,7 +307,10 @@ export function useUpdateOrganizationSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => apiClient.organization.update(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['organization-settings'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['organization-settings'] });
+      toast.success('Organization settings saved');
+    },
   });
 }
 
@@ -249,21 +322,30 @@ export function useCreateSLAPolicy() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => apiClient.slaPolicies.create(data as never),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sla-policies'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sla-policies'] });
+      toast.success('SLA policy created');
+    },
   });
 }
 export function useUpdateSLAPolicy() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiClient.slaPolicies.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sla-policies'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sla-policies'] });
+      toast.success('SLA policy updated');
+    },
   });
 }
 export function useDeleteSLAPolicy() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.slaPolicies.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sla-policies'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sla-policies'] });
+      toast.success('SLA policy deleted');
+    },
   });
 }
 
@@ -275,14 +357,20 @@ export function useCreateHolidayCalendar() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { country: string; state: string }) => apiClient.holidayCalendars.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['holiday-calendars'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['holiday-calendars'] });
+      toast.success('Holiday calendar created');
+    },
   });
 }
 export function useDeleteHolidayCalendar() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.holidayCalendars.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['holiday-calendars'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['holiday-calendars'] });
+      toast.success('Holiday calendar deleted');
+    },
   });
 }
 export function useAddHoliday() {
@@ -290,7 +378,22 @@ export function useAddHoliday() {
   return useMutation({
     mutationFn: ({ calendarId, data }: { calendarId: string; data: { date: string; name: string } }) =>
       apiClient.holidayCalendars.addHoliday(calendarId, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['holiday-calendars'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['holiday-calendars'] });
+      toast.success('Holiday added');
+    },
+  });
+}
+export function useBulkAddHolidays() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ calendarId, holidays }: { calendarId: string; holidays: { date: string; name: string }[] }) =>
+      apiClient.holidayCalendars.bulkAddHolidays(calendarId, holidays),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['holiday-calendars'] });
+      const skipped = result.submitted - result.created;
+      toast.success(skipped > 0 ? `${result.created} holidays added (${skipped} already existed)` : `${result.created} holidays added`);
+    },
   });
 }
 export function useRemoveHoliday() {
@@ -298,6 +401,9 @@ export function useRemoveHoliday() {
   return useMutation({
     mutationFn: ({ calendarId, holidayId }: { calendarId: string; holidayId: string }) =>
       apiClient.holidayCalendars.removeHoliday(calendarId, holidayId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['holiday-calendars'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['holiday-calendars'] });
+      toast.success('Holiday removed');
+    },
   });
 }

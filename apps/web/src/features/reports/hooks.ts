@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client/client';
+import { toast } from '../../lib/toast/toast-store';
 import type { ReportConfig, ReportExportFormat, SavedReport } from '@taskapp/shared-types';
 
 export function useReportMetrics() {
@@ -19,7 +20,10 @@ export function useCreateReport() {
   return useMutation({
     mutationFn: (data: { name: string; config: ReportConfig; visibility?: SavedReport['visibility']; shared_with_role_ids?: string[] }) =>
       apiClient.reports.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reports'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reports'] });
+      toast.success('Report saved');
+    },
   });
 }
 
@@ -36,6 +40,7 @@ export function useUpdateReport() {
     onSuccess: (_result, vars) => {
       qc.invalidateQueries({ queryKey: ['reports'] });
       qc.invalidateQueries({ queryKey: ['reports', vars.id] });
+      toast.success('Report updated');
     },
   });
 }
@@ -44,7 +49,10 @@ export function useDeleteReport() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.reports.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reports'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reports'] });
+      toast.success('Report deleted');
+    },
   });
 }
 
@@ -91,7 +99,10 @@ export function useCreateReportSchedule(reportId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) => apiClient.reportSchedules.create(reportId, data as never),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['report-schedules', reportId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-schedules', reportId] });
+      toast.success('Schedule created');
+    },
   });
 }
 
@@ -100,7 +111,10 @@ export function useUpdateReportSchedule(reportId: string) {
   return useMutation({
     mutationFn: ({ scheduleId, data }: { scheduleId: string; data: Record<string, unknown> }) =>
       apiClient.reportSchedules.update(reportId, scheduleId, data as never),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['report-schedules', reportId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-schedules', reportId] });
+      toast.success('Schedule updated');
+    },
   });
 }
 
@@ -108,6 +122,9 @@ export function useDeleteReportSchedule(reportId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (scheduleId: string) => apiClient.reportSchedules.remove(reportId, scheduleId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['report-schedules', reportId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-schedules', reportId] });
+      toast.success('Schedule removed');
+    },
   });
 }

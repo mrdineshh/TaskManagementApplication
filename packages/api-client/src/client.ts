@@ -224,6 +224,8 @@ export function createApiClient(config: ApiClientConfig) {
       remove: (id: string) => request<{ success: boolean }>('DELETE', `/holiday-calendars/${id}`),
       addHoliday: (calendarId: string, data: { date: string; name: string }) =>
         request<Holiday>('POST', `/holiday-calendars/${calendarId}/holidays`, data),
+      bulkAddHolidays: (calendarId: string, holidays: { date: string; name: string }[]) =>
+        request<{ created: number; submitted: number }>('POST', `/holiday-calendars/${calendarId}/holidays/bulk`, { holidays }),
       removeHoliday: (calendarId: string, holidayId: string) =>
         request<{ success: boolean }>('DELETE', `/holiday-calendars/${calendarId}/holidays/${holidayId}`),
     },

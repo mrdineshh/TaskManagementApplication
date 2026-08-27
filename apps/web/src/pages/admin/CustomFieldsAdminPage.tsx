@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCreateCustomField, useCustomFieldsAdmin, useDeleteCustomField, useDepartmentsAdmin } from '../../features/admin/hooks';
+import { useCreateCustomField, useCustomFieldsAdmin, useDeleteCustomField, useDepartmentsAdmin, useUpdateCustomField } from '../../features/admin/hooks';
 
 const FIELD_TYPES = ['text', 'number', 'date', 'boolean', 'select', 'multi_select', 'user_reference'] as const;
 
@@ -8,6 +8,7 @@ export function CustomFieldsAdminPage() {
   const [departmentId, setDepartmentId] = useState('');
   const { data: fields } = useCustomFieldsAdmin(departmentId || undefined);
   const createField = useCreateCustomField();
+  const updateField = useUpdateCustomField();
   const deleteField = useDeleteCustomField();
 
   const [key, setKey] = useState('');
@@ -15,6 +16,31 @@ export function CustomFieldsAdminPage() {
   const [fieldType, setFieldType] = useState<(typeof FIELD_TYPES)[number]>('text');
   const [options, setOptions] = useState('');
   const [required, setRequired] = useState(false);
+
+  const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  const [editLabel, setEditLabel] = useState('');
+  const [editOptions, setEditOptions] = useState('');
+  const [editRequired, setEditRequired] = useState(false);
+
+  function startEdit(f: { id: string; label: string; options: string[] | null; is_required: boolean }) {
+    setEditingId(f.id);
+    setEditLabel(f.label);
+    setEditOptions((f.options ?? []).join(', '));
+    setEditRequired(f.is_required);
+  }
+
+  async function saveEdit(f: { id: string; field_type: string }) {
+    if (!editLabel.trim()) return;
+    await updateField.mutateAsync({
+      id: f.id,
+      data: {
+        label: editLabel,
+        options: ['select', 'multi_select'].includes(f.field_type) ? editOptions.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+        is_required: editRequired,
+      },
+    });
+    setEditingId(undefined);
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -88,19 +114,73 @@ export function CustomFieldsAdminPage() {
             </tr>
           </thead>
           <tbody>
-            {fields?.map((f) => (
-              <tr key={f.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
-                <td className="px-4 py-2 font-mono text-xs text-slate-600 dark:text-slate-400">{f.key}</td>
-                <td className="px-4 py-2">{f.label}</td>
-                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{f.field_type}</td>
-                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{f.is_required ? 'Yes' : 'No'}</td>
-                <td className="px-4 py-2 text-right">
-                  <button onClick={() => deleteField.mutate(f.id)} className="text-xs text-red-600 dark:text-red-400 hover:underline">
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {fields?.map((f) => {
+              const isEditing = editingId === f.id;
+              return (
+                <tr key={f.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                  <td className="px-4 py-2 font-mono text-xs text-slate-600 dark:text-slate-400">{f.key}</td>
+                  <td className="px-4 py-2">
+                    {isEditing ? (
+                      <div className="space-y-1">
+                        <input
+                          value={editLabel}
+                          onChange={(e) => setEditLabel(e.target.value)}
+                          className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
+                        />
+                        {['select', 'multi_select'].includes(f.field_type) && (
+                          <input
+                            value={editOptions}
+                            onChange={(e) => setEditOptions(e.target.value)}
+                            placeholder="Options, comma-separated"
+                            className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      f.label
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{f.field_type}</td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
+                    {isEditing ? (
+                      <label className="flex items-center gap-1">
+                        <input type="checkbox" checked={editRequired} onChange={(e) => setEditRequired(e.target.checked)} />
+                        Required
+                      </label>
+                    ) : f.is_required ? (
+                      'Yes'
+                    ) : (
+                      'No'
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    {isEditing ? (
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => saveEdit(f)}
+                          disabled={updateField.isPending}
+                          className="text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                        <button onClick={() => setEditingId(undefined)} className="text-xs text-slate-400 hover:underline">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => startEdit(f)} className="text-xs text-brand-700 dark:text-brand-300 hover:underline">
+                          Edit
+                        </button>
+                        <button onClick={() => deleteField.mutate(f.id)} className="text-xs text-red-600 dark:text-red-400 hover:underline">
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {fields?.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
