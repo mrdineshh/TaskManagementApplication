@@ -7,6 +7,9 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": ["**/*"],
+    "splash": {
+      "backgroundColor": "#235247"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "net.econz.taskapp"

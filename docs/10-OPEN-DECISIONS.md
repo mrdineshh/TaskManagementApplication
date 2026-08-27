@@ -905,6 +905,20 @@ Confirmed *not* fixable by forcing the hoist: temporarily adding `react-native` 
 react@"18.2.0" from react-native@0.74.5` vs. whatever pulls `18.3.1`) — reverted immediately, npm
 was right to nest it.
 
+**Confirmed working against a real `eas build` run** (not just locally) once the user actually
+built against the right commit — earlier attempts silently used a stale local checkout (`git
+pull` kept failing on the local, uncommitted `package-lock.json` change from running `npm
+install` in `apps/mobile` directly; `git checkout -- package-lock.json` before each pull fixed
+it, twice). The `:expo-dev-launcher`/`:expo`/`release`-property failures are gone — the build
+now runs all the way through native compilation (281 Gradle tasks) to a completely different,
+much more mundane failure: `AAPT: error: resource color/splashscreen_background not found`,
+because `app.json` had no `splash` config at all (no icon/splash assets exist in this project
+yet either — never mattered before since nothing had done a real native build). A known SDK 51
+regression when splash config is incomplete; fixed with a minimal color-only splash block:
+`"splash": { "backgroundColor": "#235247" }` (the Studio Desk forest-green brand primary, same
+value as `theme/index.ts`'s `brand[600]`), no image needed. Not yet confirmed against a fresh
+`eas build` run.
+
 **Fix: `patch-package`.** Can't edit `node_modules` durably (not committed, and EAS reinstalls
 fresh from the lockfile every build) or touch upstream Expo packages, so added `patch-package` as
 a root devDependency + `"postinstall": "patch-package"` in the root `package.json`, and patched
