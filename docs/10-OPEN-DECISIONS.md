@@ -916,8 +916,18 @@ because `app.json` had no `splash` config at all (no icon/splash assets exist in
 yet either — never mattered before since nothing had done a real native build). A known SDK 51
 regression when splash config is incomplete; fixed with a minimal color-only splash block:
 `"splash": { "backgroundColor": "#235247" }` (the Studio Desk forest-green brand primary, same
-value as `theme/index.ts`'s `brand[600]`), no image needed. Not yet confirmed against a fresh
-`eas build` run.
+value as `theme/index.ts`'s `brand[600]`), no image needed.
+
+**Confirmed: `eas build --profile development --platform android` now succeeds end to end.**
+One more local-only snag on the way there, worth recording since it'll recur: `eas build` itself
+writes `extra.eas.projectId` into `app.json` on first run, so a later `git pull` conflicted with
+that local edit — `git stash` (not `git checkout --`, which would have discarded the real
+`projectId`) surfaced the conflict correctly, but `git stash pop` left literal `<<<<<<<`
+conflict markers in `app.json`, breaking its JSON syntax and failing the *local*
+`expo config --json` step `eas build` runs before it even talks to EAS's servers. Fixed by hand
+(merging the kept `eas.projectId` block with the pushed `splash` block), verified via
+`npx expo config --json` printing valid JSON before retrying. `app.json`'s `eas.projectId` is
+now committed so this shouldn't resurface.
 
 **Fix: `patch-package`.** Can't edit `node_modules` durably (not committed, and EAS reinstalls
 fresh from the lockfile every build) or touch upstream Expo packages, so added `patch-package` as
