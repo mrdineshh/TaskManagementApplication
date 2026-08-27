@@ -12,7 +12,6 @@ const baseNavItems = [
   { to: '/', label: 'My Tasks', end: true },
   { to: '/tasks', label: 'All Tasks' },
   { to: '/tasks/board', label: 'Kanban' },
-  { to: '/tasks/timeline', label: 'Timeline' },
   { to: '/scorecard', label: 'Scorecard' },
   { to: '/notifications', label: 'Notifications' },
 ];

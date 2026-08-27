@@ -15,7 +15,6 @@ import { ReportsListPage } from '../pages/reports/ReportsListPage';
 import { ReportBuilderPage } from '../pages/reports/ReportBuilderPage';
 import { ReportViewerPage } from '../pages/reports/ReportViewerPage';
 import { SettingsPage } from '../pages/settings/SettingsPage';
-import { TimelinePage } from '../pages/tasks/TimelinePage';
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { AdminLayout } from '../pages/admin/AdminLayout';
 import { AdminHomePage } from '../pages/admin/AdminHomePage';
@@ -51,7 +50,6 @@ function AppRoutes() {
           <Route path="tasks" element={<TaskListPage />} />
           <Route path="tasks/:id" element={<TaskDetailPage />} />
           <Route path="tasks/board" element={<KanbanBoardPage />} />
-          <Route path="tasks/timeline" element={<TimelinePage />} />
           <Route path="team" element={<TeamDashboardPage />} />
           <Route path="scorecard" element={<ScorecardPage />} />
           <Route path="reports" element={<ReportsListPage />} />
