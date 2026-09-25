@@ -7,8 +7,8 @@ steps:
   - name: gcr.io/cloud-builders/docker
     args: ['push', '${_IMAGE}']
 
-  # Deploy to Cloud Run with all production env vars explicitly set.
-  # Using a shell step avoids YAML dict-parsing issues with comma-separated values.
+  # Deploy to Cloud Run. All env vars set via a single --update-env-vars call
+  # using ^||^ as the multi-value separator to avoid mixing set/update flags.
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: bash
     args:
@@ -19,17 +19,8 @@ steps:
           --region=us-central1 \
           --project=testing-sujeeth \
           --quiet \
-          --set-env-vars="DATABASE_URL=${_DATABASE_URL}" \
-          --update-env-vars="JWT_ACCESS_SECRET=${_JWT_ACCESS_SECRET}" \
-          --update-env-vars="JWT_REFRESH_SECRET=${_JWT_REFRESH_SECRET}" \
-          --update-env-vars="JWT_ACCESS_TTL=15m" \
-          --update-env-vars="JWT_REFRESH_TTL=7d" \
-          --update-env-vars="ALLOWED_EMAIL_DOMAIN=econz.net" \
-          --update-env-vars="AUTH_PROVIDERS=google" \
-          --update-env-vars="NODE_ENV=production" \
-          --update-env-vars="FIREBASE_PROJECT_ID=testing-sujeeth" \
-          --update-env-vars="GCS_ATTACHMENTS_BUCKET=taskapp-attachments-testing-sujeeth"
-        # ALLOWED_ORIGIN is set last since it contains a comma
+          --update-env-vars="^||^DATABASE_URL=${_DATABASE_URL}||JWT_ACCESS_SECRET=${_JWT_ACCESS_SECRET}||JWT_REFRESH_SECRET=${_JWT_REFRESH_SECRET}||JWT_ACCESS_TTL=15m||JWT_REFRESH_TTL=7d||ALLOWED_EMAIL_DOMAIN=econz.net||AUTH_PROVIDERS=google||NODE_ENV=production||FIREBASE_PROJECT_ID=testing-sujeeth||GCS_ATTACHMENTS_BUCKET=taskapp-attachments-testing-sujeeth"
+        # ALLOWED_ORIGIN set separately — it also contains || so we chain a second update
         gcloud run services update taskapp-api \
           --region=us-central1 \
           --project=testing-sujeeth \
