@@ -1,13 +1,11 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, Post, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { Body, Controller, Delete, Get, NotFoundException, Param, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { IsIn, IsInt, IsString, Max, MaxLength, Min } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
-import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AccessTokenPayload } from '../auth/auth.service';
-import { MockStorageService } from '../storage/mock-storage.service';
+import { StorageService } from '../storage/storage.service';
 import { MAX_ATTACHMENT_SIZE_BYTES } from '@taskapp/shared-types';
 
 class RequestUploadUrlDto {
@@ -24,19 +22,18 @@ class RequestUploadUrlDto {
   size_bytes!: number;
 }
 
-class MockUploadDto {
-  @IsString()
-  content_base64!: string;
-}
-
 @ApiTags('tasks')
 @Controller('tasks/:taskId/attachments')
 export class TaskAttachmentsController {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: MockStorageService,
+    private readonly storage: StorageService,
   ) {}
 
+  /**
+   * Step 1 of two-step upload (P5-04): validate metadata, create the DB record
+   * with `pending` status, and return a V4 signed GCS PUT URL (10 min TTL).
+   */
   @Post('upload-url')
   @RequirePermission('task.edit')
   async requestUploadUrl(
@@ -47,7 +44,14 @@ export class TaskAttachmentsController {
     const task = await this.prisma.task.findUnique({ where: { id: taskId } });
     if (!task) throw new NotFoundException('Task not found');
 
-    const storagePath = `attachments/${taskId}/${Date.now()}-${dto.file_name}`;
+    const storagePath = `attachments/${taskId}/${Date.now()}-${dto.file_name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+
+    const { uploadUrl } = await this.storage.initUpload({
+      storagePath,
+      contentType: dto.mime_type,
+      sizeBytes: dto.size_bytes,
+    });
+
     const attachment = await this.prisma.taskAttachment.create({
       data: {
         taskId,
@@ -61,7 +65,7 @@ export class TaskAttachmentsController {
 
     return {
       attachment_id: attachment.id,
-      upload_url: this.storage.buildUploadUrl(storagePath),
+      upload_url: uploadUrl,
     };
   }
 }
@@ -69,14 +73,37 @@ export class TaskAttachmentsController {
 @ApiTags('tasks')
 @Controller('attachments')
 export class AttachmentsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
+  /**
+   * Step 2: after client PUTs to GCS, call this to verify the object exists
+   * and get a signed download URL.
+   */
   @Post(':id/confirm')
   @RequirePermission('task.edit')
   async confirm(@Param('id') id: string) {
     const attachment = await this.prisma.taskAttachment.findUnique({ where: { id } });
     if (!attachment) throw new NotFoundException('Attachment not found');
-    return attachment; // metadata was already finalized at upload-url time in this mock implementation
+
+    const result = await this.storage.verifyUpload(attachment.storagePath);
+    if (!result.exists) {
+      throw new NotFoundException('File was not found in storage — upload may have failed');
+    }
+
+    return { ...attachment, sizeBytes: attachment.sizeBytes.toString() };
+  }
+
+  /** Returns a short-lived signed download URL (15 min). */
+  @Get(':id/download-url')
+  @RequirePermission('task.view')
+  async getDownloadUrl(@Param('id') id: string) {
+    const attachment = await this.prisma.taskAttachment.findUnique({ where: { id } });
+    if (!attachment) throw new NotFoundException('Attachment not found');
+    const url = await this.storage.getDownloadUrl(attachment.storagePath);
+    return { download_url: url };
   }
 
   @Delete(':id')
@@ -84,28 +111,8 @@ export class AttachmentsController {
   async remove(@Param('id') id: string) {
     const attachment = await this.prisma.taskAttachment.findUnique({ where: { id } });
     if (!attachment) throw new NotFoundException('Attachment not found');
+    await this.storage.softDelete(attachment.storagePath);
     await this.prisma.taskAttachment.delete({ where: { id } });
     return { success: true };
-  }
-}
-
-/** Mock Cloud Storage endpoint — replaced by real GCS signed URLs once GCP access is available. */
-@ApiTags('mock-storage')
-@Controller('mock-storage')
-export class MockStorageController {
-  constructor(private readonly storage: MockStorageService) {}
-
-  @Public()
-  @Post(':storagePath')
-  upload(@Param('storagePath') storagePath: string, @Body() dto: MockUploadDto) {
-    this.storage.write(decodeURIComponent(storagePath), dto.content_base64);
-    return { success: true };
-  }
-
-  @Public()
-  @Get(':storagePath')
-  download(@Param('storagePath') storagePath: string, @Res() res: Response) {
-    const buffer = this.storage.read(decodeURIComponent(storagePath));
-    res.send(buffer);
   }
 }

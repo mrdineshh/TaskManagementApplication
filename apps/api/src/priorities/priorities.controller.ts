@@ -13,14 +13,23 @@ export class PrioritiesController {
   @RequirePermission('priority.view')
   list(@Query('department_id') departmentId?: string) {
     return this.prisma.priorityDefinition.findMany({
-      where: departmentId ? { OR: [{ departmentId }, { departmentId: null }] } : {},
+      where: {
+        ...(departmentId ? { OR: [{ departmentId }, { departmentId: null }] } : {}),
+        isActive: true,
+      },
       orderBy: { displayOrder: 'asc' },
     });
   }
 
   @Post()
   @RequirePermission('priority.manage')
-  create(@Body() dto: CreatePriorityDto) {
+  async create(@Body() dto: CreatePriorityDto) {
+    if (dto.is_default) {
+      await this.prisma.priorityDefinition.updateMany({
+        where: { departmentId: dto.department_id ?? null },
+        data: { isDefault: false },
+      });
+    }
     return this.prisma.priorityDefinition.create({
       data: {
         departmentId: dto.department_id ?? null,
@@ -38,6 +47,14 @@ export class PrioritiesController {
   async update(@Param('id') id: string, @Body() dto: UpdatePriorityDto) {
     const existing = await this.prisma.priorityDefinition.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Priority not found');
+
+    if (dto.is_default) {
+      await this.prisma.priorityDefinition.updateMany({
+        where: { id: { not: id }, departmentId: existing.departmentId },
+        data: { isDefault: false },
+      });
+    }
+
     return this.prisma.priorityDefinition.update({
       where: { id },
       data: {
@@ -55,7 +72,13 @@ export class PrioritiesController {
   async deactivate(@Param('id') id: string) {
     const existing = await this.prisma.priorityDefinition.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Priority not found');
-    await this.prisma.priorityDefinition.update({ where: { id }, data: { isActive: false } });
+
+    const inUse = await this.prisma.task.count({ where: { priorityId: id } });
+    if (inUse === 0) {
+      await this.prisma.priorityDefinition.delete({ where: { id } });
+    } else {
+      await this.prisma.priorityDefinition.update({ where: { id }, data: { isActive: false } });
+    }
     return { success: true };
   }
 }

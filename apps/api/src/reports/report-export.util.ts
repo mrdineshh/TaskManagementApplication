@@ -22,7 +22,7 @@ function csvField(value: string): string {
 /** Excel — one sheet per metric so each can be pivoted/charted independently once opened. */
 export async function toXlsx(reportName: string, results: ReportRunResult[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Task Management Application';
+  workbook.creator = 'Pulse';
   workbook.created = new Date();
 
   for (const result of results) {

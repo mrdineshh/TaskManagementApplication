@@ -13,12 +13,16 @@ import { ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CreateRoleDto, UpdateRoleDto, AssignRoleDto } from './dto/rbac.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /** Roles & Permissions — the RBAC configuration surface (docs/04-API-SPEC.md §4). */
 @ApiTags('rbac')
 @Controller()
 export class RolesController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   @Get('roles')
   @RequirePermission('role.manage')
@@ -97,17 +101,80 @@ export class RolesController {
   @Post('users/:id/roles')
   @RequirePermission('role.manage')
   async assignToUser(@Param('id') userId: string, @Body() dto: AssignRoleDto) {
-    return this.prisma.userRole.upsert({
+    const role = await this.prisma.role.findUnique({ where: { id: dto.role_id } });
+    if (!role) throw new NotFoundException('Role not found');
+
+    // Admin is genuinely org-wide: no department override. Other roles use the provided or user's department.
+    const departmentOverride = role.name === 'Admin' ? null : (dto.department_id ?? null);
+
+    const userRole = await this.prisma.userRole.upsert({
       where: { userId_roleId: { userId, roleId: dto.role_id } },
-      update: { departmentOverride: dto.department_id },
-      create: { userId, roleId: dto.role_id, departmentOverride: dto.department_id },
+      update: { departmentOverride },
+      create: { userId, roleId: dto.role_id, departmentOverride },
     });
+
+    // If assigning a non-Employee role, clean up default Employee role so new role is active
+    if (role.name !== 'Employee') {
+      const employeeRole = await this.prisma.role.findFirst({ where: { name: 'Employee' } });
+      if (employeeRole) {
+        await this.prisma.userRole.deleteMany({
+          where: { userId, roleId: employeeRole.id },
+        });
+      }
+    }
+
+    // Stamp the user's role_changed_at so the frontend can detect a stale session
+    // and prompt a re-login to pick up the new permissions in the JWT.
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { updatedAt: new Date() },
+    }).catch(() => {});
+
+    // Notify the affected user of their new role.
+    const department = departmentOverride
+      ? await this.prisma.department.findUnique({ where: { id: departmentOverride }, select: { name: true } })
+      : null;
+    await this.notifications
+      .notify(userId, 'role_assigned', {
+        roleName: role.name,
+        departmentName: department?.name ?? null,
+      })
+      .catch(() => {});
+
+    return userRole;
   }
 
   @Delete('users/:id/roles/:roleId')
   @RequirePermission('role.manage')
   async removeFromUser(@Param('id') userId: string, @Param('roleId') roleId: string) {
-    await this.prisma.userRole.delete({ where: { userId_roleId: { userId, roleId } } });
+    await this.prisma.userRole.deleteMany({ where: { userId, roleId } });
+
+    // Notify the affected user that their role was revoked.
+    const revokedRole = await this.prisma.role.findUnique({ where: { id: roleId }, select: { name: true } }).catch(() => null);
+    if (revokedRole) {
+      await this.notifications
+        .notify(userId, 'role_revoked', { roleName: revokedRole.name })
+        .catch(() => {});
+    }
+
+    // Stamp updatedAt so the frontend can detect a stale session.
+    await this.prisma.user.update({ where: { id: userId }, data: { updatedAt: new Date() } }).catch(() => {});
+
+    // Fallback: If the user has no remaining roles, assign Employee role in their primary department
+    const remainingRoles = await this.prisma.userRole.count({ where: { userId } });
+    if (remainingRoles === 0) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      const employeeRole = await this.prisma.role.findFirst({ where: { name: 'Employee' } });
+      if (user && employeeRole) {
+        await this.prisma.userRole.create({
+          data: {
+            userId,
+            roleId: employeeRole.id,
+            departmentOverride: user.primaryDepartmentId,
+          },
+        });
+      }
+    }
     return { success: true };
   }
 

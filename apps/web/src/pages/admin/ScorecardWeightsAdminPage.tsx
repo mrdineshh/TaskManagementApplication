@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useScorecardConfig, useUpdateScorecardConfig } from '../../features/tasks/hooks';
 import type { ScorecardWeights } from '@taskapp/shared-types';
 
@@ -55,7 +55,7 @@ export function ScorecardWeightsAdminPage() {
       <p className="text-sm text-slate-500 dark:text-slate-400">
         Each employee's overall leaderboard score blends these six sub-metrics. Weights must sum to 1.0.
       </p>
-      <div className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+      <div className="space-y-3 neu-card !p-4">
         {(Object.keys(weights) as (keyof ScorecardWeights)[]).map((key) => (
           <label key={key} className="flex items-center justify-between gap-4 text-sm">
             <span className="text-slate-700 dark:text-slate-300">{LABELS[key]}</span>
@@ -80,7 +80,7 @@ export function ScorecardWeightsAdminPage() {
       <button
         onClick={handleSave}
         disabled={updateConfig.isPending}
-        className="rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+        className="btn-primary"
       >
         Save weights
       </button>

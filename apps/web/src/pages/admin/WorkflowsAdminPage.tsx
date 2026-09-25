@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, X } from 'lucide-react';
 import {
   useAddStatus,
   useAddTransition,
@@ -11,6 +12,7 @@ import {
   useWorkflowsAdmin,
 } from '../../features/admin/hooks';
 import { Badge } from '../../components/Badge';
+import { NeuSelect } from '../../components/NeuSelect';
 
 const CATEGORIES = ['todo', 'in_progress', 'done', 'cancelled'] as const;
 
@@ -22,6 +24,13 @@ export function WorkflowsAdminPage() {
   const { data: workflows } = useWorkflowsAdmin();
   const [workflowId, setWorkflowId] = useState<string>('');
   const createWorkflow = useCreateWorkflow();
+
+  useEffect(() => {
+    if (!workflowId && workflows && workflows.length > 0) {
+      const def = workflows.find((w) => w.is_default) ?? workflows[0];
+      if (def) setWorkflowId(def.id);
+    }
+  }, [workflows, workflowId]);
 
   const { data: statuses } = useWorkflowStatusesAdmin(workflowId || undefined);
   const { data: transitions } = useWorkflowTransitionsAdmin(workflowId || undefined);
@@ -46,11 +55,16 @@ export function WorkflowsAdminPage() {
     setEditingStatusId(undefined);
   }
 
-  async function handleNewWorkflow() {
-    const name = prompt('Workflow name?');
-    if (!name) return;
-    const wf = await createWorkflow.mutateAsync({ name });
+  const [newWorkflowModalOpen, setNewWorkflowModalOpen] = useState(false);
+  const [newWorkflowName, setNewWorkflowName] = useState('');
+
+  async function handleCreateWorkflowSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newWorkflowName.trim()) return;
+    const wf = await createWorkflow.mutateAsync({ name: newWorkflowName.trim() });
     setWorkflowId((wf as { id: string }).id);
+    setNewWorkflowName('');
+    setNewWorkflowModalOpen(false);
   }
 
   async function handleAddStatus(e: React.FormEvent) {
@@ -70,29 +84,50 @@ export function WorkflowsAdminPage() {
 
   const statusLabelOf = (id: string) => statuses?.find((s) => s.id === id)?.label ?? id;
 
+  const orphanStatuses = statuses?.filter((s) => {
+    if (!statuses || statuses.length <= 1) return false;
+    const hasIncoming = transitions?.some((t) => t.to_status_id === s.id);
+    const hasOutgoing = transitions?.some((t) => t.from_status_id === s.id);
+    return !hasIncoming && !hasOutgoing;
+  }) ?? [];
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <select value={workflowId} onChange={(e) => setWorkflowId(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm">
-          <option value="">Select workflow…</option>
-          {workflows?.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name} {w.is_default ? '(default)' : ''}
-            </option>
-          ))}
-        </select>
-        <button onClick={handleNewWorkflow} className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-950">
+        <NeuSelect
+          value={workflowId}
+          onChange={setWorkflowId}
+          options={(workflows ?? []).map((w) => ({ value: w.id, label: `${w.name}${w.is_default ? ' (default)' : ''}` }))}
+          placeholder="Select workflow…"
+          style={{ minWidth: '200px' }}
+        />
+        <button type="button" onClick={() => setNewWorkflowModalOpen(true)} className="btn-neu">
           + New workflow
         </button>
       </div>
 
       {workflowId && (
         <>
-          <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          {orphanStatuses.length > 0 && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/40 p-4 text-sm text-amber-800 dark:text-amber-200">
+              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Orphan Statuses Detected</p>
+                <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
+                  The following statuses have no incoming or outgoing transitions:{' '}
+                  <span className="font-semibold">{orphanStatuses.map((s) => s.label).join(', ')}</span>.
+                  Tasks will not be able to transition into or out of these statuses until transitions are configured.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="neu-card !p-4">
             <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">Statuses</h2>
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              {statuses?.map((s) =>
-                editingStatusId === s.id ? (
+              {statuses?.map((s) => {
+                const isOrphan = orphanStatuses.some((o) => o.id === s.id);
+                return editingStatusId === s.id ? (
                   <div key={s.id} className="flex items-center gap-1">
                     <input
                       value={editStatusLabel}
@@ -114,34 +149,40 @@ export function WorkflowsAdminPage() {
                         setEditingStatusId(s.id);
                         setEditStatusLabel(s.label);
                       }}
-                      title="Click to rename"
+                      title={isOrphan ? 'Orphan status — click to rename' : 'Click to rename'}
+                      className="inline-flex items-center gap-1"
                     >
                       <Badge label={s.label} color={s.color} />
+                      {isOrphan && (
+                        <span title="Orphan status (no transitions connected)">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                        </span>
+                      )}
                     </button>
-                    <button onClick={() => removeStatus.mutate(s.id)} className="text-xs text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400">
-                      ×
+                    <button onClick={() => removeStatus.mutate(s.id)} className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors" title="Delete status">
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                ),
-              )}
+                );
+              })}
             </div>
             <form onSubmit={handleAddStatus} className="flex flex-wrap gap-2">
-              <input value={statusKey} onChange={(e) => setStatusKey(e.target.value)} placeholder="key" className="w-28 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm" />
-              <input value={statusLabel} onChange={(e) => setStatusLabel(e.target.value)} placeholder="Label" className="w-36 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm" />
-              <select value={statusCategory} onChange={(e) => setStatusCategory(e.target.value as typeof statusCategory)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm">
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              <button type="submit" className="rounded-md bg-brand-600 px-3 py-1 text-sm font-medium text-white hover:bg-brand-700">
+              <input value={statusKey} onChange={(e) => setStatusKey(e.target.value)} placeholder="key" className="w-28 neu-input" />
+              <input value={statusLabel} onChange={(e) => setStatusLabel(e.target.value)} placeholder="Label" className="w-36 neu-input" />
+              <NeuSelect
+                value={statusCategory}
+                onChange={(v) => setStatusCategory(v as typeof statusCategory)}
+                options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+                compact
+                style={{ minWidth: '130px' }}
+              />
+              <button type="submit" className="btn-primary !py-1">
                 Add status
               </button>
             </form>
           </div>
 
-          <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <div className="neu-card !p-4">
             <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">Transitions</h2>
             <ul className="mb-3 space-y-1">
               {transitions?.map((t) => (
@@ -157,34 +198,76 @@ export function WorkflowsAdminPage() {
               ))}
             </ul>
             <form onSubmit={handleAddTransition} className="flex flex-wrap gap-2">
-              <select value={fromStatus} onChange={(e) => setFromStatus(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm">
-                <option value="">From…</option>
-                {statuses?.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-              <select value={toStatus} onChange={(e) => setToStatus(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm">
-                <option value="">To…</option>
-                {statuses?.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
+              <NeuSelect
+                value={fromStatus}
+                onChange={setFromStatus}
+                options={[{ value: '', label: 'From…' }, ...(statuses ?? []).map((s) => ({ value: s.id, label: s.label }))]}
+                compact
+                style={{ minWidth: '140px' }}
+              />
+              <NeuSelect
+                value={toStatus}
+                onChange={setToStatus}
+                options={[{ value: '', label: 'To…' }, ...(statuses ?? []).map((s) => ({ value: s.id, label: s.label }))]}
+                compact
+                style={{ minWidth: '140px' }}
+              />
               <input
                 value={requiredPermission}
                 onChange={(e) => setRequiredPermission(e.target.value)}
                 placeholder="required permission (optional)"
-                className="w-56 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
+                className="w-56 neu-input"
               />
-              <button type="submit" className="rounded-md bg-brand-600 px-3 py-1 text-sm font-medium text-white hover:bg-brand-700">
+              <button type="submit" className="btn-primary !py-1">
                 Add transition
               </button>
             </form>
           </div>
         </>
+      )}
+
+      {newWorkflowModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-sm neu-card shadow-xl animate-fade-in">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Create Workflow</h3>
+              <button
+                type="button"
+                onClick={() => setNewWorkflowModalOpen(false)}
+                className="rounded-md p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateWorkflowSubmit} className="space-y-3">
+              <input
+                type="text"
+                autoFocus
+                value={newWorkflowName}
+                onChange={(e) => setNewWorkflowName(e.target.value)}
+                placeholder="Workflow name (e.g. Content Production)"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewWorkflowModalOpen(false)}
+                  className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createWorkflow.isPending || !newWorkflowName.trim()}
+                  className="btn-primary !text-xs"
+                >
+                  {createWorkflow.isPending ? 'Creating…' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

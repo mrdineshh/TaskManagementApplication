@@ -40,15 +40,41 @@ export class AuthService {
       );
     }
 
-    // Invite-only (docs/10-OPEN-DECISIONS.md §G4): an Admin must create the User row — via
-    // work_country/work_state, primary department, roles, manager — before anyone can sign in
-    // at all, SSO included. No self-service auto-provisioning on first login; a real identity
-    // token from Google/Firebase is not by itself authorization to create an account.
-    const user = await this.prisma.user.findUnique({ where: { email: identity.email } });
+    let user = await this.prisma.user.findUnique({ where: { email: identity.email } });
     if (!user) {
-      throw new UnauthorizedException(
-        'No account found for this email — ask an Admin to create your account first',
-      );
+      // Auto-provision verified users in the allowed domain (Sujeeth as Admin, others as Employee)
+      const defaultDept = await this.prisma.department.findFirst();
+      if (!defaultDept) {
+        throw new UnauthorizedException('System reference data not initialized (missing departments)');
+      }
+
+      const isAdminEmail = identity.email.toLowerCase() === 'sujeeth.k@econz.net';
+      const roleName = isAdminEmail ? 'Admin' : 'Employee';
+      const role = await this.prisma.role.findFirst({ where: { name: roleName } });
+      if (!role) {
+        throw new UnauthorizedException(`Role "${roleName}" not found in system roles`);
+      }
+
+      user = await this.prisma.user.create({
+        data: {
+          email: identity.email,
+          fullName: identity.name || identity.email.split('@')[0],
+          primaryDepartmentId: defaultDept.id,
+          authProvider: 'google',
+          authProviderId: identity.externalId,
+          workCountry: 'India',
+          workState: 'Tamil Nadu',
+        },
+      });
+
+      const departmentOverride = roleName === 'Admin' ? null : defaultDept.id;
+      await this.prisma.userRole.create({
+        data: {
+          userId: user.id,
+          roleId: role.id,
+          departmentOverride,
+        },
+      });
     }
 
     if (!user.isActive) {
@@ -59,7 +85,6 @@ export class AuthService {
       where: { id: user.id },
       data: {
         lastLoginAt: new Date(),
-        // Backfills the provider external ID on a pre-invited user's first real sign-in.
         authProviderId: user.authProviderId ?? identity.externalId,
       },
     });
@@ -86,7 +111,7 @@ export class AuthService {
     return this.issueTokenPair(user.id, user.email);
   }
 
-  private async issueTokenPair(userId: string, email: string) {
+  async issueTokenPair(userId: string, email: string) {
     const effective = await this.rbac.getEffectivePermissions(userId);
 
     const accessPayload: AccessTokenPayload = {

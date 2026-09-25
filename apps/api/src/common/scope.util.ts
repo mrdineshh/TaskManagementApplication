@@ -7,14 +7,27 @@ import type { AccessTokenPayload } from '../auth/auth.service';
  * Org-wide roles (hasOrgWideRole) bypass this. Applied at the query/service
  * layer, never left to the client.
  */
-export function assertDepartmentScope(user: AccessTokenPayload, resourceDepartmentId: string): void {
+export function assertDepartmentScope(
+  user: AccessTokenPayload,
+  resourceDepartmentId: string,
+  allowedUserId?: string | null,
+): void {
   if (user.hasOrgWideRole) return;
+  if (allowedUserId && allowedUserId === user.sub) return;
   if (!user.departmentIds.includes(resourceDepartmentId)) {
     throw new ForbiddenException('Outside your department scope');
   }
 }
 
-/** Returns a Prisma `where` fragment scoping department_id to the user's departments, or {} if org-wide. */
+/** Returns a Prisma `where` fragment scoping department_id to the user's departments, or allows tasks assigned to the user. */
 export function departmentScopeWhere(user: AccessTokenPayload) {
-  return user.hasOrgWideRole ? {} : { departmentId: { in: user.departmentIds } };
+  return user.hasOrgWideRole
+    ? {}
+    : {
+        OR: [
+          { departmentId: { in: user.departmentIds } },
+          { assigneeId: user.sub },
+        ],
+      };
 }
+

@@ -10,7 +10,7 @@ const ROLE_PRIORITY = ['Admin', 'Management', 'Head', 'Manager', 'Employee'];
  * drift into showing a nav item for a view the API would then refuse to serve.
  */
 export function resolveActiveRoleName(user: CurrentUser | null): string | null {
-  if (!user) return null;
+  if (!user || !Array.isArray(user.roles)) return null;
   const active = user.roles.find((r) => r.id === user.active_role_id);
   if (active) return active.name;
   const held = new Set(user.roles.map((r) => r.name));

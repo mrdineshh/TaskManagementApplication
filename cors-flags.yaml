@@ -1,0 +1,2 @@
+- --update-env-vars
+- ALLOWED_ORIGIN=https://pulse.econz.cloud^,https://taskapp-web-jnimlvkvmq-uc.a.run.app

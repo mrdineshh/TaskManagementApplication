@@ -1,25 +1,64 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCreateTask, useDepartments, usePriorities, useUsers } from './hooks';
 import { Spinner } from '../../components/Spinner';
+import { NeuSelect } from '../../components/NeuSelect';
+import { NeuDatePicker } from '../../components/NeuDatePicker';
+import { useSessionStore } from '../../lib/auth/session-store';
+import { usePermission } from '../../lib/permissions/usePermission';
 
 export function NewTaskForm({ onDone }: { onDone: () => void }) {
   const { data: departments } = useDepartments();
+  const currentUser = useSessionStore((s) => s.currentUser);
+  const canDelete = usePermission('task.delete');
+  const canManageUsers = usePermission('user.manage');
+  const isManagerOrAdmin = canDelete || canManageUsers || currentUser?.roles?.some((r: any) => r.name === 'Admin' || r.name === 'Manager' || r.name === 'Head');
+
+  const defaultDeptId = (currentUser as any)?.primary_department_id ?? '';
   const [title, setTitle] = useState('');
-  const [departmentId, setDepartmentId] = useState('');
+  const [departmentId, setDepartmentId] = useState(defaultDeptId);
   const [priorityId, setPriorityId] = useState('');
-  const [assigneeId, setAssigneeId] = useState('');
+  const [assigneeId, setAssigneeId] = useState(isManagerOrAdmin ? '' : (currentUser?.id ?? ''));
+  const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const { data: priorities } = usePriorities(departmentId || undefined);
-  // Scoped to the selected department (docs/10-OPEN-DECISIONS.md §M7) — matches how everything
-  // else in this app treats department as the assignment boundary.
-  const { data: members } = useUsers(departmentId || undefined);
+  // fetchAll=true for managers/admins so they see all team members (not restricted to department).
+  const { data: members } = useUsers(departmentId || undefined, isManagerOrAdmin);
   const createTask = useCreateTask();
   const navigate = useNavigate();
 
+  const userDeptIds: string[] = useMemo(() => {
+    return (currentUser as any)?.department_ids?.length
+      ? (currentUser as any).department_ids
+      : (currentUser as any)?.primary_department_id
+        ? [(currentUser as any).primary_department_id]
+        : [];
+  }, [currentUser]);
+
+  const availableDepartments = useMemo(() => {
+    return (departments ?? []).filter((d) =>
+      isManagerOrAdmin ? true : userDeptIds.length > 0 ? userDeptIds.includes(d.id) : true,
+    );
+  }, [departments, isManagerOrAdmin, userDeptIds]);
+
+  useEffect(() => {
+    if (!departmentId && defaultDeptId) {
+      setDepartmentId(defaultDeptId);
+    } else if (!departmentId && availableDepartments.length === 1) {
+      setDepartmentId(availableDepartments[0].id);
+    }
+    if (!assigneeId && !isManagerOrAdmin && currentUser?.id) {
+      setAssigneeId(currentUser.id);
+    }
+  }, [defaultDeptId, currentUser?.id, isManagerOrAdmin, departmentId, availableDepartments]);
+
   function handleDepartmentChange(id: string) {
     setDepartmentId(id);
-    setAssigneeId(''); // last department's member likely isn't in the new one
+    if (isManagerOrAdmin) {
+      setAssigneeId(''); // last department's member likely isn't in the new one
+    } else {
+      setAssigneeId(currentUser?.id ?? '');
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -30,72 +69,107 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
       department_id: departmentId,
       priority_id: priorityId || undefined,
       assignee_id: assigneeId || undefined,
+      start_date: startDate ? new Date(startDate).toISOString() : undefined,
       due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
     });
     onDone();
     navigate(`/tasks/${(task as { id: string }).id}`);
   }
 
+  const deptOptions = [
+    { value: '', label: 'Department…' },
+    ...availableDepartments.map((d) => ({ value: d.id, label: d.name })),
+  ];
+
+  const assigneeOptions = isManagerOrAdmin
+    ? [
+        { value: '', label: 'Unassigned' },
+        ...((members as { id: string; full_name: string }[] | undefined) ?? []).map((m) => ({
+          value: m.id,
+          label: m.full_name,
+        })),
+      ]
+    : [
+        { value: currentUser?.id ?? '', label: currentUser?.full_name ? `Assigned to me (${currentUser.full_name})` : 'Assign to me' },
+        { value: '', label: 'Unassigned' },
+      ];
+
+  const priorityOptions = [
+    { value: '', label: 'Priority (default)' },
+    ...(priorities ?? []).map((p) => ({ value: p.id, label: p.label })),
+  ];
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+    <form onSubmit={handleSubmit} className="space-y-3 neu-card !p-4">
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Task title"
-        className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm"
+        className="w-full neu-input"
         required
       />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <select
-          value={departmentId}
-          onChange={(e) => handleDepartmentChange(e.target.value)}
-          className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm"
-          required
-        >
-          <option value="">Department…</option>
-          {departments?.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={assigneeId}
-          onChange={(e) => setAssigneeId(e.target.value)}
-          disabled={!departmentId}
-          className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm disabled:opacity-50"
-        >
-          <option value="">Unassigned</option>
-          {(members as { id: string; full_name: string }[] | undefined)?.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.full_name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={priorityId}
-          onChange={(e) => setPriorityId(e.target.value)}
-          className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm"
-        >
-          <option value="">Priority (default)</option>
-          {priorities?.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-        <input
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+        <div>
+          <label className="block text-[10px] uppercase font-semibold mb-1" style={{ color: "var(--text-faint)" }}>Department</label>
+          <NeuSelect
+            value={departmentId}
+            onChange={handleDepartmentChange}
+            options={deptOptions}
+            placeholder="Department…"
+            compact
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] uppercase font-semibold mb-1" style={{ color: "var(--text-faint)" }}>Assignee</label>
+          <NeuSelect
+            value={assigneeId}
+            onChange={setAssigneeId}
+            options={assigneeOptions}
+            placeholder="Assignee…"
+            disabled={!departmentId}
+            compact
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] uppercase font-semibold mb-1" style={{ color: "var(--text-faint)" }}>Priority</label>
+          <NeuSelect
+            value={priorityId}
+            onChange={setPriorityId}
+            options={priorityOptions}
+            placeholder="Priority (default)"
+            compact
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] uppercase font-semibold mb-1" style={{ color: "var(--text-faint)" }}>Start Date</label>
+          <NeuDatePicker
+            value={startDate}
+            onChange={setStartDate}
+            placeholder="Start date"
+            compact
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] uppercase font-semibold mb-1" style={{ color: "var(--text-faint)" }}>Due Date</label>
+          <NeuDatePicker
+            value={dueDate}
+            min={startDate || undefined}
+            onChange={setDueDate}
+            placeholder="Due date"
+            compact
+            style={{ width: '100%' }}
+          />
+        </div>
       </div>
       {createTask.isError && <p className="text-sm text-red-600 dark:text-red-400">{(createTask.error as Error).message}</p>}
       <button
         type="submit"
         disabled={createTask.isPending}
-        className="flex items-center gap-2 rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+        className="flex items-center gap-2 btn-primary disabled:opacity-50"
       >
         {createTask.isPending && <Spinner className="h-4 w-4" />}
         {createTask.isPending ? 'Creating…' : 'Create task'}

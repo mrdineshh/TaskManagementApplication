@@ -7,9 +7,9 @@ import { useSessionStore } from '../auth/session-store';
  * to "protect" anything; it only shapes what's shown.
  */
 export function usePermission(permissionKey: string): boolean {
-  return useSessionStore((s) => s.currentUser?.permissions.includes(permissionKey) ?? false);
+  return useSessionStore((s) => s.currentUser?.permissions?.includes(permissionKey) ?? false);
 }
 
 export function useHasAnyPermission(substring: string): boolean {
-  return useSessionStore((s) => s.currentUser?.permissions.some((p) => p.includes(substring)) ?? false);
+  return useSessionStore((s) => s.currentUser?.permissions?.some((p) => p.includes(substring)) ?? false);
 }

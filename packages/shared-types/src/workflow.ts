@@ -25,6 +25,8 @@ export interface WorkflowStatus {
    * sharing the in_progress category (On Hold/Blocked/In Review are also in_progress but
    * shouldn't demand one). */
   requires_estimate_before_entry: boolean;
+  /** Whether transitioning into this status acts as a review gate (stops work timer, notifies manager). */
+  is_review_status: boolean;
 }
 
 export interface WorkflowTransition {
@@ -55,6 +57,7 @@ export const createWorkflowStatusSchema = z.object({
   color: z.string().max(20).optional(),
   requires_hold_reason: z.boolean().default(false),
   requires_estimate_before_entry: z.boolean().default(false),
+  is_review_status: z.boolean().default(false),
 });
 export type CreateWorkflowStatusInput = z.infer<typeof createWorkflowStatusSchema>;
 
@@ -79,6 +82,7 @@ export const SEED_WORKFLOW_STATUSES: CreateWorkflowStatusInput[] = [
     color: '#94a3b8',
     requires_hold_reason: false,
     requires_estimate_before_entry: false,
+    is_review_status: false,
   },
   {
     key: 'in_progress',
@@ -90,6 +94,7 @@ export const SEED_WORKFLOW_STATUSES: CreateWorkflowStatusInput[] = [
     // The one status meaning "work genuinely started" (docs/10-OPEN-DECISIONS.md §H2) — every
     // other in_progress-category status (In Review, Blocked, On Hold) leaves this false.
     requires_estimate_before_entry: true,
+    is_review_status: false,
   },
   {
     key: 'in_review',
@@ -99,6 +104,7 @@ export const SEED_WORKFLOW_STATUSES: CreateWorkflowStatusInput[] = [
     color: '#f59e0b',
     requires_hold_reason: false,
     requires_estimate_before_entry: false,
+    is_review_status: true,
   },
   {
     key: 'blocked',
@@ -108,6 +114,7 @@ export const SEED_WORKFLOW_STATUSES: CreateWorkflowStatusInput[] = [
     color: '#ef4444',
     requires_hold_reason: false,
     requires_estimate_before_entry: false,
+    is_review_status: false,
   },
   // Distinct from "Blocked" above — On Hold specifically means waiting on something *external*
   // (customer, third party) with an admin-configurable reason attached (docs/10-OPEN-DECISIONS.md
@@ -121,6 +128,7 @@ export const SEED_WORKFLOW_STATUSES: CreateWorkflowStatusInput[] = [
     color: '#a855f7',
     requires_hold_reason: true,
     requires_estimate_before_entry: false,
+    is_review_status: false,
   },
   {
     key: 'done',
@@ -130,6 +138,7 @@ export const SEED_WORKFLOW_STATUSES: CreateWorkflowStatusInput[] = [
     color: '#22c55e',
     requires_hold_reason: false,
     requires_estimate_before_entry: false,
+    is_review_status: false,
   },
   {
     key: 'cancelled',
@@ -139,5 +148,6 @@ export const SEED_WORKFLOW_STATUSES: CreateWorkflowStatusInput[] = [
     color: '#64748b',
     requires_hold_reason: false,
     requires_estimate_before_entry: false,
+    is_review_status: false,
   },
 ];

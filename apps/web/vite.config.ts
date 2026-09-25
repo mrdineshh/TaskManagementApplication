@@ -12,12 +12,36 @@ export default defineConfig({
       '@taskapp/api-client': fileURLToPath(new URL('../../packages/api-client/src/index.ts', import.meta.url)),
     },
   },
+  build: {
+    // Raise the warning threshold — the app legitimately uses many libraries.
+    // Manual chunks split the big vendor dependencies so users cache them independently.
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React core — most stable, best to cache long-term.
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          // Data fetching + state.
+          'vendor-query': ['@tanstack/react-query', 'zustand'],
+          // Tiptap editor — large, but only loaded when editing tasks.
+          'vendor-tiptap': ['@tiptap/react', '@tiptap/starter-kit', '@tiptap/extension-mention', '@tiptap/extension-placeholder'],
+          // DnD kit — used by Kanban.
+          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+          // Firebase auth + messaging.
+          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/messaging'],
+          // Charts / UI utilities.
+          'vendor-misc': ['tippy.js'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'https://taskapp-api-430674734301.us-central1.run.app',
         changeOrigin: true,
+        secure: true,
       },
     },
   },

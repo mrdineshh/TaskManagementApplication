@@ -69,6 +69,11 @@ export class UpdateUserDto {
   department_ids?: string[];
 
   @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  role_ids?: string[];
+
+  @IsOptional()
   @IsBoolean()
   is_active?: boolean;
 }

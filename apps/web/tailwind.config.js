@@ -1,88 +1,104 @@
-/** @type {import('tailwindcss').Config} */
+﻿/** @type {import("tailwindcss").Config} */
 export default {
-  darkMode: 'class',
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: "class",
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        // "Studio Desk" direction (docs/10-OPEN-DECISIONS.md §M5) — forest green replacing the
-        // indigo scale from §L. Full 50-950 so every existing dark:-variant across the app
-        // (originally built for the indigo scale) resolves to a real forest-green shade instead
-        // of needing a per-file rewrite — the same "redefine the scale" trick used for slate
-        // below, and the one §L3 already established for the dark-mode sweep.
+        neu: {
+          bg:    "#e8edf5",
+          light: "#ffffff",
+          dark:  "#c5ccd9",
+          card:  "#eef1f8",
+        },
         brand: {
-          50: '#eff5f2',
-          100: '#dceae3',
-          200: '#b7d6c9',
-          300: '#8fbeaa',
-          400: '#62a088',
-          500: '#2b6357',
-          600: '#235247',
-          700: '#1d4339',
-          800: '#17352e',
-          900: '#112722',
-          950: '#0a1714',
+          50:  "#eef1ff",
+          100: "#dce3ff",
+          200: "#b9c7ff",
+          300: "#8fa5ff",
+          400: "#6680ff",
+          500: "#4361ee",
+          600: "#3451d1",
+          700: "#2b42ab",
+          800: "#233589",
+          900: "#1a2870",
+          950: "#101840",
         },
-        // Secondary accent (ochre) — used sparingly for "energetic" highlights: leaderboard
-        // rank #1, streaks, positive deltas. Never a full page's primary color.
         accent: {
-          50: '#fbf3e4',
-          100: '#f5e4c2',
-          200: '#eccb92',
-          300: '#e3b563',
-          400: '#d69f3e',
-          500: '#c98a2c',
-          600: '#ad7322',
-          700: '#8c5d1b',
-          800: '#6b4715',
-          900: '#4a310e',
-          950: '#2e1e08',
+          50:  "#f5f0ff",
+          100: "#ede5ff",
+          200: "#d8c9ff",
+          300: "#bea3ff",
+          400: "#a172ff",
+          500: "#8b5cf6",
+          600: "#7c3aed",
+          700: "#6d28d9",
+          800: "#5b21b6",
+          900: "#4c1d95",
+          950: "#2e1065",
         },
-        // Warm putty/greige replacing Tailwind's default cool-blue slate — every existing
-        // slate-* / dark:slate-* utility across the app (body bg, card borders, muted text)
-        // picks this up automatically with zero per-file edits, same mechanism as brand above.
         slate: {
-          50: '#faf8f4',
-          100: '#f3eee5',
-          200: '#e8e0d2',
-          300: '#d6cab4',
-          400: '#b8a98d',
-          500: '#97876d',
-          600: '#786b54',
-          700: '#5b5040',
-          800: '#40372a',
-          900: '#2b2620',
-          950: '#1a160f',
+          50:  "#f4f6fb",
+          100: "#e8edf5",
+          200: "#d5dcea",
+          300: "#b9c4d8",
+          400: "#8e9ab5",
+          500: "#6b7898",
+          600: "#536080",
+          700: "#3f4d68",
+          800: "#2d3a52",
+          900: "#1e2a3d",
+          950: "#111827",
         },
       },
       fontFamily: {
-        // Karla (humanist grotesk, warm terminals) for body/UI chrome; Fraunces (soft serif)
-        // reserved for headings via the @layer base rule in src/styles/index.css — "paper
-        // planner" character carried into real typography, not just color (docs §M5).
-        sans: ['Karla', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+        sans:  ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        serif: ["Poppins", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono:  ["JetBrains Mono", "ui-monospace", "monospace"],
       },
       borderRadius: {
-        // Softer, larger radii app-wide (Studio Desk's "unhurried" feel) — bumped one notch
-        // up the scale so every existing rounded-md/lg/xl/2xl utility picks it up for free.
-        md: '0.5rem',
-        lg: '0.75rem',
-        xl: '1rem',
-        '2xl': '1.5rem',
+        xs:    "0.375rem",
+        sm:    "0.5rem",
+        md:    "0.75rem",
+        lg:    "1rem",
+        xl:    "1.25rem",
+        "2xl": "1.75rem",
+        "3xl": "2.5rem",
+        full:  "9999px",
+      },
+      boxShadow: {
+        "neu":          "6px 6px 12px #b8bec7, -6px -6px 12px #ffffff",
+        "neu-sm":       "4px 4px 8px #b8bec7, -4px -4px 8px #ffffff",
+        "neu-lg":       "10px 10px 20px #b0b7c3, -10px -10px 20px #ffffff",
+        "neu-xl":       "16px 16px 32px #a8afc0, -16px -16px 32px #ffffff",
+        "neu-inset":    "inset 6px 6px 12px #b8bec7, inset -6px -6px 12px #ffffff",
+        "neu-inset-sm": "inset 4px 4px 8px #b8bec7, inset -4px -4px 8px #ffffff",
+        "brand-glow":   "0 4px 24px rgba(67,97,238,0.35)",
+        "brand-glow-sm":"0 2px 12px rgba(67,97,238,0.25)",
+        "hover-lift":   "0 8px 24px rgba(67,97,238,0.12), 0 2px 8px rgba(0,0,0,0.06)",
+        "input":        "inset 3px 3px 6px #c5ccd9, inset -3px -3px 6px #ffffff",
+      },
+      backgroundImage: {
+        "brand-gradient":   "linear-gradient(135deg, #4361ee 0%, #7b5ea7 100%)",
+        "brand-gradient-h": "linear-gradient(90deg, #4361ee 0%, #7367f0 100%)",
+        "accent-gradient":  "linear-gradient(135deg, #8b5cf6 0%, #4361ee 100%)",
+        "success-gradient": "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+        "danger-gradient":  "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+        "warning-gradient": "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
       },
       keyframes: {
-        fadeIn: {
-          '0%': { opacity: 0, transform: 'translateY(4px)' },
-          '100%': { opacity: 1, transform: 'translateY(0)' },
-        },
-        popIn: {
-          '0%': { opacity: 0, transform: 'scale(0.96)' },
-          '100%': { opacity: 1, transform: 'scale(1)' },
-        },
+        fadeIn:   { "0%": { opacity: "0", transform: "translateY(6px)" }, "100%": { opacity: "1", transform: "translateY(0)" } },
+        popIn:    { "0%": { opacity: "0", transform: "scale(0.94)" },     "100%": { opacity: "1", transform: "scale(1)" } },
+        shimmer:  { "0%": { backgroundPosition: "-200% 0" },              "100%": { backgroundPosition: "200% 0" } },
+        float:    { "0%, 100%": { transform: "translateY(0px)" },          "50%":  { transform: "translateY(-4px)" } },
+        pulseGlow:{ "0%, 100%": { boxShadow: "0 0 0 0 rgba(67,97,238,0.4)" }, "50%": { boxShadow: "0 0 0 8px rgba(67,97,238,0)" } },
       },
       animation: {
-        'fade-in': 'fadeIn 0.28s ease-out',
-        'pop-in': 'popIn 0.18s ease-out',
+        "fade-in":    "fadeIn 0.25s ease-out",
+        "pop-in":     "popIn 0.18s cubic-bezier(0.34,1.56,0.64,1)",
+        "shimmer":    "shimmer 1.8s linear infinite",
+        "float":      "float 3s ease-in-out infinite",
+        "pulse-glow": "pulseGlow 2s ease-in-out infinite",
       },
     },
   },

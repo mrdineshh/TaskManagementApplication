@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ReportExportFormat, ReportFrequency } from '@taskapp/shared-types';
 import { useCreateReportSchedule, useDeleteReportSchedule, useReportSchedules, useUpdateReportSchedule } from './hooks';
 import { useRoles } from '../admin/hooks';
+import { NeuSelect } from '../../components/NeuSelect';
 
 const FREQUENCIES: ReportFrequency[] = ['daily', 'weekly', 'monthly'];
 const FORMATS: ReportExportFormat[] = ['csv', 'xlsx', 'pdf'];
@@ -37,7 +38,7 @@ export function ReportScheduleSection({ reportId }: { reportId: string }) {
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+    <div className="neu-card !p-4">
       <h2 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">Scheduled delivery</h2>
 
       <div className="mb-4 space-y-2">
@@ -65,31 +66,31 @@ export function ReportScheduleSection({ reportId }: { reportId: string }) {
         {schedules?.length === 0 && <p className="text-xs text-slate-400 dark:text-slate-500">No scheduled delivery configured.</p>}
       </div>
 
-      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3 border-t border-slate-100 dark:border-slate-800 pt-3">
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Frequency</label>
-          <select value={frequency} onChange={(e) => setFrequency(e.target.value as ReportFrequency)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
-            {FREQUENCIES.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
+          <NeuSelect
+            value={frequency}
+            onChange={(v) => setFrequency(v as ReportFrequency)}
+            options={FREQUENCIES.map((f) => ({ value: f, label: f }))}
+            compact
+            style={{ minWidth: '7rem' }}
+          />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Send at (UTC)</label>
-          <input type="time" value={sendAt} onChange={(e) => setSendAt(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm" />
+          <input type="time" value={sendAt} onChange={(e) => setSendAt(e.target.value)} className="neu-input !py-1 text-xs" />
         </div>
         {frequency === 'weekly' && (
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Day</label>
-            <select value={dayOfWeek} onChange={(e) => setDayOfWeek(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
-              {WEEKDAYS.map((label, i) => (
-                <option key={label} value={i}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <NeuSelect
+              value={dayOfWeek}
+              onChange={setDayOfWeek}
+              options={WEEKDAYS.map((label, i) => ({ value: String(i), label }))}
+              compact
+              style={{ minWidth: '6.5rem' }}
+            />
           </div>
         )}
         {frequency === 'monthly' && (
@@ -101,36 +102,48 @@ export function ReportScheduleSection({ reportId }: { reportId: string }) {
               max={31}
               value={dayOfMonth}
               onChange={(e) => setDayOfMonth(e.target.value)}
-              className="w-20 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
+              className="w-20 neu-input !py-1 text-xs"
             />
           </div>
         )}
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Format</label>
-          <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as ReportExportFormat)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
-            {FORMATS.map((f) => (
-              <option key={f} value={f}>
-                {f.toUpperCase()}
-              </option>
-            ))}
-          </select>
+          <NeuSelect
+            value={exportFormat}
+            onChange={(v) => setExportFormat(v as ReportExportFormat)}
+            options={FORMATS.map((f) => ({ value: f, label: f.toUpperCase() }))}
+            compact
+            style={{ minWidth: '6.5rem' }}
+          />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Recipient roles</label>
-          <select
-            multiple
-            value={roleIds}
-            onChange={(e) => setRoleIds(Array.from(e.target.selectedOptions, (o) => o.value))}
-            className="h-16 w-40 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
-          >
-            {roles?.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap gap-1 max-w-xs pt-0.5">
+            {roles?.map((r) => {
+              const isSelected = roleIds.includes(r.id);
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => {
+                    setRoleIds(isSelected ? roleIds.filter((id) => id !== r.id) : [...roleIds, r.id]);
+                  }}
+                  className={`text-[11px] px-2 py-0.5 rounded-lg transition-all font-medium ${
+                    isSelected
+                      ? "bg-blue-600 text-white"
+                      : "bg-[var(--neu-bg)] text-[var(--text-muted)] hover:bg-[rgba(37,99,235,0.06)]"
+                  }`}
+                  style={!isSelected ? {
+                    boxShadow: "1px 1px 3px var(--neu-dark), -1px -1px 3px var(--neu-light)",
+                  } : undefined}
+                >
+                  {r.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <button type="submit" className="rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+        <button type="submit" className="btn-primary !py-1.5 !px-3 text-xs">
           Add schedule
         </button>
       </form>

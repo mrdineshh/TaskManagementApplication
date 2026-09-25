@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCreateSLAPolicy, useDeleteSLAPolicy, useDepartmentsAdmin, useSLAPolicies, useUpdateSLAPolicy } from '../../features/admin/hooks';
+import { NeuSelect } from '../../components/NeuSelect';
 
 /** SLA policy management (docs/05-FEATURES.md §2.2) — response/resolution times + escalation rules per department. */
 export function SLAAdminPage() {
@@ -53,25 +54,23 @@ export function SLAAdminPage() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 neu-card !p-4">
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Name</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="w-48 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
+          <input value={name} onChange={(e) => setName(e.target.value)} className="w-48 neu-input" />
         </div>
-        <div>
+        <div className="min-w-[160px]">
           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Department</label>
-          <select
+          <NeuSelect
             value={departmentId}
-            onChange={(e) => setDepartmentId(e.target.value)}
-            className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
-          >
-            <option value="">Org-wide</option>
-            {departments?.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
+            onChange={setDepartmentId}
+            options={[
+              { value: '', label: 'Org-wide' },
+              ...(departments ?? []).map((d) => ({ value: d.id, label: d.name })),
+            ]}
+            placeholder="Org-wide"
+            style={{ width: '100%' }}
+          />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Response (min)</label>
@@ -79,7 +78,7 @@ export function SLAAdminPage() {
             type="number"
             value={responseMinutes}
             onChange={(e) => setResponseMinutes(e.target.value)}
-            className="w-28 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
+            className="w-28 neu-input"
           />
         </div>
         <div>
@@ -88,10 +87,10 @@ export function SLAAdminPage() {
             type="number"
             value={resolutionMinutes}
             onChange={(e) => setResolutionMinutes(e.target.value)}
-            className="w-28 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
+            className="w-28 neu-input"
           />
         </div>
-        <button type="submit" className="rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+        <button type="submit" className="btn-primary">
           Add policy
         </button>
       </form>
@@ -99,7 +98,7 @@ export function SLAAdminPage() {
         New policies default to escalation at 80% elapsed (notify assignee) and 100% elapsed (notify assignee's manager).
       </p>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div className="neu-card !p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             <tr>
@@ -114,8 +113,8 @@ export function SLAAdminPage() {
             {policies?.map((p) => {
               const isEditing = editingId === p.id;
               return (
-                <tr key={p.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
-                  <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">
+                <tr key={p.id} className="">
+                  <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200 break-words leading-snug">
                     {isEditing ? (
                       <input
                         value={editName}

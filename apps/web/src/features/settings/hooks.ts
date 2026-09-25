@@ -25,8 +25,13 @@ export function useSetActiveRole() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (roleId: string) => apiClient.me.setActiveRole(roleId),
-    onSuccess: (result) => {
-      if (currentUser) setCurrentUser({ ...currentUser, active_role_id: result.active_role_id });
+    onSuccess: async (result) => {
+      try {
+        const me = await apiClient.me.get();
+        if (me) setCurrentUser(me as any);
+      } catch {
+        if (currentUser) setCurrentUser({ ...currentUser, active_role_id: result.active_role_id });
+      }
       qc.invalidateQueries({ queryKey: ['dashboards'] });
     },
   });

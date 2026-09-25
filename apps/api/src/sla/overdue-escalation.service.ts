@@ -25,14 +25,40 @@ export class OverdueEscalationService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
+    if (this.config.get<string>('RUN_INLINE_JOBS') === 'false') {
+      this.logger.log('Inline jobs disabled. Overdue escalation will not run in-process.');
+      return;
+    }
     const intervalMs = Number(this.config.get<string>('OVERDUE_CHECK_INTERVAL_MS') ?? 60_000);
     this.timer = setInterval(() => {
-      this.runCheck().catch((err) => this.logger.error(`Overdue check failed: ${err.message}`, err.stack));
+      this.runCheckWithLock().catch((err) => this.logger.error(`Overdue check failed: ${err.message}`, err.stack));
     }, intervalMs);
   }
 
   onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
+  }
+
+  // Advisory lock key for overdue escalation job (prevents multi-instance duplication, B4 fix).
+  private readonly LOCK_KEY = 2_101_345_678;
+
+  async runCheckWithLock() {
+    let acquired = false;
+    try {
+      const result = await this.prisma.$queryRaw<[{ acquired: boolean }]>`
+        SELECT pg_try_advisory_lock(${this.LOCK_KEY}::bigint) AS acquired
+      `;
+      acquired = result[0]?.acquired ?? false;
+      if (!acquired) {
+        this.logger.debug('Overdue check skipped — another instance holds the lock');
+        return;
+      }
+      await this.runCheck();
+    } finally {
+      if (acquired) {
+        await this.prisma.$queryRaw`SELECT pg_advisory_unlock(${this.LOCK_KEY}::bigint)`.catch(() => {});
+      }
+    }
   }
 
   async runCheck() {

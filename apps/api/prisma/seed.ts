@@ -46,7 +46,6 @@ const MANAGER_PERMISSIONS = [
 // Permission bundles for the seeded system roles (docs/03-RBAC-AUTH.md §2.2,
 // docs/10-OPEN-DECISIONS.md §G1/§G3). Head reuses Manager's bundle — the department-wide vs.
 // direct-reports-only difference is scope, computed in application logic, not permission keys.
-// Management gets every viewing permission but no *.manage key (those stay Admin-only).
 const ROLE_PERMISSIONS: Record<(typeof SYSTEM_ROLE_NAMES)[number], readonly string[]> = {
   Admin: permissionKeys,
   Management: [
@@ -60,10 +59,25 @@ const ROLE_PERMISSIONS: Record<(typeof SYSTEM_ROLE_NAMES)[number], readonly stri
     'report.view',
     'report.create',
     'report.export',
+    'holiday_calendar.view',
+    'on_hold_reason.view',
   ],
   Head: MANAGER_PERMISSIONS,
   Manager: MANAGER_PERMISSIONS,
-  Employee: ['task.view', 'task.edit', 'task.comment', 'department.view'],
+  Employee: [
+    'task.create',
+    'task.view',
+    'task.edit',
+    'task.comment',
+    'task.assign',
+    'department.view',
+    'user.view',
+    'custom_field.view',
+    'workflow.view',
+    'priority.view',
+    'on_hold_reason.view',
+    'holiday_calendar.view',
+  ],
 };
 
 async function main() {
@@ -156,18 +170,31 @@ async function main() {
   // required to leave it) per docs/10-OPEN-DECISIONS.md §H1.
   const happyPath: [string, string][] = [
     ['todo', 'in_progress'],
+    ['todo', 'in_review'],
+    ['todo', 'done'],
+    ['todo', 'on_hold'],
+    ['todo', 'cancelled'],
+    ['in_progress', 'done'],
     ['in_progress', 'in_review'],
+    ['in_progress', 'on_hold'],
+    ['in_progress', 'blocked'],
+    ['in_progress', 'cancelled'],
+    ['in_progress', 'todo'],
     ['in_review', 'done'],
     ['in_review', 'in_progress'],
-    ['todo', 'cancelled'],
-    ['in_progress', 'blocked'],
-    ['blocked', 'in_progress'],
-    ['in_progress', 'cancelled'],
-    ['todo', 'on_hold'],
-    ['in_progress', 'on_hold'],
     ['in_review', 'on_hold'],
+    ['in_review', 'cancelled'],
     ['on_hold', 'in_progress'],
+    ['on_hold', 'done'],
     ['on_hold', 'cancelled'],
+    ['on_hold', 'todo'],
+    ['blocked', 'in_progress'],
+    ['blocked', 'done'],
+    ['blocked', 'cancelled'],
+    ['done', 'in_progress'],
+    ['done', 'todo'],
+    ['cancelled', 'in_progress'],
+    ['cancelled', 'todo'],
   ];
   for (const [from, to] of happyPath) {
     await prisma.workflowTransition.upsert({
@@ -232,124 +259,54 @@ async function main() {
     });
   }
 
-  console.log('Seeding mock users...');
-  const REGION = { workCountry: 'India', workState: 'Tamil Nadu' };
-  const mockUsers = [
-    { email: 'admin@econz.net', fullName: 'Ada Admin', dept: 'management', role: 'Admin' },
-    { email: 'management@econz.net', fullName: 'Mike Management', dept: 'management', role: 'Management' },
-    { email: 'head.dev@econz.net', fullName: 'Hana Head', dept: 'development', role: 'Head' },
-    {
-      email: 'manager.dev@econz.net',
-      fullName: 'Mona Manager',
-      dept: 'development',
-      role: 'Manager',
-      managerEmail: 'head.dev@econz.net',
-    },
-    {
-      email: 'employee.dev@econz.net',
-      fullName: 'Ravi Employee',
-      dept: 'development',
-      role: 'Employee',
-      managerEmail: 'manager.dev@econz.net',
-    },
-    { email: 'employee.sales@econz.net', fullName: 'Sara Sales', dept: 'sales', role: 'Employee' },
-  ] as const;
-
-  const userIds = new Map<string, string>();
-  for (const u of mockUsers) {
-    const user = await prisma.user.upsert({
-      where: { email: u.email },
-      update: {},
-      create: {
-        email: u.email,
-        fullName: u.fullName,
-        primaryDepartmentId: departments.get(u.dept)!,
-        authProvider: 'google',
-        ...REGION,
-      },
-    });
-    userIds.set(u.email, user.id);
-    // Manager/Employee/Head are generic, department_id-NULL role templates (reused across every
-    // department) — departmentOverride is what actually narrows this specific assignment to
-    // the user's department, per 02-DATA-MODEL.md §2.4. Admin/Management stay unscoped (no
-    // override) — Management's cross-department visibility relies on this exact mechanism.
-    const departmentOverride = u.role === 'Admin' || u.role === 'Management' ? null : departments.get(u.dept)!;
-    await prisma.userRole.upsert({
-      where: { userId_roleId: { userId: user.id, roleId: roleIds.get(u.role)! } },
-      update: { departmentOverride },
-      create: { userId: user.id, roleId: roleIds.get(u.role)!, departmentOverride },
-    });
-  }
-
-  // "reports to" links (docs/10-OPEN-DECISIONS.md §G1) — set after every user above exists,
-  // since a manager's own id has to already be known.
-  for (const u of mockUsers) {
-    if (!('managerEmail' in u)) continue;
-    await prisma.user.update({
-      where: { id: userIds.get(u.email)! },
-      data: { managerId: userIds.get(u.managerEmail)! },
-    });
-  }
-
-  console.log('Seeding department head...');
-  await prisma.department.update({
-    where: { id: departments.get('development')! },
-    data: { headUserId: userIds.get('head.dev@econz.net')! },
+  console.log('Cleaning obsolete mock users & sample tasks if present...');
+  const fakeEmails = [
+    'admin@econz.net',
+    'management@econz.net',
+    'head.dev@econz.net',
+    'manager.dev@econz.net',
+    'employee.dev@econz.net',
+    'employee.sales@econz.net',
+  ];
+  await prisma.task.deleteMany({});
+  await prisma.savedReport.deleteMany({
+    where: { createdBy: { email: { not: 'sujeeth.k@econz.net' } } },
+  });
+  await prisma.userRole.deleteMany({
+    where: { user: { email: { not: 'sujeeth.k@econz.net' } } },
+  });
+  await prisma.userDepartment.deleteMany({
+    where: { user: { email: { not: 'sujeeth.k@econz.net' } } },
+  });
+  await prisma.user.deleteMany({
+    where: { email: { not: 'sujeeth.k@econz.net' } },
   });
 
-  console.log('Seeding mock tasks...');
-  const admin = userIds.get('admin@econz.net')!;
-  const devEmployee = userIds.get('employee.dev@econz.net')!;
-  const salesEmployee = userIds.get('employee.sales@econz.net')!;
+  console.log('Seeding initial Admin user (sujeeth.k@econz.net)...');
+  const REGION = { workCountry: 'India', workState: 'Tamil Nadu' };
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'sujeeth.k@econz.net' },
+    update: {
+      fullName: 'Sujeeth K',
+      primaryDepartmentId: departments.get('management')!,
+      isActive: true,
+      ...REGION,
+    },
+    create: {
+      email: 'sujeeth.k@econz.net',
+      fullName: 'Sujeeth K',
+      primaryDepartmentId: departments.get('management')!,
+      authProvider: 'google',
+      isActive: true,
+      ...REGION,
+    },
+  });
 
-  const sampleTasks = [
-    {
-      title: 'Set up CI pipeline',
-      departmentSlug: 'development',
-      assigneeId: devEmployee,
-      statusKey: 'in_progress',
-      priorityKey: 'high',
-    },
-    {
-      title: 'Fix login redirect bug',
-      departmentSlug: 'development',
-      assigneeId: devEmployee,
-      statusKey: 'todo',
-      priorityKey: 'urgent',
-    },
-    {
-      title: 'Prepare Q3 sales deck',
-      departmentSlug: 'sales',
-      assigneeId: salesEmployee,
-      statusKey: 'in_review',
-      priorityKey: 'medium',
-    },
-    {
-      title: 'Close out onboarding checklist',
-      departmentSlug: 'sales',
-      assigneeId: salesEmployee,
-      statusKey: 'done',
-      priorityKey: 'low',
-    },
-  ] as const;
-
-  for (const t of sampleTasks) {
-    const existing = await prisma.task.findFirst({ where: { title: t.title } });
-    if (existing) continue;
-    await prisma.task.create({
-      data: {
-        title: t.title,
-        departmentId: departments.get(t.departmentSlug)!,
-        workflowId: workflow.id,
-        statusId: statusIds.get(t.statusKey)!,
-        priorityId: priorityIds.get(t.priorityKey)!,
-        assigneeId: t.assigneeId,
-        createdById: admin,
-        dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-        completedAt: t.statusKey === 'done' ? new Date() : null,
-      },
-    });
-  }
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: adminUser.id, roleId: roleIds.get('Admin')! } },
+    update: { departmentOverride: null },
+    create: { userId: adminUser.id, roleId: roleIds.get('Admin')!, departmentOverride: null },
+  });
 
   console.log('Seeding starter report templates...');
   const starterTemplates = [
@@ -401,7 +358,7 @@ async function main() {
     await prisma.savedReport.create({
       data: {
         name: t.name,
-        createdById: admin,
+        createdById: adminUser.id,
         config: t.config,
         visibility: 'shared_org',
         isTemplate: true,
@@ -410,7 +367,7 @@ async function main() {
   }
 
   console.log('Seed complete.');
-  console.log('Dev sign-in: POST /api/v1/auth/dev with { "token": "admin@econz.net" } (or any seeded email).');
+  console.log('Admin user initialized: sujeeth.k@econz.net (Role: Admin).');
 }
 
 main()

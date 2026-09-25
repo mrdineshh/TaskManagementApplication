@@ -25,6 +25,7 @@ import { ReportsModule } from './reports/reports.module';
 import { HolidayCalendarsModule } from './holiday-calendars/holiday-calendars.module';
 import { OnHoldReasonsModule } from './on-hold-reasons/on-hold-reasons.module';
 import { ScorecardsModule } from './scorecards/scorecards.module';
+import { BugReportsModule } from './bug-reports/bug-reports.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { ScorecardsModule } from './scorecards/scorecards.module';
     HolidayCalendarsModule,
     OnHoldReasonsModule,
     ScorecardsModule,
+    BugReportsModule,
   ],
   controllers: [AppController],
   providers: [

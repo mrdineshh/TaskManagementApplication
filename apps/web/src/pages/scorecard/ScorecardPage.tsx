@@ -1,48 +1,69 @@
-import { useState } from 'react';
-import { useDepartments, useLeaderboard, useMyScorecard, useUserScorecard } from '../../features/tasks/hooks';
-import { useSessionStore } from '../../lib/auth/session-store';
-import { DateRangePicker, resolvePreset, type DateRangeResult } from '../../components/DateRangePicker';
+import { useState, useEffect } from "react";
+import { TrendingUp, Trophy, ChevronLeft, ChevronRight, BarChart2 } from "lucide-react";
+import { useDepartments, useLeaderboard, useMyScorecard, useUserScorecard } from "../../features/tasks/hooks";
+import { useSessionStore } from "../../lib/auth/session-store";
+import { DateRangePicker, resolvePreset, type DateRangeResult } from "../../components/DateRangePicker";
+import { NeuSelect } from "../../components/NeuSelect";
 
 function defaultDateRange(): DateRangeResult {
-  const { start, end } = resolvePreset('this_month');
-  return { preset: 'this_month', start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+  const { start, end } = resolvePreset("this_month");
+  return { preset: "this_month", start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
 const SUB_SCORE_LABELS: Record<string, string> = {
-  on_time_rate: 'On-time completion',
-  estimate_accuracy: 'Estimate accuracy',
-  volume: 'Volume',
-  overdue: 'Overdue (inverse)',
-  over_budget: 'Over budget (inverse)',
-  rework: 'Rework (inverse)',
+  on_time_rate:      "On-time",
+  estimate_accuracy: "Estimate",
+  volume:            "Volume",
+  overdue:           "Overdue",
+  over_budget:       "Over Budget",
+  rework:            "Rework",
 };
 
-// What each sub-score's "see details" expansion shows — the specific raw counters (already
-// returned alongside sub_scores) that number was computed from (docs/10-OPEN-DECISIONS.md
-// §M5). No task-list link here: the scorecard's overdue/over_budget are a date-range-scoped
-// historical count, a genuinely different definition from the tasks endpoint's live overdue/
-// over_budget filters used elsewhere on this drill — linking them would show a task list whose
-// count doesn't match the number just clicked.
+const SUB_SCORE_COLORS: Record<string, string> = {
+  on_time_rate:      "#2563EB",
+  estimate_accuracy: "#8b5cf6",
+  volume:            "#10b981",
+  overdue:           "#ef4444",
+  over_budget:       "#f59e0b",
+  rework:            "#f97316",
+};
+
 function subScoreDetail(key: string, raw: Record<string, number | null>): { label: string; value: string | number }[] {
   switch (key) {
-    case 'on_time_rate':
-      return [
-        { label: 'Completed on time', value: raw.on_time_count ?? 0 },
-        { label: 'Completed (with a due date)', value: raw.completed_count ?? 0 },
-      ];
-    case 'estimate_accuracy':
-      return [{ label: 'Avg. estimate error', value: raw.avg_estimate_error_pct === null ? 'n/a' : `${raw.avg_estimate_error_pct}%` }];
-    case 'volume':
-      return [{ label: 'Tasks completed', value: raw.completed_count ?? 0 }];
-    case 'overdue':
-      return [{ label: 'Overdue at completion (or now, if still open)', value: raw.overdue_count ?? 0 }];
-    case 'over_budget':
-      return [{ label: 'Went over their time estimate', value: raw.over_budget_count ?? 0 }];
-    case 'rework':
-      return [{ label: 'Reopened after completion', value: raw.reworked_count ?? 0 }];
-    default:
-      return [];
+    case "on_time_rate":      return [{ label: "Completed on time", value: raw.on_time_count ?? 0 }, { label: "Total (with due date)", value: raw.completed_count ?? 0 }];
+    case "estimate_accuracy": return [{ label: "Avg. estimate error", value: raw.avg_estimate_error_pct === null ? "n/a" : `${raw.avg_estimate_error_pct}%` }];
+    case "volume":            return [{ label: "Tasks completed", value: raw.completed_count ?? 0 }];
+    case "overdue":           return [{ label: "Overdue at completion (or now)", value: raw.overdue_count ?? 0 }];
+    case "over_budget":       return [{ label: "Went over time estimate", value: raw.over_budget_count ?? 0 }];
+    case "rework":            return [{ label: "Reopened after completion", value: raw.reworked_count ?? 0 }];
+    default:                  return [];
   }
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const pct  = Math.min(100, Math.max(0, score));
+  const r    = 36;
+  const circ = 2 * Math.PI * r;
+  const dash = (pct / 100) * circ;
+  const color = pct >= 75 ? "#10b981" : pct >= 50 ? "#2563EB" : pct >= 25 ? "#f59e0b" : "#ef4444";
+  return (
+    <div className="relative flex items-center justify-center w-28 h-28">
+      <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 90 90">
+        <circle cx="45" cy="45" r={r} fill="none" stroke="var(--neu-dark)" strokeWidth="7" />
+        <circle
+          cx="45" cy="45" r={r} fill="none"
+          stroke={color} strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${circ}`}
+          style={{ transition: "stroke-dasharray 0.6s ease" }}
+        />
+      </svg>
+      <div className="text-center z-10">
+        <p className="text-2xl font-bold" style={{ color }}>{score}</p>
+        <p className="text-[10px] font-medium" style={{ color: "var(--text-faint)" }}>/ 100</p>
+      </div>
+    </div>
+  );
 }
 
 function ScorecardSection({ userId, userName, onBack }: { userId?: string; userName?: string; onBack?: () => void }) {
@@ -50,133 +71,200 @@ function ScorecardSection({ userId, userName, onBack }: { userId?: string; userN
   const [expandedKey, setExpandedKey] = useState<string | undefined>(undefined);
 
   const startIso = `${dateRange.start}T00:00:00.000Z`;
-  const endIso = `${dateRange.end}T23:59:59.999Z`;
-
-  const mine = useMyScorecard(startIso, endIso);
-  const forUser = useUserScorecard(userId, startIso, endIso);
+  const endIso   = `${dateRange.end}T23:59:59.999Z`;
+  const mine     = useMyScorecard(startIso, endIso);
+  const forUser  = useUserScorecard(userId, startIso, endIso);
   const { data, isLoading } = userId ? forUser : mine;
 
   return (
-    <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+    <div className="neu-card space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           {onBack && (
-            <button onClick={onBack} className="text-xs text-brand-700 dark:text-brand-300 hover:underline">
-              ← My scorecard
+            <button onClick={onBack} className="nav-icon-btn w-8 h-8">
+              <ChevronLeft className="w-4 h-4" />
             </button>
           )}
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{userName ? `${userName}'s scorecard` : 'My scorecard'}</h2>
+          <div>
+            <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+              {userName ? `${userName}'s Scorecard` : "My Scorecard"}
+            </h2>
+            <p className="text-xs" style={{ color: "var(--text-faint)" }}>Click a tile to expand details</p>
+          </div>
         </div>
         <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
 
-      {isLoading && <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>}
-      {!isLoading && !data && <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">No scorecard data for this range.</p>}
+      {isLoading && (
+        <div className="flex items-center justify-center py-10">
+          <div className="h-12 w-12 rounded-full skeleton" />
+        </div>
+      )}
+      {!isLoading && !data && (
+        <p className="text-sm text-center py-8" style={{ color: "var(--text-faint)" }}>No scorecard data for this range.</p>
+      )}
       {data && (
-        <>
-          <div className="mt-4 flex items-baseline gap-3">
-            <span className="text-4xl font-bold text-brand-600 dark:text-brand-400">{data.overall_score}</span>
-            <span className="text-sm text-slate-400 dark:text-slate-500">overall score (0-100)</span>
+        <div className="space-y-4">
+          {/* Overall score ring */}
+          <div className="flex items-center gap-6">
+            <ScoreRing score={data.overall_score ?? 0} />
+            <div>
+              <p className="font-bold text-lg" style={{ color: "var(--text-primary)" }}>Overall Score</p>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>Composite performance index</p>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Click a tile to see what it's made of.</p>
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {Object.entries(data.sub_scores).map(([key, value]) => {
+
+          {/* Sub-score tiles */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {Object.entries(data.sub_scores ?? {}).map(([key, value]) => {
               const expanded = expandedKey === key;
+              const color    = SUB_SCORE_COLORS[key] ?? "#2563EB";
               return (
                 <button
                   key={key}
                   onClick={() => setExpandedKey(expanded ? undefined : key)}
-                  className={`rounded-md border p-3 text-left transition-colors ${
-                    expanded
-                      ? 'border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-950/40'
-                      : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700'
-                  }`}
+                  className="rounded-2xl p-4 text-left transition-all"
+                  style={expanded
+                    ? { background: "var(--neu-bg)", boxShadow: `inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light)`, border: `2px solid ${color}33` }
+                    : { background: "var(--neu-bg)", boxShadow: "4px 4px 8px var(--neu-dark), -4px -4px 8px var(--neu-light)" }}
                 >
-                  <p className="text-xs font-medium uppercase text-slate-400 dark:text-slate-500">{SUB_SCORE_LABELS[key] ?? key}</p>
-                  <p className="mt-1 text-xl font-semibold text-slate-800 dark:text-slate-200">{value as number}</p>
+                  <p className="text-[10px] font-700 uppercase tracking-widest" style={{ color: "var(--text-faint)", fontWeight: 700 }}>
+                    {SUB_SCORE_LABELS[key] ?? key}
+                  </p>
+                  <p className="mt-1.5 text-2xl font-bold" style={{ color }}>{Number(value ?? 0)}</p>
+                  {expanded && <ChevronRight className="w-3 h-3 mt-1 rotate-90" style={{ color }} />}
                 </button>
               );
             })}
           </div>
-          {expandedKey && (
-            <dl className="mt-3 rounded-md border border-brand-200 dark:border-brand-800 bg-brand-50 dark:bg-brand-950/30 p-3 text-xs">
-              {subScoreDetail(expandedKey, data.raw as unknown as Record<string, number | null>).map((row) => (
-                <div key={row.label} className="flex items-center justify-between py-0.5">
-                  <dt className="text-slate-500 dark:text-slate-400">{row.label}</dt>
-                  <dd className="font-medium text-slate-800 dark:text-slate-200">{row.value}</dd>
+
+          {/* Expanded detail */}
+          {expandedKey && data.raw && (
+            <div
+              className="rounded-xl px-4 py-3 animate-fade-in"
+              style={{ background: `${SUB_SCORE_COLORS[expandedKey]}08`, border: `1px solid ${SUB_SCORE_COLORS[expandedKey]}25` }}
+            >
+              {subScoreDetail(expandedKey, (data.raw ?? {}) as unknown as Record<string, number | null>).map((row) => (
+                <div key={row.label} className="flex items-center justify-between py-1.5">
+                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>{row.label}</span>
+                  <span className="text-sm font-bold" style={{ color: SUB_SCORE_COLORS[expandedKey] ?? "#2563EB" }}>{row.value}</span>
                 </div>
               ))}
-            </dl>
+            </div>
           )}
-        </>
+        </div>
       )}
-    </section>
+    </div>
   );
 }
 
-/**
- * Employee scorecard + department leaderboard (docs/10-OPEN-DECISIONS.md §J). Visible to
- * everyone by design — no permission gating beyond basic task.view — since the goal is
- * transparent, healthy competition, not a private manager-only report. Drill-down (§M5):
- * leaderboard rows open that person's own scorecard (reusing GET /scorecards/users/:id,
- * already implemented but previously unused by any page); sub-score tiles expand in place.
- */
 export function ScorecardPage() {
   const currentUser = useSessionStore((s) => s.currentUser);
   const { data: departments } = useDepartments();
-  const [departmentId, setDepartmentId] = useState(currentUser?.primary_department_id ?? '');
-  const [viewing, setViewing] = useState<{ id: string; name: string } | undefined>(undefined);
+  const [departmentId, setDepartmentId]     = useState(currentUser?.primary_department_id ?? "");
+  const [viewing, setViewing]               = useState<{ id: string; name: string } | undefined>(undefined);
   const [leaderboardRange, setLeaderboardRange] = useState<DateRangeResult>(defaultDateRange());
 
+  useEffect(() => {
+    if (!departmentId && departments && departments.length > 0) {
+      const match = departments.find((d) => d.id === currentUser?.primary_department_id);
+      setDepartmentId(match ? match.id : departments[0].id);
+    }
+  }, [departments, currentUser?.primary_department_id, departmentId]);
+
   const startIso = `${leaderboardRange.start}T00:00:00.000Z`;
-  const endIso = `${leaderboardRange.end}T23:59:59.999Z`;
+  const endIso   = `${leaderboardRange.end}T23:59:59.999Z`;
   const { data: leaderboard, isLoading: leaderboardLoading } = useLeaderboard(departmentId || undefined, startIso, endIso);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Scorecard</h1>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center gap-3">
+        <div className="icon-box-brand">
+          <TrendingUp className="w-5 h-5" />
+        </div>
+        <div>
+          <h1 className="text-2xl">Scorecard</h1>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Performance metrics & department leaderboard</p>
+        </div>
+      </div>
 
       <ScorecardSection userId={viewing?.id} userName={viewing?.name} onBack={viewing ? () => setViewing(undefined) : undefined} />
 
-      <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 px-5 py-3">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Department leaderboard</h2>
-          <div className="flex flex-wrap items-center gap-2">
+      {/* Leaderboard */}
+      <div className="neu-card !p-0 overflow-visible">
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
+          style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}
+        >
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-amber-400" />
+            <h2 className="font-bold" style={{ color: "var(--text-primary)" }}>Department Leaderboard</h2>
+          </div>
+          <div className="flex items-center gap-3">
             <DateRangePicker value={leaderboardRange} onChange={setLeaderboardRange} />
-            <select
+            <NeuSelect
               value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
-            >
-              {departments?.map((dept) => (
-                <option key={dept.id} value={dept.id}>
-                  {dept.name}
-                </option>
-              ))}
-            </select>
+              onChange={setDepartmentId}
+              options={(departments ?? []).map((dept) => ({ value: dept.id, label: dept.name }))}
+              compact
+              style={{ minWidth: "10rem" }}
+            />
           </div>
         </div>
-        {leaderboardLoading && <p className="px-5 py-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>}
-        <ol>
-          {leaderboard?.map((entry) => (
-            <li key={entry.user_id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
-              <button
-                onClick={() => setViewing({ id: entry.user_id, name: entry.full_name })}
-                className={`flex w-full items-center justify-between px-5 py-3 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-950 ${
-                  entry.user_id === currentUser?.id ? 'bg-brand-50 dark:bg-brand-950/40' : ''
-                }`}
-              >
-                <span className="flex items-center gap-3">
-                  <span className="w-6 text-right font-semibold text-slate-400 dark:text-slate-500">#{entry.rank}</span>
-                  <span className="font-medium text-brand-700 dark:text-brand-300 hover:underline">{entry.full_name}</span>
-                </span>
-                <span className="font-semibold text-brand-600 dark:text-brand-400">{entry.overall_score}</span>
-              </button>
-            </li>
-          ))}
-          {leaderboard?.length === 0 && <li className="px-5 py-6 text-center text-sm text-slate-400 dark:text-slate-500">No data for this range.</li>}
+
+        {leaderboardLoading && (
+          <div className="space-y-2 p-4">
+            {[...Array(5)].map((_, i) => <div key={i} className="h-12 rounded-xl skeleton" />)}
+          </div>
+        )}
+
+        <ol className="divide-y" style={{ "--tw-divide-opacity": 1 } as any}>
+          {leaderboard?.map((entry) => {
+            const isMe   = entry.user_id === currentUser?.id;
+            const isTop3 = entry.rank <= 3;
+            const rankColors = ["#f59e0b", "#94a3b8", "#cd7c3a"];
+            return (
+              <li key={entry.user_id} style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                <button
+                  onClick={() => setViewing({ id: entry.user_id, name: entry.full_name })}
+                  className="flex w-full items-center gap-4 px-5 py-3.5 text-left transition-all hover:bg-[rgba(37,99,235,0.03)]"
+                  style={isMe ? { background: "rgba(37,99,235,0.04)" } : undefined}
+                >
+                  <span
+                    className="w-8 h-8 flex items-center justify-center rounded-xl text-sm font-bold shrink-0"
+                    style={isTop3
+                      ? { background: `${rankColors[entry.rank - 1]}18`, color: rankColors[entry.rank - 1] }
+                      : { color: "var(--text-faint)", fontWeight: 600 }}
+                  >
+                    {isTop3 ? <Trophy className="w-3.5 h-3.5" /> : `#${entry.rank}`}
+                  </span>
+                  <span className="flex-1 font-semibold text-sm" style={{ color: isMe ? "#2563EB" : "var(--text-primary)" }}>
+                    {entry.full_name}
+                    {isMe && <span className="ml-2 text-[10px] font-bold uppercase tracking-widest opacity-60">(you)</span>}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center gap-2 w-32">
+                      <div className="flex-1 neu-progress-track h-1.5">
+                        <div
+                          className="neu-progress-fill"
+                          style={{ width: `${entry.overall_score}%`, background: isTop3 ? `linear-gradient(90deg, ${rankColors[entry.rank - 1]}, ${rankColors[entry.rank - 1]}aa)` : "linear-gradient(90deg, #2563EB, #7367f0)" }}
+                        />
+                      </div>
+                    </div>
+                    <span className="font-bold tabular-nums" style={{ color: "#2563EB", minWidth: "2.5rem", textAlign: "right" }}>
+                      {entry.overall_score}
+                    </span>
+                    <BarChart2 className="w-4 h-4 opacity-0 group-hover:opacity-100" style={{ color: "var(--text-faint)" }} />
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+          {leaderboard?.length === 0 && (
+            <li className="px-5 py-8 text-center text-sm" style={{ color: "var(--text-faint)" }}>No data for this range.</li>
+          )}
         </ol>
-      </section>
+      </div>
     </div>
   );
 }

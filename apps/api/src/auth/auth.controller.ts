@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Patch, Post, Put } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, NotFoundException, Patch, Post, Put } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsBoolean, IsIn, IsString, IsUUID, MinLength, ValidateNested } from 'class-validator';
@@ -14,6 +14,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ExchangeTokenDto, RefreshTokenDto } from './dto/auth.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacService } from '../rbac/rbac.service';
 
 class RegisterPushTokenDto {
   @IsString()
@@ -42,6 +43,11 @@ class UpdateNotificationPreferencesDto {
 class SetActiveRoleDto {
   @IsUUID()
   role_id!: string;
+}
+
+class SetMyDepartmentDto {
+  @IsUUID()
+  department_id!: string;
 }
 
 @ApiTags('auth')
@@ -83,7 +89,11 @@ export class AuthController {
 @ApiTags('me')
 @Controller('me')
 export class MeController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auth: AuthService,
+    private readonly rbac: RbacService,
+  ) {}
 
   @Get()
   async me(@CurrentUser() user: AccessTokenPayload) {
@@ -91,6 +101,7 @@ export class MeController {
       where: { id: user.sub },
       include: { roles: { include: { role: true } } },
     });
+    const effective = await this.rbac.getEffectivePermissions(record.id);
     return {
       id: record.id,
       email: record.email,
@@ -107,7 +118,7 @@ export class MeController {
       created_at: record.createdAt,
       updated_at: record.updatedAt,
       roles: record.roles.map((r) => ({ id: r.role.id, name: r.role.name })),
-      permissions: user.permissions,
+      permissions: effective.permissionKeys,
     };
   }
 
@@ -174,5 +185,56 @@ export class MeController {
       });
     }
     return { success: true };
+  }
+
+  /**
+   * Store (or update) a push token for the current user (plan §1.13).
+   * Accepts both FCM web tokens (random strings) and Expo push tokens
+   * ("ExponentPushToken[...]") — the PushService identifies format by prefix.
+   */
+  @Post('notification-preferences/push-token')
+  async savePushToken(@CurrentUser() user: AccessTokenPayload, @Body() dto: { token: string }) {
+    await this.prisma.user.update({
+      where: { id: user.sub },
+      data: { pushToken: dto.token },
+    });
+    return { success: true };
+  }
+
+  /**
+   * Self-service department selection — called from the first-login onboarding modal and settings.
+   * Any authenticated user can set their own primary department.
+   * Updates primaryDepartmentId, user_departments, and user_roles departmentOverride,
+   * and immediately re-issues access & refresh tokens with the new department embedded.
+   */
+  @Patch('department')
+  async setMyDepartment(@CurrentUser() user: AccessTokenPayload, @Body() dto: SetMyDepartmentDto) {
+    const dept = await this.prisma.department.findUnique({ where: { id: dto.department_id, isActive: true } });
+    if (!dept) throw new NotFoundException('Department not found or inactive');
+
+    await this.prisma.user.update({
+      where: { id: user.sub },
+      data: { primaryDepartmentId: dto.department_id },
+    });
+
+    // Replace all UserDepartment entries with just the chosen one.
+    await this.prisma.userDepartment.deleteMany({ where: { userId: user.sub } });
+    await this.prisma.userDepartment.create({ data: { userId: user.sub, departmentId: dto.department_id } });
+
+    // Align the role's departmentOverride so RBAC scoping works correctly for any department-scoped roles.
+    await this.prisma.userRole.updateMany({
+      where: { userId: user.sub, departmentOverride: { not: null } },
+      data: { departmentOverride: dto.department_id },
+    });
+
+    // Issue refreshed token pair so new department is encoded in JWT immediately
+    const tokens = await this.auth.issueTokenPair(user.sub, user.email);
+
+    return {
+      success: true,
+      department_id: dto.department_id,
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+    };
   }
 }

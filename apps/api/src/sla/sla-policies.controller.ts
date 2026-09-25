@@ -15,7 +15,10 @@ export class SLAPoliciesController {
   @RequirePermission('sla.view')
   list(@Query('department_id') departmentId?: string) {
     return this.prisma.sLAPolicy.findMany({
-      where: departmentId ? { OR: [{ departmentId }, { departmentId: null }] } : {},
+      where: {
+        ...(departmentId ? { OR: [{ departmentId }, { departmentId: null }] } : {}),
+        isActive: true,
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -56,7 +59,7 @@ export class SLAPoliciesController {
   async deactivate(@Param('id') id: string) {
     const existing = await this.prisma.sLAPolicy.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('SLA policy not found');
-    await this.prisma.sLAPolicy.update({ where: { id }, data: { isActive: false } });
+    await this.prisma.sLAPolicy.delete({ where: { id } });
     return { success: true };
   }
 }

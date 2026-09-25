@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { NeuSelect } from './NeuSelect';
+import { NeuDatePicker } from './NeuDatePicker';
 
 export const DATE_RANGE_PRESETS = [
   'today',
@@ -137,36 +139,38 @@ export function DateRangePicker({ value, onChange, className = '' }: Props) {
     onChange({ preset, start: toIsoDate(start), end: toIsoDate(end) });
   }
 
+  const presetOptions = [
+    ...DATE_RANGE_PRESETS.map((p) => ({ value: p, label: PRESET_LABELS[p] })),
+    { value: 'custom', label: 'Custom range' },
+  ];
+
   return (
-    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
-      <select
+    <div className={`flex flex-wrap items-center gap-2 w-full ${className}`}>
+      <NeuSelect
         value={showCustom ? 'custom' : (value.preset ?? 'this_month')}
-        onChange={(e) => handlePresetChange(e.target.value)}
-        className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm"
-      >
-        {DATE_RANGE_PRESETS.map((p) => (
-          <option key={p} value={p}>
-            {PRESET_LABELS[p]}
-          </option>
-        ))}
-        <option value="custom">Custom range</option>
-      </select>
+        onChange={(v) => handlePresetChange(v)}
+        options={presetOptions}
+        compact
+        style={{ minWidth: '130px', width: showCustom ? 'auto' : '100%' }}
+      />
       {showCustom && (
         <>
-          <input
-            type="date"
+          <NeuDatePicker
             value={value.start}
-            max={value.end}
-            onChange={(e) => onChange({ preset: null, start: e.target.value, end: value.end })}
-            className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm"
+            max={value.end || undefined}
+            onChange={(s) => onChange({ preset: null, start: s, end: value.end })}
+            placeholder="Start date"
+            compact
+            style={{ width: '130px' }}
           />
-          <span className="text-xs text-slate-400 dark:text-slate-500">to</span>
-          <input
-            type="date"
+          <span className="text-xs font-medium" style={{ color: 'var(--text-faint)' }}>to</span>
+          <NeuDatePicker
             value={value.end}
-            min={value.start}
-            onChange={(e) => onChange({ preset: null, start: value.start, end: e.target.value })}
-            className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm"
+            min={value.start || undefined}
+            onChange={(e) => onChange({ preset: null, start: value.start, end: e })}
+            placeholder="End date"
+            compact
+            style={{ width: '130px' }}
           />
         </>
       )}

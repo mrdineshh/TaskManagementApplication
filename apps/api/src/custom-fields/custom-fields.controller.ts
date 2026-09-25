@@ -24,8 +24,14 @@ export class CustomFieldsController {
   @Get()
   @RequirePermission('custom_field.view')
   list(@Query('department_id') departmentId?: string) {
+    let whereClause: any = { isActive: true };
+    if (departmentId === 'org' || departmentId === 'null') {
+      whereClause = { departmentId: null, isActive: true };
+    } else if (departmentId && departmentId !== 'all') {
+      whereClause = { OR: [{ departmentId }, { departmentId: null }], isActive: true };
+    }
     return this.prisma.customFieldDefinition.findMany({
-      where: departmentId ? { OR: [{ departmentId }, { departmentId: null }] } : {},
+      where: whereClause,
       orderBy: { displayOrder: 'asc' },
     });
   }
@@ -71,7 +77,13 @@ export class CustomFieldsController {
   async deactivate(@Param('id') id: string) {
     const existing = await this.prisma.customFieldDefinition.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Custom field not found');
-    await this.prisma.customFieldDefinition.update({ where: { id }, data: { isActive: false } });
+
+    const valuesCount = await this.prisma.taskCustomFieldValue.count({ where: { fieldDefinitionId: id } });
+    if (valuesCount === 0) {
+      await this.prisma.customFieldDefinition.delete({ where: { id } });
+    } else {
+      await this.prisma.customFieldDefinition.update({ where: { id }, data: { isActive: false } });
+    }
     return { success: true };
   }
 }

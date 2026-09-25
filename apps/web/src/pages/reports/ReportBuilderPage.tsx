@@ -1,213 +1,256 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import type { ReportChartType, ReportConfig, ReportDateRange, ReportDimension, ReportMetricKey, SavedReport } from '@taskapp/shared-types';
-import { reportChartTypes, reportDimensions } from '@taskapp/shared-types';
-import { useCreateReport, useReport, useReportMetrics, usePreviewReport, useUpdateReport } from '../../features/reports/hooks';
-import { ReportChart } from '../../features/reports/ReportChart';
-import { useDepartments } from '../../features/tasks/hooks';
-import { useRoles } from '../../features/admin/hooks';
-import { DateRangePicker, resolvePreset, type DateRangeResult } from '../../components/DateRangePicker';
-import { reportDrillHref } from '../../features/reports/drill';
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import type { ReportChartType, ReportConfig, ReportDateRange, ReportDimension, ReportMetricKey, SavedReport } from "@taskapp/shared-types";
+import { reportChartTypes, reportDimensions } from "@taskapp/shared-types";
+import { useCreateReport, useReport, useReportMetrics, usePreviewReport, useUpdateReport } from "../../features/reports/hooks";
+import { ReportChart } from "../../features/reports/ReportChart";
+import { useDepartments } from "../../features/tasks/hooks";
+import { useRoles } from "../../features/admin/hooks";
+import { DateRangePicker, resolvePreset, type DateRangeResult } from "../../components/DateRangePicker";
+import { NeuSelect } from "../../components/NeuSelect";
+import { reportDrillHref } from "../../features/reports/drill";
+import { BarChart3, Loader2, Play, Save, BarChart2, AlertCircle } from "lucide-react";
 
 function defaultDateRange(): DateRangeResult {
-  const { start, end } = resolvePreset('this_month');
-  return { preset: 'this_month', start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+  const { start, end } = resolvePreset("this_month");
+  return { preset: "this_month", start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
-/** Custom report builder (docs/05-FEATURES.md §3.3) — pick metrics, dimensions, date range, chart type, filters. */
 export function ReportBuilderPage() {
   const { id } = useParams<{ id: string }>();
   const isEditing = Boolean(id);
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
 
-  const { data: existing } = useReport(id);
-  const { data: catalog } = useReportMetrics();
+  const { data: existing }    = useReport(id);
+  const { data: catalog }     = useReportMetrics();
   const { data: departments } = useDepartments();
-  const { data: roles } = useRoles();
-  const createReport = useCreateReport();
-  const updateReport = useUpdateReport();
+  const { data: roles }       = useRoles();
+  const createReport  = useCreateReport();
+  const updateReport  = useUpdateReport();
   const previewReport = usePreviewReport();
 
-  const [name, setName] = useState('');
-  const [metrics, setMetrics] = useState<ReportMetricKey[]>([]);
-  const [dimensions, setDimensions] = useState<ReportDimension[]>([]);
-  const [dateRange, setDateRange] = useState<DateRangeResult>(defaultDateRange());
-  const [chartType, setChartType] = useState<ReportChartType>('bar');
-  const [departmentId, setDepartmentId] = useState('');
-  const [visibility, setVisibility] = useState<SavedReport['visibility']>('private');
+  const [name, setName]               = useState("");
+  const [metrics, setMetrics]         = useState<ReportMetricKey[]>([]);
+  const [dimensions, setDimensions]   = useState<ReportDimension[]>([]);
+  const [dateRange, setDateRange]     = useState<DateRangeResult>(defaultDateRange());
+  const [chartType, setChartType]     = useState<ReportChartType>("bar");
+  const [departmentId, setDepartmentId] = useState("");
+  const [visibility, setVisibility]   = useState<SavedReport["visibility"]>("private");
   const [sharedRoleIds, setSharedRoleIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!existing) return;
-    setName(existing.name);
-    setMetrics(existing.config.metrics);
-    setDimensions(existing.config.dimensions);
-    const existingRange = existing.config.date_range;
-    if ('preset' in existingRange) {
+    setName(existing.name ?? "");
+    setMetrics(existing.config?.metrics ?? []);
+    setDimensions(existing.config?.dimensions ?? []);
+    const existingRange = existing.config?.date_range;
+    if (existingRange && "preset" in existingRange) {
       const { start, end } = resolvePreset(existingRange.preset);
       setDateRange({ preset: existingRange.preset, start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) });
-    } else {
+    } else if (existingRange && "start" in existingRange && "end" in existingRange) {
       setDateRange({ preset: null, start: existingRange.start.slice(0, 10), end: existingRange.end.slice(0, 10) });
     }
-    setChartType(existing.config.chart_type);
-    setDepartmentId(existing.config.filters.department_id ?? '');
-    setVisibility(existing.visibility);
-    setSharedRoleIds(existing.shared_with_role_ids);
+    if (existing.config?.chart_type) setChartType(existing.config.chart_type);
+    setDepartmentId(existing.config?.filters?.department_id ?? "");
+    if (existing.visibility) setVisibility(existing.visibility);
+    setSharedRoleIds(existing.shared_with_role_ids ?? []);
   }, [existing]);
 
   function toggleMetric(key: ReportMetricKey) {
-    setMetrics((cur) => (cur.includes(key) ? cur.filter((m) => m !== key) : [...cur, key]));
+    setMetrics((cur) => cur.includes(key) ? cur.filter((m) => m !== key) : [...cur, key]);
   }
-
   function toggleDimension(dim: ReportDimension) {
-    setDimensions((cur) => (cur.includes(dim) ? cur.filter((d) => d !== dim) : [...cur, dim]));
+    setDimensions((cur) => cur.includes(dim) ? cur.filter((d) => d !== dim) : [...cur, dim]);
   }
-
   function buildConfig(): ReportConfig {
-    // A preset is stored as itself (re-resolved server-side each run, docs/10-OPEN-DECISIONS.md
-    // §M9 — so a scheduled report's "this month" always means the month it runs in); a custom
-    // range is stored as concrete start/end since there's no preset identity to re-resolve.
     const range: ReportDateRange = dateRange.preset
       ? { preset: dateRange.preset }
       : { start: new Date(`${dateRange.start}T00:00:00.000Z`).toISOString(), end: new Date(`${dateRange.end}T23:59:59.999Z`).toISOString() };
-    return {
-      metrics,
-      dimensions,
-      date_range: range,
-      chart_type: chartType,
-      filters: departmentId ? { department_id: departmentId } : {},
-    };
+    return { metrics, dimensions, date_range: range, chart_type: chartType, filters: departmentId ? { department_id: departmentId } : {} };
   }
-
   async function handlePreview() {
     if (metrics.length === 0) return;
     await previewReport.mutateAsync(buildConfig());
   }
-
   async function handleSave() {
     if (!name.trim() || metrics.length === 0) return;
-    const data = { name, config: buildConfig(), visibility, shared_with_role_ids: visibility === 'shared_roles' ? sharedRoleIds : [] };
+    const data = { name, config: buildConfig(), visibility, shared_with_role_ids: visibility === "shared_roles" ? sharedRoleIds : [] };
     const saved = isEditing && id ? await updateReport.mutateAsync({ id, data }) : await createReport.mutateAsync(data);
     navigate(`/reports/${saved.id}`);
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{isEditing ? 'Edit report' : 'New report'}</h1>
+    <div className="space-y-5 animate-fade-in">
+      <div className="flex items-center gap-3">
+        <div className="icon-box-brand"><BarChart3 className="w-5 h-5" /></div>
+        <div>
+          <h1 className="text-2xl">{isEditing ? "Edit Report" : "New Report"}</h1>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Configure metrics, dimensions, and chart type.</p>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="space-y-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {/* Config panel */}
+        <div className="neu-card space-y-5">
+
+          {/* Name */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Report name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
+            <label className="section-label">Report Name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="neu-input" placeholder="e.g. Monthly Overdue Summary" />
           </div>
 
+          {/* Metrics */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Metrics</label>
-            <div className="space-y-1">
+            <label className="section-label">Metrics</label>
+            <div className="space-y-2">
               {catalog?.metrics.map((m) => (
-                <label key={m.key} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
-                  <input type="checkbox" checked={metrics.includes(m.key)} onChange={() => toggleMetric(m.key)} className="mt-0.5" />
+                <label key={m.key} className="flex items-start gap-3 cursor-pointer p-2.5 rounded-xl transition-colors hover:bg-[rgba(37,99,235,0.04)]">
+                  <input
+                    type="checkbox"
+                    checked={metrics.includes(m.key)}
+                    onChange={() => toggleMetric(m.key)}
+                    className="mt-1 h-4 w-4 rounded accent-brand-500 cursor-pointer"
+                  />
                   <span>
-                    {m.label}
-                    <span className="block text-xs text-slate-400 dark:text-slate-500">{m.description}</span>
+                    <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{m.label}</span>
+                    <span className="block text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{m.description}</span>
                   </span>
                 </label>
               ))}
             </div>
           </div>
 
+          {/* Dimensions */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Dimensions</label>
-            <div className="flex flex-wrap gap-3">
+            <label className="section-label">Dimensions</label>
+            <div className="flex flex-wrap gap-2">
               {reportDimensions.map((dim) => (
-                <label key={dim} className="flex items-center gap-1 text-sm text-slate-700 dark:text-slate-300">
-                  <input type="checkbox" checked={dimensions.includes(dim)} onChange={() => toggleDimension(dim)} />
-                  {dim.replace('_', ' ')}
+                <label
+                  key={dim}
+                  className="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-xl text-sm font-medium transition-all"
+                  style={dimensions.includes(dim)
+                    ? { background: "rgba(37,99,235,0.1)", color: "#2563EB", boxShadow: "inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light)" }
+                    : { background: "var(--neu-bg)", boxShadow: "3px 3px 6px var(--neu-dark), -3px -3px 6px var(--neu-light)", color: "var(--text-muted)" }}
+                >
+                  <input type="checkbox" checked={dimensions.includes(dim)} onChange={() => toggleDimension(dim)} className="sr-only" />
+                  {dim.replace("_", " ")}
                 </label>
               ))}
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          {/* Date range & Chart type */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Date range</label>
+              <label className="section-label">Date Range</label>
               <DateRangePicker value={dateRange} onChange={setDateRange} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Chart type</label>
-              <select value={chartType} onChange={(e) => setChartType(e.target.value as ReportChartType)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
-                {reportChartTypes.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Department</label>
-              <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
-                <option value="">My scope</option>
-                {departments?.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+              <label className="section-label">Chart Type</label>
+              <NeuSelect
+                value={chartType}
+                onChange={(v) => setChartType(v as ReportChartType)}
+                options={reportChartTypes.map((c) => ({
+                  value: c,
+                  label: c.charAt(0).toUpperCase() + c.slice(1),
+                }))}
+                compact
+                style={{ width: "100%" }}
+              />
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3 border-t border-slate-100 dark:border-slate-800 pt-3">
+          {/* Department & Visibility */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Visibility</label>
-              <select value={visibility} onChange={(e) => setVisibility(e.target.value as SavedReport['visibility'])} className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm">
-                <option value="private">Private</option>
-                <option value="shared_roles">Shared with roles</option>
-                <option value="shared_org">Org-wide</option>
-              </select>
+              <label className="section-label">Department</label>
+              <NeuSelect
+                value={departmentId}
+                onChange={setDepartmentId}
+                options={[
+                  { value: "", label: "My scope" },
+                  ...(departments ?? []).map((d) => ({ value: d.id, label: d.name })),
+                ]}
+                placeholder="My scope"
+                compact
+                style={{ width: "100%" }}
+              />
             </div>
-            {visibility === 'shared_roles' && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Roles</label>
-                <select
-                  multiple
-                  value={sharedRoleIds}
-                  onChange={(e) => setSharedRoleIds(Array.from(e.target.selectedOptions, (o) => o.value))}
-                  className="h-16 w-48 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
-                >
-                  {roles?.map((r) => (
-                    <option key={r.id} value={r.id}>
+            <div>
+              <label className="section-label">Visibility</label>
+              <NeuSelect
+                value={visibility}
+                onChange={(v) => setVisibility(v as SavedReport["visibility"])}
+                options={[
+                  { value: "private", label: "Private" },
+                  { value: "shared_roles", label: "Shared with roles" },
+                  { value: "shared_org", label: "Org-wide" },
+                ]}
+                compact
+                style={{ width: "100%" }}
+              />
+            </div>
+          </div>
+
+          {/* Shared Roles (if visibility is shared_roles) */}
+          {visibility === "shared_roles" && (
+            <div className="pt-2">
+              <label className="section-label">Roles (select roles)</label>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {roles?.map((r) => {
+                  const isSelected = sharedRoleIds.includes(r.id);
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => {
+                        setSharedRoleIds(isSelected
+                          ? sharedRoleIds.filter((id) => id !== r.id)
+                          : [...sharedRoleIds, r.id]);
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-xl transition-all font-medium ${
+                        isSelected
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-[var(--neu-bg)] text-[var(--text-muted)] hover:bg-[rgba(37,99,235,0.06)]"
+                      }`}
+                      style={!isSelected ? {
+                        boxShadow: "2px 2px 5px var(--neu-dark), -2px -2px 5px var(--neu-light)",
+                      } : undefined}
+                    >
                       {r.name}
-                    </option>
-                  ))}
-                </select>
+                    </button>
+                  );
+                })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="flex gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-            <button
-              onClick={handlePreview}
-              disabled={metrics.length === 0 || previewReport.isPending}
-              className="rounded-md border border-slate-300 dark:border-slate-700 px-4 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 disabled:opacity-50"
-            >
-              {previewReport.isPending ? 'Running…' : 'Preview'}
+          {/* Actions */}
+          <div className="flex gap-3 pt-3" style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+            <button onClick={handlePreview} disabled={metrics.length === 0 || previewReport.isPending} className="btn-neu gap-2 text-sm disabled:opacity-50">
+              {previewReport.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" style={{ color: "#2563EB" }} />}
+              Preview
             </button>
-            <button
-              onClick={handleSave}
-              disabled={!name.trim() || metrics.length === 0}
-              className="rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              Save report
+            <button onClick={handleSave} disabled={!name.trim() || metrics.length === 0} className="btn-primary gap-2 text-sm disabled:opacity-50">
+              <Save className="w-3.5 h-3.5" /> Save Report
             </button>
           </div>
         </div>
 
+        {/* Preview panel */}
         <div className="space-y-4">
-          {previewReport.isError && <p className="text-sm text-red-600 dark:text-red-400">{(previewReport.error as Error)?.message ?? 'Preview failed.'}</p>}
+          {previewReport.isError && (
+            <div className="neu-card flex items-center gap-3" style={{ borderLeft: "4px solid #ef4444" }}>
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+              <p className="text-sm" style={{ color: "#ef4444" }}>{(previewReport.error as Error)?.message ?? "Preview failed."}</p>
+            </div>
+          )}
           {previewReport.data?.map((result) => (
-            <div key={result.metric} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-              <h2 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">{result.metric.replace(/_/g, ' ')}</h2>
+            <div key={result.metric} className="neu-card space-y-3">
+              <div className="flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 shrink-0" style={{ color: "#2563EB" }} />
+                <h2 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{result.metric.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</h2>
+              </div>
               <ReportChart
                 result={result}
                 chartType={chartType}
@@ -216,7 +259,13 @@ export function ReportBuilderPage() {
               />
             </div>
           ))}
-          {!previewReport.data && <p className="text-sm text-slate-400 dark:text-slate-500">Pick metrics and click Preview to see the data.</p>}
+          {!previewReport.data && (
+            <div className="neu-card flex flex-col items-center py-14 text-center">
+              <BarChart3 className="w-10 h-10 mb-3" style={{ color: "var(--text-faint)", opacity: 0.5 }} />
+              <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>Pick metrics and click Preview</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-faint)" }}>Your report data will appear here.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

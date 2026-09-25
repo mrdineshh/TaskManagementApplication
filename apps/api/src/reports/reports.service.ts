@@ -229,8 +229,20 @@ export class ReportsService {
       }
     }
 
-    const resultRows = [...byDimension.entries()].map(([dimensionValue, { value }]) => ({
-      dimension_label: labelFor(metricKey, dimensionValue, labels),
+    // Consolidate rows that share the same human-readable label (e.g. multiple deleted/unassigned users into a single N/A)
+    const byLabel = new Map<string, { value: number; dimensionValue: string }>();
+    for (const [dimensionValue, { value }] of byDimension.entries()) {
+      const label = labelFor(metricKey, dimensionValue, labels);
+      const existing = byLabel.get(label);
+      if (existing) {
+        existing.value += value;
+      } else {
+        byLabel.set(label, { value, dimensionValue });
+      }
+    }
+
+    const resultRows = [...byLabel.entries()].map(([label, { value, dimensionValue }]) => ({
+      dimension_label: label,
       dimension_value: dimensionValue,
       value,
     }));
@@ -239,16 +251,41 @@ export class ReportsService {
 
   private async loadLabelMaps(): Promise<LabelMaps> {
     const [departments, statuses, priorities, users] = await Promise.all([
-      this.prisma.department.findMany({ select: { id: true, name: true } }),
-      this.prisma.workflowStatus.findMany({ select: { id: true, label: true } }),
-      this.prisma.priorityDefinition.findMany({ select: { id: true, label: true } }),
-      this.prisma.user.findMany({ select: { id: true, fullName: true } }),
+      this.prisma.department.findMany({ select: { id: true, name: true, slug: true } }),
+      this.prisma.workflowStatus.findMany({ select: { id: true, label: true, category: true } }),
+      this.prisma.priorityDefinition.findMany({ select: { id: true, label: true, key: true } }),
+      this.prisma.user.findMany({ select: { id: true, fullName: true, email: true } }),
     ]);
+
+    const departmentMap = new Map<string, string>();
+    for (const d of departments) {
+      if (d.name) departmentMap.set(d.id, d.name);
+      if (d.slug && d.name) departmentMap.set(d.slug, d.name);
+    }
+
+    const statusMap = new Map<string, string>();
+    for (const s of statuses) {
+      if (s.label) statusMap.set(s.id, s.label);
+      if (s.category && s.label) statusMap.set(s.category, s.label);
+    }
+
+    const priorityMap = new Map<string, string>();
+    for (const p of priorities) {
+      if (p.label) priorityMap.set(p.id, p.label);
+      if (p.key && p.label) priorityMap.set(p.key, p.label);
+    }
+
+    const userMap = new Map<string, string>();
+    for (const u of users) {
+      const name = u.fullName?.trim() || (u.email ? u.email.split('@')[0] : 'Team Member');
+      userMap.set(u.id, name);
+    }
+
     return {
-      department: new Map(departments.map((d) => [d.id, d.name])),
-      status: new Map(statuses.map((s) => [s.id, s.label])),
-      priority: new Map(priorities.map((p) => [p.id, p.label])),
-      user: new Map(users.map((u) => [u.id, u.fullName])),
+      department: departmentMap,
+      status: statusMap,
+      priority: priorityMap,
+      user: userMap,
     };
   }
 }
@@ -261,15 +298,52 @@ interface LabelMaps {
 }
 
 const USER_KEYED_METRICS = new Set<ReportMetricKey>(['task_counts_by_assignee', 'workload_distribution', 'time_tracked_minutes']);
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function toTitleCase(str: string): string {
+  return str
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
 
 function labelFor(metricKey: ReportMetricKey, dimensionValue: string, labels: LabelMaps): string {
+  if (!dimensionValue || dimensionValue === 'null' || dimensionValue === 'unassigned') {
+    return 'N/A';
+  }
   if (dimensionValue === 'all') return 'All';
-  if (dimensionValue === 'unassigned') return 'Unassigned';
-  if (metricKey === 'task_counts_by_status') return labels.status.get(dimensionValue) ?? dimensionValue;
-  if (metricKey === 'task_counts_by_department') return labels.department.get(dimensionValue) ?? dimensionValue;
-  if (metricKey === 'task_counts_by_priority') return labels.priority.get(dimensionValue) ?? dimensionValue;
-  if (USER_KEYED_METRICS.has(metricKey)) return labels.user.get(dimensionValue) ?? dimensionValue;
-  return dimensionValue;
+
+  if (metricKey === 'task_counts_by_status') {
+    const found = labels.status.get(dimensionValue);
+    if (found) return found;
+    if (UUID_REGEX.test(dimensionValue)) return 'Other Status';
+    return toTitleCase(dimensionValue);
+  }
+
+  if (metricKey === 'task_counts_by_department') {
+    const found = labels.department.get(dimensionValue);
+    if (found) return found;
+    if (UUID_REGEX.test(dimensionValue)) return 'Other Department';
+    return toTitleCase(dimensionValue);
+  }
+
+  if (metricKey === 'task_counts_by_priority') {
+    const found = labels.priority.get(dimensionValue);
+    if (found) return found;
+    if (UUID_REGEX.test(dimensionValue)) return 'Other Priority';
+    return toTitleCase(dimensionValue);
+  }
+
+  if (USER_KEYED_METRICS.has(metricKey)) {
+    const found = labels.user.get(dimensionValue);
+    if (found) return found;
+    // If dimensionValue was a user ID that was unassigned or belongs to a former member, don't show raw UUID
+    if (UUID_REGEX.test(dimensionValue)) return 'N/A';
+    return toTitleCase(dimensionValue);
+  }
+
+  if (UUID_REGEX.test(dimensionValue)) return 'N/A';
+  return toTitleCase(dimensionValue);
 }
 
 // India-standard fiscal year (April-March) — mirrors apps/web/src/components/DateRangePicker.tsx's

@@ -5,8 +5,14 @@ import { toast } from '../lib/toast/toast-store';
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
+      // Keep staleTime short so polling intervals can fire correctly.
+      // Data is never shown stale for more than 5s — real-time tasks use refetchInterval.
+      staleTime: 5_000,
       retry: 1,
+      // Refetch on tab focus + network reconnect (P1-02 §4 — eliminates the stale-list bug
+      // where a task assigned while the user was in another tab doesn't appear on return).
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
     },
   },
   // Global error surfacing (docs/10-OPEN-DECISIONS.md §M9) — every useMutation call in the app

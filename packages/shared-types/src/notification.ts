@@ -11,6 +11,16 @@ export const notificationTypes = [
   'approval_requested', // v1.1
   'task_on_hold', // Phase 2, docs/10-OPEN-DECISIONS.md §H1 — notifies the task creator
   'effort_budget_exceeded', // Phase 2, §H3 — notifies the assignee when logged hours pass the estimate
+  'task_submitted_for_review',
+  'review_changes_requested',
+  'task_approved',
+  'task_action_requested',
+  'task_action_decided',
+  // Phase 3 additions
+  'timer_auto_stopped',  // Fired when a runaway session is auto-capped (B2 fix)
+  'role_assigned',       // Fired when an admin assigns a new role (role reflection fix)
+  'role_revoked',        // Fired when an admin removes a role (role reflection fix)
+  'manager_assigned',    // Fired when User.managerId is updated
 ] as const;
 export type NotificationType = (typeof notificationTypes)[number];
 

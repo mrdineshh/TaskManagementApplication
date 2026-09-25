@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -12,6 +13,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 
 export class CreateTaskDto {
@@ -105,6 +107,15 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsUUID()
   sla_policy_id?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  is_recurring?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  recurrence_rule?: string | null;
 }
 
 export class AssignTaskDto {
@@ -204,6 +215,11 @@ export class TaskListQueryDto {
   over_budget?: boolean;
 
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  due_this_week?: boolean;
+
+  @IsOptional()
   @IsString()
   sort?: string;
 
@@ -240,3 +256,87 @@ export class CreateTaskDependencyDto {
   @IsString()
   type!: 'blocks' | 'relates_to';
 }
+
+export class BulkTaskActionDto {
+  @IsUUID('all', { each: true })
+  ids!: string[];
+
+  @IsIn(['reassign', 'transition', 'archive'])
+  action!: 'reassign' | 'transition' | 'archive';
+
+  /** Required when action === 'reassign' — the assignee UUID to set (or null to unassign). */
+  @IsOptional()
+  @IsUUID()
+  assignee_id?: string | null;
+
+  /** Required when action === 'transition' — the target WorkflowStatus UUID. */
+  @IsOptional()
+  @IsUUID()
+  status_id?: string;
+}
+
+export class ReviewAttachmentItemDto {
+  @IsString()
+  @MaxLength(255)
+  file_name!: string;
+
+  @IsString()
+  mime_type!: string;
+
+  @IsInt()
+  @Min(1)
+  size_bytes!: number;
+
+  @IsString()
+  content_base64!: string;
+}
+
+/**
+ * Manager review action — approve moves the task to done, request_changes moves it back
+ * to the first todo-category status. A comment is mandatory for request_changes so the
+ * employee understands what to fix; optional (but encouraged) for approve.
+ * Can attach reference files (mockups, screenshots, PDFs).
+ */
+export class ReviewActionDto {
+  @IsIn(['approve', 'request_changes'])
+  action!: 'approve' | 'request_changes';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  comment?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReviewAttachmentItemDto)
+  attachments?: ReviewAttachmentItemDto[];
+}
+
+export class ResubmitReviewDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  note?: string;
+}
+
+export class CreateTaskActionRequestDto {
+  @IsIn(['archive', 'delete'])
+  action_type!: 'archive' | 'delete';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  reason?: string;
+}
+
+export class DecideTaskActionRequestDto {
+  @IsIn(['approved', 'rejected'])
+  decision!: 'approved' | 'rejected';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  reviewer_note?: string;
+}
+

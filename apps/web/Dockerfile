@@ -6,6 +6,7 @@
 FROM node:20-slim AS deps
 WORKDIR /repo
 COPY package.json package-lock.json turbo.json ./
+COPY patches/ patches/
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/shared-types/package.json packages/shared-types/package.json

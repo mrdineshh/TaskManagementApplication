@@ -11,6 +11,21 @@ const NOTIFICATION_SUBJECTS: Record<string, (payload: Record<string, unknown>) =
   task_overdue: (p) => `Task overdue: ${p.taskTitle}`,
   comment_mention: (p) => `You were mentioned on: ${p.taskTitle}`,
   status_changed: (p) => `Status changed: ${p.taskTitle}`,
+  task_on_hold: (p) => `Task placed on hold: ${p.taskTitle}`,
+  task_action_requested: (p) => `Request to ${p.actionType} task: ${p.taskTitle}`,
+  task_action_decided: (p) => `Task ${p.actionType} request ${p.decision}: ${p.taskTitle}`,
+  task_submitted_for_review: (p) => `Task submitted for review: ${p.taskTitle}${p.assigneeName ? ` by ${p.assigneeName}` : ''}`,
+  approval_requested: (p) => `Task review requested: ${p.taskTitle}${p.assigneeName ? ` by ${p.assigneeName}` : ''}`,
+  review_changes_requested: (p) => `Changes requested on task: ${p.taskTitle}${p.reviewerName ? ` by ${p.reviewerName}` : ''}`,
+  task_approved: (p) => `Task approved: ${p.taskTitle} (Marked Done)`,
+  // Timer and role change notifications (B2 fix + role visibility gap fix)
+  timer_auto_stopped: (p) =>
+    p.assigneeName
+      ? `Auto-stopped timer: ${p.taskTitle} (${p.assigneeName} exceeded ${p.maxHours}h limit)`
+      : `Your work timer was auto-stopped: ${p.taskTitle} (exceeded ${p.maxHours}h limit — ${p.loggedMinutes}min logged)`,
+  role_assigned: (p) => `Role assigned: You are now a ${p.roleName}${p.departmentName ? ` in ${p.departmentName}` : ''}`,
+  role_revoked: (p) => `Role removed: Your ${p.roleName} role${p.departmentName ? ` in ${p.departmentName}` : ''} has been revoked`,
+  manager_assigned: (p) => `New manager assigned: ${p.managerName} is now your manager`,
 };
 
 /** In-app + email notifications per docs/05-FEATURES.md §1.5, 02-DATA-MODEL.md §7. */
@@ -53,14 +68,14 @@ export class NotificationsService {
 
       if (channel === 'email' && user) {
         const subjectFn = NOTIFICATION_SUBJECTS[type];
-        const subject = subjectFn ? subjectFn(payload) : `Task Management notification: ${type}`;
+        const subject = subjectFn ? subjectFn(payload) : `Pulse notification: ${type}`;
         await this.mail.send(user.email, subject, JSON.stringify(payload, null, 2));
         await this.prisma.notification.update({ where: { id: notification.id }, data: { sentAt: new Date() } });
       }
 
       if (channel === 'push' && user?.pushToken) {
         const subjectFn = NOTIFICATION_SUBJECTS[type];
-        const title = subjectFn ? subjectFn(payload) : 'Task Management';
+        const title = subjectFn ? subjectFn(payload) : 'Pulse';
         await this.push.send(user.pushToken, title, type);
         await this.prisma.notification.update({ where: { id: notification.id }, data: { sentAt: new Date() } });
       }

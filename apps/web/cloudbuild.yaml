@@ -23,18 +23,27 @@ steps:
       - '-t'
       - ${_IMAGE}
       - .
+  - name: gcr.io/cloud-builders/docker
+    args: ['push', '${_IMAGE}']
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - taskapp-web
+      - --image=${_IMAGE}
+      - --region=us-central1
+      - --project=testing-sujeeth
+      - --quiet
 images:
   - '${_IMAGE}'
 substitutions:
-  _IMAGE: us-central1-docker.pkg.dev/econz-task-management-app/taskapp/web:latest
-  _API_URL: https://taskapp-api-2r35mnxdmq-uc.a.run.app
-  # Firebase Web SDK config (docs/10-OPEN-DECISIONS.md §M4) — pass real values via
-  # --substitutions once the official-account Firebase project is provisioned; empty
-  # defaults keep Google Sign-In disabled (dev auth provider still works) until then.
-  _FIREBASE_API_KEY: ''
-  _FIREBASE_AUTH_DOMAIN: ''
-  _FIREBASE_PROJECT_ID: ''
-  _FIREBASE_APP_ID: ''
+  _IMAGE: us-central1-docker.pkg.dev/testing-sujeeth/taskapp-repo/web:latest
+  _API_URL: https://taskapp-api-430674734301.us-central1.run.app
+  _FIREBASE_API_KEY: 'AIzaSyCA6Sgz5QUV9eWgeKTXwaXDXrvU7jJAfOg'
+  _FIREBASE_AUTH_DOMAIN: 'testing-sujeeth.firebaseapp.com'
+  _FIREBASE_PROJECT_ID: 'testing-sujeeth'
+  _FIREBASE_APP_ID: '1:430674734301:web:e666a95e788e8d6d5e7f34'
   _ALLOWED_EMAIL_DOMAIN: econz.net
 options:
   logging: CLOUD_LOGGING_ONLY

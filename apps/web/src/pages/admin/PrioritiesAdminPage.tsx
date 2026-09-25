@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useCreatePriority, useDeletePriority, usePrioritiesAdmin, useUpdatePriority } from '../../features/admin/hooks';
 import { Badge } from '../../components/Badge';
 
@@ -45,16 +45,16 @@ export function PrioritiesAdminPage() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="key" className="w-32 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
-        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label" className="w-40 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
+      <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2 neu-card !p-4">
+        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="key" className="w-32 neu-input" />
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label" className="w-40 neu-input" />
         <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-8 w-12 rounded border border-slate-300 dark:border-slate-700" />
-        <button type="submit" className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+        <button type="submit" className="btn-primary">
           Add priority
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div className="neu-card !p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             <tr>
@@ -68,7 +68,7 @@ export function PrioritiesAdminPage() {
             {priorities?.map((p) => {
               const isEditing = editingId === p.id;
               return (
-                <tr key={p.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                <tr key={p.id} className="">
                   <td className="px-4 py-2">
                     {isEditing ? (
                       <div className="flex items-center gap-2">

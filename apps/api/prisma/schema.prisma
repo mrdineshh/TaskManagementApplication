@@ -136,6 +136,10 @@ model User {
   notificationPreferences NotificationPreference[]
   directReports       User[]           @relation("ManagerReports")
   headOfDepartment    Department?      @relation("DepartmentHead")
+  actionRequestsCreated  TaskActionRequest[] @relation("ActionRequestsCreated")
+  actionRequestsReviewed TaskActionRequest[] @relation("ActionRequestsReviewed")
+  reviewsGiven           TaskReview[]        @relation("ReviewsGiven")
+  bugReports             BugReport[]
 
   @@unique([authProvider, authProviderId])
   @@map("users")
@@ -285,6 +289,11 @@ model WorkflowStatus {
   /// estimate). Caught live: the category-based check incorrectly blocked entering On Hold on
   /// a task that hadn't started yet.
   requiresEstimateBeforeEntry Boolean @default(false) @map("requires_estimate_before_entry")
+  /// Marks this status as a "review gate" — moving into it stops the work-session timer,
+  /// auto-creates a TimeLog entry for the session, and notifies the assignee's manager.
+  /// Distinct from WorkflowStatusCategory so it can apply to any custom status name without
+  /// locking the meaning into the enum (avoids a breaking migration if the name ever changes).
+  isReviewStatus Boolean @default(false) @map("is_review_status")
 
   tasksAsCurrentStatus Task[]               @relation("TaskStatus")
   transitionsFrom      WorkflowTransition[] @relation("TransitionFrom")
@@ -440,6 +449,14 @@ model Task {
   estimateSubmittedAt   DateTime?   @map("estimate_submitted_at")
   estimateSubmittedById String?     @map("estimate_submitted_by_id")
   estimateSubmittedBy   User?       @relation("TaskEstimateSubmittedBy", fields: [estimateSubmittedById], references: [id])
+  /// Set to the current timestamp when the task moves into an in_progress-category status;
+  /// cleared (set to null) when it moves into an isReviewStatus or done/cancelled status.
+  /// The frontend computes live elapsed = (now - timerStartedAt) + totalLoggedMinutes.
+  timerStartedAt        DateTime?   @map("timer_started_at")
+  /// Running total of all completed work sessions in minutes. Each time the timer stops
+  /// (moving to review or pausing), the session duration is appended here and a TimeLog
+  /// entry is created. The frontend adds (now - timerStartedAt) for the live in-progress slice.
+  totalLoggedMinutes    Int         @default(0) @map("total_logged_minutes")
   createdAt      DateTime           @default(now()) @map("created_at")
   updatedAt      DateTime           @updatedAt @map("updated_at")
   deletedAt      DateTime?          @map("deleted_at")
@@ -450,6 +467,8 @@ model Task {
   activityLog       ActivityLogEntry[]
   timeLogs          TimeLog[]
   approvalSteps     ApprovalStep[]
+  actionRequests    TaskActionRequest[]
+  reviews           TaskReview[]
   dependenciesFrom  TaskDependency[]       @relation("DependencyFromTask") // this task depends on others
   dependenciesTo    TaskDependency[]       @relation("DependencyToTask") // other tasks depend on this one
 
@@ -535,6 +554,90 @@ model ApprovalStep {
   @@index([taskId])
   @@map("approval_steps")
 }
+
+// ---------------------------------------------------------------------------
+// Task Archive & Delete Action Requests (Role-based Approval Workflow)
+// ---------------------------------------------------------------------------
+
+enum TaskActionType {
+  archive
+  delete
+}
+
+enum TaskActionRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+model TaskActionRequest {
+  id           String                  @id @default(uuid())
+  taskId       String                  @map("task_id")
+  task         Task                    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actionType   TaskActionType          @map("action_type")
+  requesterId  String                  @map("requester_id")
+  requester    User                    @relation("ActionRequestsCreated", fields: [requesterId], references: [id])
+  reviewerId   String?                 @map("reviewer_id")
+  reviewer     User?                   @relation("ActionRequestsReviewed", fields: [reviewerId], references: [id])
+  status       TaskActionRequestStatus @default(pending)
+  reason       String?
+  reviewerNote String?                 @map("reviewer_note")
+  createdAt    DateTime                @default(now()) @map("created_at")
+  decidedAt    DateTime?               @map("decided_at")
+
+  @@index([taskId])
+  @@index([requesterId])
+  @@index([status])
+  @@map("task_action_requests")
+}
+
+// ---------------------------------------------------------------------------
+// Task Reviews & Reference Attachments (Review Workflow)
+// ---------------------------------------------------------------------------
+
+enum TaskReviewDecision {
+  changes_requested
+  approved
+}
+
+enum TaskReviewStatus {
+  active
+  resolved
+}
+
+model TaskReview {
+  id          String             @id @default(uuid())
+  taskId      String             @map("task_id")
+  task        Task               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewerId  String             @map("reviewer_id")
+  reviewer    User               @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  decision    TaskReviewDecision
+  feedback    String
+  status      TaskReviewStatus   @default(active)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  resolvedAt  DateTime?          @map("resolved_at")
+
+  attachments TaskReviewAttachment[]
+
+  @@index([taskId])
+  @@index([reviewerId])
+  @@map("task_reviews")
+}
+
+model TaskReviewAttachment {
+  id          String     @id @default(uuid())
+  reviewId    String     @map("review_id")
+  review      TaskReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  fileName    String     @map("file_name")
+  storagePath String     @map("storage_path")
+  mimeType    String     @map("mime_type")
+  sizeBytes   BigInt     @map("size_bytes")
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  @@index([reviewId])
+  @@map("task_review_attachments")
+}
+
 
 // ---------------------------------------------------------------------------
 // v1.1 — SLA & escalation (docs/02-DATA-MODEL.md §5, 05-FEATURES.md §2.2)
@@ -724,4 +827,19 @@ model ReportAggregateCache {
   @@unique([metricKey, departmentId, dimensionValue, periodDate])
   @@index([metricKey, periodDate])
   @@map("report_aggregate_cache")
+}
+
+/// User-submitted bug reports — stored for admin review, no display in app UI.
+/// Any authenticated user can submit. No permission required beyond being logged in.
+model BugReport {
+  id                 String   @id @default(uuid())
+  reporterId         String   @map("reporter_id")
+  reporter           User     @relation(fields: [reporterId], references: [id])
+  description        String
+  pageUrl            String?  @map("page_url")
+  screenshotBase64   String?  @map("screenshot_base64")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([reporterId])
+  @@map("bug_reports")
 }

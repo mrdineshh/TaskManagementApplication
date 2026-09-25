@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { SYSTEM_ROLE_NAMES } from '@taskapp/shared-types';
+import { SYSTEM_ROLE_NAMES, permissionKeys } from '@taskapp/shared-types';
 
 /**
  * Priority order (highest first) for picking a default active role when the user hasn't
@@ -9,6 +9,61 @@ import { SYSTEM_ROLE_NAMES } from '@taskapp/shared-types';
  * role happened to be assigned first. SYSTEM_ROLE_NAMES is already declared in this order.
  */
 const ROLE_PRIORITY: readonly string[] = SYSTEM_ROLE_NAMES;
+
+const MANAGER_PERMISSIONS = [
+  'task.create',
+  'task.view',
+  'task.edit',
+  'task.delete',
+  'task.assign',
+  'task.comment',
+  'task.moderate',
+  'department.view',
+  'user.view',
+  'custom_field.view',
+  'workflow.view',
+  'priority.view',
+  'sla.view',
+  'report.view',
+  'report.create',
+  'report.export',
+  'holiday_calendar.view',
+  'on_hold_reason.view',
+] as const;
+
+const ROLE_PERMISSIONS: Record<string, readonly string[]> = {
+  Admin: permissionKeys,
+  Management: [
+    'task.view',
+    'department.view',
+    'user.view',
+    'custom_field.view',
+    'workflow.view',
+    'priority.view',
+    'sla.view',
+    'report.view',
+    'report.create',
+    'report.export',
+    'holiday_calendar.view',
+    'on_hold_reason.view',
+  ],
+  Head: MANAGER_PERMISSIONS,
+  Manager: MANAGER_PERMISSIONS,
+  Employee: [
+    'task.create',
+    'task.view',
+    'task.edit',
+    'task.assign',
+    'task.comment',
+    'department.view',
+    'user.view',
+    'custom_field.view',
+    'workflow.view',
+    'priority.view',
+    'on_hold_reason.view',
+    'holiday_calendar.view',
+  ],
+};
 
 export interface EffectivePermissions {
   permissionKeys: string[];
@@ -32,8 +87,57 @@ export interface EffectivePermissions {
  * embedded in the JWT so guards don't hit the DB on every request.
  */
 @Injectable()
-export class RbacService {
+export class RbacService implements OnApplicationBootstrap {
   constructor(private readonly prisma: PrismaService) {}
+
+  async onApplicationBootstrap() {
+    try {
+      // 1. Ensure all permission keys exist
+      for (const key of permissionKeys) {
+        await this.prisma.permission.upsert({
+          where: { key },
+          update: {},
+          create: { key, description: key },
+        });
+      }
+
+      // 2. Initialize default system roles and permissions only if role does not yet exist
+      for (const [name, keys] of Object.entries(ROLE_PERMISSIONS)) {
+        const existingRole = await this.prisma.role.findFirst({ where: { name } });
+        if (!existingRole) {
+          const createdRole = await this.prisma.role.create({
+            data: { name, isSystemRole: name === 'Admin' },
+          });
+          const perms = await this.prisma.permission.findMany({
+            where: { key: { in: [...keys] } },
+          });
+          await this.prisma.rolePermission.createMany({
+            data: perms.map((p) => ({ roleId: createdRole.id, permissionId: p.id })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      // 3. Ensure sujeeth.k@econz.net has Admin role assigned
+      const adminUser = await this.prisma.user.findUnique({ where: { email: 'sujeeth.k@econz.net' } });
+      if (adminUser) {
+        const adminRole = await this.prisma.role.findFirst({ where: { name: 'Admin' } });
+        if (adminRole) {
+          const hasAdmin = await this.prisma.userRole.findFirst({
+            where: { userId: adminUser.id, roleId: adminRole.id },
+          });
+          if (!hasAdmin) {
+            await this.prisma.userRole.create({
+              data: { userId: adminUser.id, roleId: adminRole.id, departmentOverride: null },
+            });
+          }
+        }
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('RBAC bootstrap sync notice:', err);
+    }
+  }
 
   async getEffectivePermissions(userId: string): Promise<EffectivePermissions> {
     const userRoles = await this.prisma.userRole.findMany({

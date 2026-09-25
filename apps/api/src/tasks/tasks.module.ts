@@ -4,13 +4,13 @@ import { CommentsController } from './comments.controller';
 import { ApprovalStepsController } from './approval-steps.controller';
 import {
   AttachmentsController,
-  MockStorageController,
   TaskAttachmentsController,
 } from './attachments.controller';
 import { TasksService } from './tasks.service';
-import { MockStorageService } from '../storage/mock-storage.service';
+import { StorageService } from '../storage/storage.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { HolidayCalendarsModule } from '../holiday-calendars/holiday-calendars.module';
+import { TimerSweeperService } from './timer-sweeper.service';
 
 @Module({
   imports: [NotificationsModule, HolidayCalendarsModule],
@@ -20,8 +20,8 @@ import { HolidayCalendarsModule } from '../holiday-calendars/holiday-calendars.m
     ApprovalStepsController,
     TaskAttachmentsController,
     AttachmentsController,
-    MockStorageController,
+    // MockStorageController removed — using real GCS (P5-04)
   ],
-  providers: [TasksService, MockStorageService],
+  providers: [TasksService, StorageService, TimerSweeperService],
 })
 export class TasksModule {}

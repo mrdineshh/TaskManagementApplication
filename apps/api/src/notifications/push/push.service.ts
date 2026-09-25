@@ -14,29 +14,50 @@ export class PushService {
   private readonly logger = new Logger(PushService.name);
 
   async send(pushToken: string, title: string, body: string): Promise<void> {
-    if (!pushToken.startsWith('ExponentPushToken[') && !pushToken.startsWith('ExpoPushToken[')) {
-      this.logger.warn(`Skipping push — not a valid Expo push token: ${pushToken}`);
+    if (!pushToken) return;
+
+    // 1. Expo push token relay
+    if (pushToken.startsWith('ExponentPushToken[') || pushToken.startsWith('ExpoPushToken[')) {
+      try {
+        const res = await fetch(EXPO_PUSH_ENDPOINT, {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify([{ to: pushToken, title, body, sound: 'default' }]),
+        });
+
+        const result = (await res.json()) as { data?: { status: string; message?: string }[] };
+        const ticket = result.data?.[0];
+        if (!res.ok || ticket?.status === 'error') {
+          this.logger.warn(`Expo push failed for ${pushToken}: ${ticket?.message ?? res.statusText}`);
+          return;
+        }
+        this.logger.log(`Push sent via Expo to ${pushToken} title="${title}"`);
+      } catch (err) {
+        this.logger.warn(`Expo push request failed: ${(err as Error).message}`);
+      }
       return;
     }
 
+    // 2. Direct FCM push token via Firebase Admin (GCP / Firebase direct)
     try {
-      const res = await fetch(EXPO_PUSH_ENDPOINT, {
-        method: 'POST',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify([{ to: pushToken, title, body, sound: 'default' }]),
-      });
+      const { getApps, initializeApp, applicationDefault } = await import('firebase-admin/app');
+      const { getMessaging } = await import('firebase-admin/messaging');
 
-      const result = (await res.json()) as { data?: { status: string; message?: string }[] };
-      const ticket = result.data?.[0];
-      if (!res.ok || ticket?.status === 'error') {
-        // "DeviceNotRegistered" means the token is stale (app uninstalled, etc.) — logged, not
-        // thrown, since a bad token for one user shouldn't fail the notification for anyone else.
-        this.logger.warn(`Expo push failed for ${pushToken}: ${ticket?.message ?? res.statusText}`);
-        return;
+      if (!getApps().length) {
+        initializeApp({ credential: applicationDefault() });
       }
-      this.logger.log(`Push sent to ${pushToken} title="${title}"`);
+
+      await getMessaging().send({
+        token: pushToken,
+        notification: {
+          title,
+          body,
+        },
+      });
+      this.logger.log(`FCM push sent to ${pushToken} title="${title}"`);
     } catch (err) {
-      this.logger.warn(`Expo push request failed: ${(err as Error).message}`);
+      this.logger.warn(`FCM direct push skipped/failed for ${pushToken}: ${(err as Error).message}`);
     }
   }
 }
+

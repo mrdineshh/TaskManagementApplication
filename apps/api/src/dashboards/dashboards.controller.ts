@@ -70,8 +70,19 @@ export class DashboardsController {
       }
     }
 
+    const mappedOpenTasks = openTasks.map((t) => {
+      const sumMins = t.timeLogs.reduce((sum, l) => sum + l.minutes, 0);
+      return {
+        ...t,
+        timerStartedAt: t.timerStartedAt,
+        timer_started_at: t.timerStartedAt ? t.timerStartedAt.toISOString() : null,
+        totalLoggedMinutes: sumMins,
+        total_logged_minutes: sumMins,
+      };
+    });
+
     return {
-      open_tasks: openTasks,
+      open_tasks: mappedOpenTasks,
       overdue_count: overdueCount,
       over_budget_count: overBudgetCount,
       due_this_week_count: dueThisWeek,

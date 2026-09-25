@@ -1,16 +1,17 @@
+import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { useToastStore, type ToastKind } from '../lib/toast/toast-store';
 
 const KIND_STYLES: Record<ToastKind, string> = {
-  success: 'border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-950 dark:text-brand-200',
-  error: 'border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200',
+  success: 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200',
+  error: 'border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200',
   info: 'border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200',
 };
 
-const KIND_ICON: Record<ToastKind, string> = {
-  success: '✓',
-  error: '✕',
-  info: 'ℹ',
-};
+function ToastIcon({ kind }: { kind: ToastKind }) {
+  if (kind === 'success') return <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />;
+  if (kind === 'error') return <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />;
+  return <Info className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" />;
+}
 
 /** Mounted once at the app root (Shell.tsx) — renders whatever's in useToastStore. */
 export function ToastContainer() {
@@ -25,15 +26,16 @@ export function ToastContainer() {
         <div
           key={t.id}
           role="status"
-          className={`pointer-events-auto flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm shadow-lg ${KIND_STYLES[t.kind]}`}
+          className={`pointer-events-auto flex items-center gap-2.5 rounded-lg border px-4 py-2.5 text-sm shadow-lg ${KIND_STYLES[t.kind]}`}
         >
-          <span aria-hidden>{KIND_ICON[t.kind]}</span>
+          <ToastIcon kind={t.kind} />
           <span>{t.message}</span>
-          <button onClick={() => dismiss(t.id)} className="ml-2 opacity-60 hover:opacity-100" aria-label="Dismiss">
-            ×
+          <button onClick={() => dismiss(t.id)} className="ml-2 p-0.5 opacity-60 hover:opacity-100 rounded transition-opacity" aria-label="Dismiss">
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       ))}
     </div>
   );
 }
+

@@ -22,15 +22,40 @@ export class SLAEscalationService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
   ) {}
 
+  private readonly LOCK_KEY = 3_001_987_654;
+
   onModuleInit() {
+    if (this.config.get<string>('RUN_INLINE_JOBS') === 'false') {
+      this.logger.log('Inline jobs disabled. SLA escalation will not run in-process.');
+      return;
+    }
     const intervalMs = Number(this.config.get<string>('SLA_CHECK_INTERVAL_MS') ?? 60_000);
     this.timer = setInterval(() => {
-      this.runCheck().catch((err) => this.logger.error(`SLA check failed: ${err.message}`, err.stack));
+      this.runCheckWithLock().catch((err) => this.logger.error(`SLA check failed: ${err.message}`, err.stack));
     }, intervalMs);
   }
 
   onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
+  }
+
+  async runCheckWithLock() {
+    let acquired = false;
+    try {
+      const result = await this.prisma.$queryRaw<[{ acquired: boolean }]>`
+        SELECT pg_try_advisory_lock(${this.LOCK_KEY}::bigint) AS acquired
+      `;
+      acquired = result[0]?.acquired ?? false;
+      if (!acquired) {
+        this.logger.debug('SLA check skipped — another instance holds the lock');
+        return;
+      }
+      await this.runCheck();
+    } finally {
+      if (acquired) {
+        await this.prisma.$queryRaw`SELECT pg_advisory_unlock(${this.LOCK_KEY}::bigint)`.catch(() => {});
+      }
+    }
   }
 
   async runCheck() {

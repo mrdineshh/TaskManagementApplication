@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useCreateCustomField, useCustomFieldsAdmin, useDeleteCustomField, useDepartmentsAdmin, useUpdateCustomField } from '../../features/admin/hooks';
+import { NeuSelect } from '../../components/NeuSelect';
 
 const FIELD_TYPES = ['text', 'number', 'date', 'boolean', 'select', 'multi_select', 'user_reference'] as const;
 
 export function CustomFieldsAdminPage() {
   const { data: departments } = useDepartmentsAdmin();
   const [departmentId, setDepartmentId] = useState('');
-  const { data: fields } = useCustomFieldsAdmin(departmentId || undefined);
+  const { data: fields } = useCustomFieldsAdmin(departmentId || 'org');
   const createField = useCreateCustomField();
   const updateField = useUpdateCustomField();
   const deleteField = useDeleteCustomField();
@@ -60,52 +61,67 @@ export function CustomFieldsAdminPage() {
     setRequired(false);
   }
 
+  async function handleMove(index: number, direction: 'up' | 'down') {
+    if (!fields) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= fields.length) return;
+
+    const currentField = fields[index];
+    const targetField = fields[targetIndex];
+
+    // Swap display_order
+    const currentOrder = currentField.display_order ?? index;
+    const targetOrder = targetField.display_order ?? targetIndex;
+
+    await Promise.all([
+      updateField.mutateAsync({ id: currentField.id, data: { display_order: targetOrder } }),
+      updateField.mutateAsync({ id: targetField.id, data: { display_order: currentOrder } }),
+    ]);
+  }
+
   return (
     <div className="space-y-4">
-      <select
+      <NeuSelect
         value={departmentId}
-        onChange={(e) => setDepartmentId(e.target.value)}
-        className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
-      >
-        <option value="">Org-wide fields</option>
-        {departments?.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.name}
-          </option>
-        ))}
-      </select>
+        onChange={setDepartmentId}
+        options={[
+          { value: '', label: 'Org-wide fields' },
+          ...(departments ?? []).map((d) => ({ value: d.id, label: d.name })),
+        ]}
+        style={{ minWidth: '200px' }}
+      />
 
-      <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="key" className="w-32 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
-        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label" className="w-40 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
-        <select value={fieldType} onChange={(e) => setFieldType(e.target.value as typeof fieldType)} className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm">
-          {FIELD_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+      <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2 neu-card !p-4">
+        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="key" className="w-32 neu-input" />
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label" className="w-40 neu-input" />
+        <NeuSelect
+          value={fieldType}
+          onChange={(v) => setFieldType(v as typeof fieldType)}
+          options={FIELD_TYPES.map((t) => ({ value: t, label: t }))}
+          style={{ minWidth: '140px' }}
+        />
         {['select', 'multi_select'].includes(fieldType) && (
           <input
             value={options}
             onChange={(e) => setOptions(e.target.value)}
             placeholder="Options, comma-separated"
-            className="w-56 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
+            className="w-56 neu-input"
           />
         )}
         <label className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
           <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} />
           Required
         </label>
-        <button type="submit" className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+        <button type="submit" className="btn-primary">
           Add field
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div className="neu-card !p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             <tr>
+              <th className="px-3 py-2 w-12 text-center">Order</th>
               <th className="px-4 py-2">Key</th>
               <th className="px-4 py-2">Label</th>
               <th className="px-4 py-2">Type</th>
@@ -114,10 +130,32 @@ export function CustomFieldsAdminPage() {
             </tr>
           </thead>
           <tbody>
-            {fields?.map((f) => {
+            {fields?.map((f, idx) => {
               const isEditing = editingId === f.id;
               return (
-                <tr key={f.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                <tr key={f.id} className=" hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                  <td className="px-3 py-2 text-center text-xs text-slate-400">
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMove(idx, 'up')}
+                        disabled={idx === 0 || updateField.isPending}
+                        className="rounded p-1 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30"
+                        title="Move up"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMove(idx, 'down')}
+                        disabled={idx === fields.length - 1 || updateField.isPending}
+                        className="rounded p-1 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30"
+                        title="Move down"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </td>
                   <td className="px-4 py-2 font-mono text-xs text-slate-600 dark:text-slate-400">{f.key}</td>
                   <td className="px-4 py-2">
                     {isEditing ? (
@@ -132,15 +170,19 @@ export function CustomFieldsAdminPage() {
                             value={editOptions}
                             onChange={(e) => setEditOptions(e.target.value)}
                             placeholder="Options, comma-separated"
-                            className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs"
+                            className="w-full neu-input text-xs"
                           />
                         )}
                       </div>
                     ) : (
-                      f.label
+                      <span className="break-words leading-snug">{f.label}</span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{f.field_type}</td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
+                    <span className="inline-flex items-center rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-mono">
+                      {f.field_type}
+                    </span>
+                  </td>
                   <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
                     {isEditing ? (
                       <label className="flex items-center gap-1">
@@ -148,7 +190,7 @@ export function CustomFieldsAdminPage() {
                         Required
                       </label>
                     ) : f.is_required ? (
-                      'Yes'
+                      <span className="text-amber-600 dark:text-amber-400 font-medium">Yes</span>
                     ) : (
                       'No'
                     )}
@@ -183,7 +225,7 @@ export function CustomFieldsAdminPage() {
             })}
             {fields?.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
                   No custom fields yet.
                 </td>
               </tr>

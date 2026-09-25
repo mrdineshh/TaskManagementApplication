@@ -8,6 +8,8 @@ import {
   useRemoveHoliday,
 } from '../../features/admin/hooks';
 import { CountryStateSelect } from '../../components/CountryStateSelect';
+import { NeuDatePicker } from '../../components/NeuDatePicker';
+import { fmtDate } from '../../lib/utils/dates';
 import { parseHolidayCsv } from '../../lib/csv';
 import { toast } from '../../lib/toast/toast-store';
 
@@ -49,12 +51,12 @@ export function HolidayCalendarsAdminPage() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleCreate} className="flex gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+      <form onSubmit={handleCreate} className="flex gap-2 neu-card !p-4">
         <CountryStateSelect country={country} state={state} onCountryChange={setCountry} onStateChange={setState} />
         <button
           type="submit"
           disabled={createCalendar.isPending}
-          className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+          className="btn-primary"
         >
           Add calendar
         </button>
@@ -63,7 +65,7 @@ export function HolidayCalendarsAdminPage() {
       {isLoading && <p className="text-sm text-slate-400 dark:text-slate-500">Loading…</p>}
 
       {(calendars as any[])?.map((cal) => (
-        <div key={cal.id} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <div key={cal.id} className="neu-card !p-4">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">
               {cal.country}, {cal.state}
@@ -77,7 +79,7 @@ export function HolidayCalendarsAdminPage() {
             {cal.holidays?.map((h: any) => (
               <li key={h.id} className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-400">
                 <span>
-                  {h.date} — {h.name}
+                  {fmtDate(h.date)} — {h.name}
                 </span>
                 <button
                   onClick={() => removeHoliday.mutate({ calendarId: cal.id, holidayId: h.id })}
@@ -90,18 +92,19 @@ export function HolidayCalendarsAdminPage() {
             {!cal.holidays?.length && <li className="text-sm text-slate-400 dark:text-slate-500">No holidays yet.</li>}
           </ul>
 
-          <div className="flex gap-2">
-            <input
-              type="date"
+          <div className="flex flex-wrap gap-2 items-center">
+            <NeuDatePicker
               value={newHoliday[cal.id]?.date ?? ''}
-              onChange={(e) => setNewHoliday((prev) => ({ ...prev, [cal.id]: { date: e.target.value, name: prev[cal.id]?.name ?? '' } }))}
-              className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs"
+              onChange={(d) => setNewHoliday((prev) => ({ ...prev, [cal.id]: { date: d, name: prev[cal.id]?.name ?? '' } }))}
+              placeholder="Select date"
+              compact
+              style={{ minWidth: '140px' }}
             />
             <input
               value={newHoliday[cal.id]?.name ?? ''}
               onChange={(e) => setNewHoliday((prev) => ({ ...prev, [cal.id]: { date: prev[cal.id]?.date ?? '', name: e.target.value } }))}
               placeholder="Holiday name"
-              className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs"
+              className="neu-input text-xs flex-1 min-w-[140px]"
             />
             <button
               disabled={!newHoliday[cal.id]?.date || !newHoliday[cal.id]?.name}
@@ -109,15 +112,20 @@ export function HolidayCalendarsAdminPage() {
                 await addHoliday.mutateAsync({ calendarId: cal.id, data: newHoliday[cal.id] });
                 setNewHoliday((prev) => ({ ...prev, [cal.id]: { date: '', name: '' } }));
               }}
-              className="text-xs text-brand-700 dark:text-brand-300 hover:underline disabled:text-slate-300 dark:disabled:text-slate-600"
+              className="btn-primary !py-1.5 !px-3 !text-xs disabled:opacity-40"
             >
               Add holiday
             </button>
-            <span className="text-xs text-slate-300 dark:text-slate-700">|</span>
+            <button
+              disabled={bulkAddHolidays.isPending}
+              onClick={() => fileInputs.current[cal.id]?.click()}
+              title="CSV with two columns: date (yyyy-mm-dd), name"
+              className="btn-neu !py-1.5 !px-3 !text-xs disabled:opacity-40"
+            >
+              {bulkAddHolidays.isPending ? 'Uploading…' : 'Upload CSV'}
+            </button>
             <input
-              ref={(el) => {
-                fileInputs.current[cal.id] = el;
-              }}
+              ref={(el) => { fileInputs.current[cal.id] = el; }}
               type="file"
               accept=".csv,text/csv"
               className="hidden"
@@ -127,14 +135,6 @@ export function HolidayCalendarsAdminPage() {
                 e.target.value = '';
               }}
             />
-            <button
-              disabled={bulkAddHolidays.isPending}
-              onClick={() => fileInputs.current[cal.id]?.click()}
-              title="CSV with two columns: date (yyyy-mm-dd), name — a header row is fine"
-              className="text-xs text-brand-700 dark:text-brand-300 hover:underline disabled:text-slate-300 dark:disabled:text-slate-600"
-            >
-              {bulkAddHolidays.isPending ? 'Uploading…' : 'Upload CSV'}
-            </button>
           </div>
         </div>
       ))}

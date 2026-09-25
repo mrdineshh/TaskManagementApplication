@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useIntegrationSetting, useTestIntegrationSetting, useUpsertIntegrationSetting } from '../../features/admin/hooks';
+import { Mail, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 /**
  * SMTP configuration — DB-stored and KMS-encrypted, editable at runtime with no redeploy
  * (docs/01-ARCHITECTURE.md §2.9a). This is where an Admin updates outbound email settings.
  */
 export function IntegrationsAdminPage() {
-  const { data } = useIntegrationSetting('smtp');
+  const { data, isLoading } = useIntegrationSetting('smtp');
   const upsert = useUpsertIntegrationSetting('smtp');
   const test = useTestIntegrationSetting('smtp');
 
@@ -36,36 +37,81 @@ export function IntegrationsAdminPage() {
   }
 
   return (
-    <div className="max-w-lg space-y-4">
-      <form onSubmit={handleSave} className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">SMTP (outbound email)</h2>
-        <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp-relay.gmail.com" className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
-        <div className="flex gap-2">
-          <input value={port} onChange={(e) => setPort(e.target.value)} placeholder="Port" className="w-24 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
-          <input value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} placeholder="from@econz.net" className="flex-1 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
+    <div className="max-w-xl space-y-4">
+      <form onSubmit={handleSave} className="space-y-5 neu-card">
+        <div className="flex items-center gap-3 pb-4" style={{ borderBottom: "1px solid var(--neu-dark)" }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #2563EB22, #1d4ed822)", color: "#2563EB" }}>
+            <Mail className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>SMTP — Outbound Email</h2>
+            <p className="text-xs" style={{ color: "var(--text-faint)" }}>Encrypted in DB. Used for task assignments &amp; SLA breaches.</p>
+          </div>
         </div>
-        <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm" />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder={(data as any)?.has_secret ? '•••••••• (unchanged)' : 'Password'}
-          className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
-        />
-        <div className="flex gap-2">
-          <button type="submit" className="rounded-md bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
-            Save
-          </button>
-          <button type="button" onClick={() => test.mutate()} className="rounded-md border border-slate-300 dark:border-slate-700 px-4 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-950">
-            Send test email
-          </button>
-        </div>
-        {test.data && <p className="text-sm text-slate-500 dark:text-slate-400">{(test.data as any).message}</p>}
+
+        {isLoading ? (
+          <div className="py-6 text-center text-sm" style={{ color: "var(--text-faint)" }}>Loading configuration...</div>
+        ) : (
+          <>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>Host</label>
+              <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp-relay.gmail.com" className="neu-input" />
+            </div>
+
+            <div className="flex gap-3">
+              <div className="w-28">
+                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>Port</label>
+                <input value={port} onChange={(e) => setPort(e.target.value)} placeholder="587" className="neu-input" />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>From Address</label>
+                <input value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} placeholder="notifications@econz.net" className="neu-input" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>Username</label>
+              <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username or SMTP Key ID" className="neu-input" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>Password / Secret</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={(data as any)?.has_secret ? '•••••••• (unchanged)' : 'Enter SMTP password'}
+                className="neu-input"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button type="submit" disabled={upsert.isPending} className="btn-primary gap-2">
+                {upsert.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save Settings
+              </button>
+              <button type="button" onClick={() => test.mutate()} disabled={test.isPending} className="btn-neu gap-2">
+                {test.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Send Test Email
+              </button>
+            </div>
+
+            {test.data && (
+              <div className="flex items-center gap-2 rounded-xl p-3 text-xs" style={{ background: "rgba(16,185,129,0.08)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)" }}>
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>{(test.data as any).message || 'Test email triggered successfully.'}</span>
+              </div>
+            )}
+
+            {test.isError && (
+              <div className="flex items-center gap-2 rounded-xl p-3 text-xs" style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>Failed to send test email. Check server configuration.</span>
+              </div>
+            )}
+          </>
+        )}
       </form>
-      <p className="text-xs text-slate-400 dark:text-slate-500">
-        Until real Google Workspace SMTP credentials are provided, saved config is exercised end-to-end but
-        emails are logged server-side rather than actually sent.
-      </p>
     </div>
   );
 }

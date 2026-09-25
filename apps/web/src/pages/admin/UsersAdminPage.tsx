@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { AlertTriangle, Loader2, Shield, ShieldAlert, ShieldCheck, Trash2, UserPlus, X } from 'lucide-react';
 import {
   useAssignRole,
-  useDeactivateUser,
+  useDeleteUser,
   useDepartmentsAdmin,
   useInviteUser,
   useRemoveRole,
@@ -10,6 +11,8 @@ import {
   useUsersAdmin,
 } from '../../features/admin/hooks';
 import { CountryStateSelect } from '../../components/CountryStateSelect';
+import { NeuSelect } from '../../components/NeuSelect';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 
 export function UsersAdminPage() {
   const { data: users, isLoading } = useUsersAdmin();
@@ -17,9 +20,15 @@ export function UsersAdminPage() {
   const { data: roles } = useRoles();
   const inviteUser = useInviteUser();
   const updateUser = useUpdateUser();
-  const deactivate = useDeactivateUser();
+  const deleteUser = useDeleteUser();
   const assignRole = useAssignRole();
   const removeRole = useRemoveRole();
+  const [userToDelete, setUserToDelete] = useState<{ id: string; fullName: string } | null>(null);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
+
+  const displayUsers = (users as any[])?.filter(
+    (u) => u.is_active !== false && !deletedIds.includes(u.id)
+  ) ?? [];
 
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const [editName, setEditName] = useState('');
@@ -45,11 +54,11 @@ export function UsersAdminPage() {
   const [workCountry, setWorkCountry] = useState('');
   const [workState, setWorkState] = useState('');
   const [managerId, setManagerId] = useState('');
+  const [inviteRoleId, setInviteRoleId] = useState('');
   const [roleToAssign, setRoleToAssign] = useState<Record<string, string>>({});
 
-  // "Reports to" (docs/10-OPEN-DECISIONS.md §G1) — only makes sense within the same
-  // department, so the manager options narrow to whoever's already in the chosen department.
-  const managerOptions = (users as any[])?.filter((u) => u.primary_department_id === departmentId) ?? [];
+  const managerOptions = displayUsers.filter((u) => u.primary_department_id === departmentId);
+  const adminRole = roles?.find((r) => r.name === 'Admin');
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -61,182 +70,273 @@ export function UsersAdminPage() {
       work_country: workCountry,
       work_state: workState,
       manager_id: managerId || undefined,
+      role_ids: inviteRoleId ? [inviteRoleId] : undefined,
     });
     setEmail('');
     setFullName('');
     setWorkCountry('');
     setWorkState('');
     setManagerId('');
+    setInviteRoleId('');
   }
 
+  const selCls = 'neu-input text-sm cursor-pointer appearance-none';
+
   return (
-    <div className="space-y-4">
-      <form onSubmit={handleInvite} className="flex flex-wrap gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-        <input
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          placeholder="Full name"
-          className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
-        />
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="email@econz.net"
-          className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
-        />
-        <select
-          value={departmentId}
-          onChange={(e) => {
-            setDepartmentId(e.target.value);
-            setManagerId(''); // manager options depend on department — reset when it changes
-          }}
-          className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm"
-        >
-          <option value="">Department…</option>
-          {departments?.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-        <CountryStateSelect country={workCountry} state={workState} onCountryChange={setWorkCountry} onStateChange={setWorkState} />
-        <select
-          value={managerId}
-          onChange={(e) => setManagerId(e.target.value)}
-          disabled={!departmentId}
-          className="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm disabled:bg-slate-50 dark:disabled:bg-slate-950 disabled:text-slate-400 dark:disabled:text-slate-500"
-        >
-          <option value="">Reports to (optional)…</option>
-          {managerOptions.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.full_name}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+    <div className="space-y-5">
+      {/* Invite form */}
+      <form onSubmit={handleInvite} className="neu-card !p-4 flex flex-wrap gap-2 items-end">
+        <div className="flex-1 min-w-[160px]">
+          <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Full Name</label>
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full name" className="neu-input" />
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Email</label>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@econz.net" className="neu-input" />
+        </div>
+        <div className="min-w-[150px]">
+          <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Department</label>
+          <NeuSelect
+            value={departmentId}
+            onChange={(v) => { setDepartmentId(v); setManagerId(''); }}
+            options={[...(departments ?? [])].map((d) => ({ value: d.id, label: d.name }))}
+            placeholder="Department…"
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div className="min-w-[140px]">
+          <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Role</label>
+          <NeuSelect
+            value={inviteRoleId}
+            onChange={setInviteRoleId}
+            options={[...(roles ?? [])].map((r) => ({ value: r.id, label: r.name }))}
+            placeholder="Employee (default)…"
+            style={{ width: '100%' }}
+          />
+        </div>
+        <div className="min-w-[200px]">
+          <CountryStateSelect country={workCountry} state={workState} onCountryChange={setWorkCountry} onStateChange={setWorkState} />
+        </div>
+        <div className="min-w-[150px]">
+          <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Reports to</label>
+          <NeuSelect
+            value={managerId}
+            onChange={setManagerId}
+            options={managerOptions.map((u: any) => ({ value: u.id, label: u.full_name }))}
+            placeholder="Reports to (optional)…"
+            disabled={!departmentId}
+            style={{ width: '100%' }}
+          />
+        </div>
+        <button type="submit" className="btn-primary shrink-0 gap-2">
+          <UserPlus className="w-4 h-4" />
           Invite
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
-            <tr>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Email</th>
-              <th className="px-4 py-2">Region</th>
-              <th className="px-4 py-2">Reports to</th>
-              <th className="px-4 py-2">Roles</th>
-              <th className="px-4 py-2">Assign role</th>
-              <th className="px-4 py-2">Active</th>
-              <th className="px-4 py-2"></th>
+      {/* Users table */}
+      <div className="neu-card !p-0 overflow-x-auto">
+        <table className="w-full text-sm" style={{ tableLayout: "auto", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--neu-dark)" }}>
+              {["Name", "Email", "Region", "Reports to", "Roles", "Admin Access", "Assign Role", "Status", ""].map((h) => (
+                <th key={h} className="px-4 py-3 text-left whitespace-nowrap text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-faint)", background: "var(--neu-bg)" }}>
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-slate-400 dark:text-slate-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-sm" style={{ color: "var(--text-faint)" }}>
                   Loading…
                 </td>
               </tr>
             )}
-            {(users as any[])?.map((u) => {
-              const isEditing = editingId === u.id;
-              return (
-              <tr key={u.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
-                <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">
-                  {isEditing ? (
-                    <input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-sm"
-                    />
-                  ) : (
-                    u.full_name
-                  )}
-                </td>
-                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{u.email}</td>
-                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
-                  {isEditing ? (
-                    <CountryStateSelect country={editCountry} state={editState} onCountryChange={setEditCountry} onStateChange={setEditState} />
-                  ) : (
-                    <>
-                      {u.work_country}
-                      {u.work_state ? `, ${u.work_state}` : ''}
-                    </>
-                  )}
-                </td>
-                <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
-                  {(users as any[])?.find((m) => m.id === u.manager_id)?.full_name ?? '—'}
-                </td>
-                <td className="px-4 py-2">
-                  <div className="flex flex-wrap gap-1">
-                    {u.roles?.map((r: any) => (
-                      <span key={r.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs">
-                        {r.name}
-                        <button
-                          onClick={() => removeRole.mutate({ userId: u.id, roleId: r.id })}
-                          className="text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-4 py-2">
-                  <div className="flex gap-1">
-                    <select
-                      value={roleToAssign[u.id] ?? ''}
-                      onChange={(e) => setRoleToAssign((prev) => ({ ...prev, [u.id]: e.target.value }))}
-                      className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs"
-                    >
-                      <option value="">Select…</option>
-                      {roles?.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => roleToAssign[u.id] && assignRole.mutate({ userId: u.id, roleId: roleToAssign[u.id], departmentId: u.primary_department_id })}
-                      className="text-xs text-brand-700 dark:text-brand-300 hover:underline"
-                    >
-                      Assign
-                    </button>
-                  </div>
-                </td>
-                <td className="px-4 py-2">
-                  <button onClick={() => deactivate.mutate(u.id)} className="text-xs text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400">
-                    {u.is_active ? 'Deactivate' : 'Deactivated'}
-                  </button>
-                </td>
-                <td className="px-4 py-2 text-right">
-                  {isEditing ? (
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => saveEdit(u.id)}
-                        disabled={updateUser.isPending}
-                        className="text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline disabled:opacity-50"
-                      >
-                        Save
-                      </button>
-                      <button onClick={() => setEditingId(undefined)} className="text-xs text-slate-400 hover:underline">
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button onClick={() => startEdit(u)} className="text-xs text-brand-700 dark:text-brand-300 hover:underline">
-                      Edit
-                    </button>
-                  )}
+            {!isLoading && displayUsers.length === 0 && (
+              <tr>
+                <td colSpan={9} className="px-4 py-8 text-center text-sm" style={{ color: "var(--text-faint)" }}>
+                  No active users found.
                 </td>
               </tr>
+            )}
+            {displayUsers.map((u) => {
+              const isEditing = editingId === u.id;
+              const hasAdminRole = u.roles?.some((r: any) => r.name === 'Admin');
+              const adminRoleObj = u.roles?.find((r: any) => r.name === 'Admin');
+
+              return (
+                <tr key={u.id} style={{ borderBottom: "1px solid var(--neu-dark)" }} className="hover:bg-[rgba(37,99,235,0.03)] transition-colors">
+                  {/* Name */}
+                  <td className="px-4 py-3 font-semibold min-w-[130px]" style={{ color: "var(--text-primary)" }}>
+                    {isEditing ? (
+                      <input value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full neu-input !py-1 text-sm" />
+                    ) : (
+                      <span className="break-words leading-snug">{u.full_name}</span>
+                    )}
+                  </td>
+
+                  {/* Email */}
+                  <td className="px-4 py-3 min-w-[170px]" style={{ color: "var(--text-muted)" }}>
+                    <span className="break-all text-xs">{u.email}</span>
+                  </td>
+
+                  {/* Region */}
+                  <td className="px-4 py-3 min-w-[120px]" style={{ color: "var(--text-muted)" }}>
+                    {isEditing ? (
+                      <CountryStateSelect country={editCountry} state={editState} onCountryChange={setEditCountry} onStateChange={setEditState} />
+                    ) : (
+                      <span className="text-xs">{u.work_country}{u.work_state ? `, ${u.work_state}` : ''}</span>
+                    )}
+                  </td>
+
+                  {/* Reports to */}
+                  <td className="px-4 py-3 min-w-[110px]" style={{ color: "var(--text-muted)" }}>
+                    <span className="text-xs break-words leading-snug">{(users as any[])?.find((m) => m.id === u.manager_id)?.full_name ?? '—'}</span>
+                  </td>
+
+                  {/* Roles */}
+                  <td className="px-4 py-3 min-w-[100px]">
+                    <div className="flex flex-wrap gap-1">
+                      {u.roles?.map((r: any) => {
+                        const isAdmin = r.name === 'Admin';
+                        return (
+                          <span
+                            key={r.id}
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                            style={isAdmin
+                              ? { background: "rgba(37,99,235,0.12)", color: "#2563EB" }
+                              : { background: "var(--neu-dark)", color: "var(--text-muted)" }}
+                          >
+                            {isAdmin && <ShieldCheck className="w-3 h-3" />}
+                            {r.name}
+                            <button onClick={() => removeRole.mutate({ userId: u.id, roleId: r.id })} className="ml-0.5 hover:text-red-500" title={`Remove ${r.name}`}>
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </td>
+
+                  {/* Admin Access */}
+                  <td className="px-4 py-3 min-w-[120px]">
+                    {hasAdminRole ? (
+                      <button
+                        type="button"
+                        onClick={() => adminRoleObj && removeRole.mutate({ userId: u.id, roleId: adminRoleObj.id })}
+                        disabled={removeRole.isPending}
+                        className="inline-flex items-center gap-1.5 btn-danger !py-1 !px-2.5 !text-xs !rounded-lg disabled:opacity-50"
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        Revoke Admin
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => adminRole && assignRole.mutate({ userId: u.id, roleId: adminRole.id })}
+                        disabled={assignRole.isPending || !adminRole}
+                        className="inline-flex items-center gap-1.5 btn-neu !py-1 !px-2.5 !text-xs !rounded-lg disabled:opacity-50"
+                        style={{ color: "#7c3aed" }}
+                      >
+                        <Shield className="w-3.5 h-3.5" />
+                        Grant Admin
+                      </button>
+                    )}
+                  </td>
+
+                  {/* Assign Role */}
+                  <td className="px-4 py-3 min-w-[200px]">
+                    <div className="flex items-center gap-2">
+                      <NeuSelect
+                        value={roleToAssign[u.id] ?? ''}
+                        onChange={(v) => setRoleToAssign((prev) => ({ ...prev, [u.id]: v }))}
+                        options={(roles ?? []).map((r) => ({ value: r.id, label: r.name }))}
+                        placeholder="Select role…"
+                        compact
+                        style={{ minWidth: '120px', flex: 1 }}
+                      />
+                      <button
+                        onClick={() => {
+                          const selectedRoleId = roleToAssign[u.id];
+                          if (!selectedRoleId) return;
+                          const roleObj = roles?.find((r) => r.id === selectedRoleId);
+                          const isSelectedAdmin = roleObj?.name === 'Admin';
+                          assignRole.mutate({
+                            userId: u.id,
+                            roleId: selectedRoleId,
+                            departmentId: isSelectedAdmin ? undefined : u.primary_department_id,
+                          });
+                          setRoleToAssign((prev) => ({ ...prev, [u.id]: '' }));
+                        }}
+                        className="btn-primary !py-1 !px-2.5 !text-xs shrink-0"
+                      >
+                        Assign
+                      </button>
+                    </div>
+                  </td>
+
+
+                  {/* Status */}
+                  <td className="px-4 py-3 min-w-[130px]">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                        style={u.is_active
+                          ? { background: "rgba(16,185,129,0.1)", color: "#10b981" }
+                          : { background: "var(--neu-dark)", color: "var(--text-faint)" }}
+                      >
+                        {u.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setUserToDelete({ id: u.id, fullName: u.full_name })}
+                        disabled={deleteUser.isPending}
+                        className="text-xs font-medium disabled:opacity-50 hover:underline flex items-center gap-1"
+                        style={{ color: "#ef4444" }}
+                        title={`Delete ${u.full_name}`}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+
+                  {/* Edit */}
+                  <td className="px-4 py-3 min-w-[80px] text-right">
+                    {isEditing ? (
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => saveEdit(u.id)} disabled={updateUser.isPending} className="text-xs font-semibold disabled:opacity-50" style={{ color: "#2563EB" }}>Save</button>
+                        <button onClick={() => setEditingId(undefined)} className="text-xs" style={{ color: "var(--text-faint)" }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => startEdit(u)} className="text-xs font-semibold hover:underline" style={{ color: "#2563EB" }}>Edit</button>
+                    )}
+                  </td>
+                </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      {/* Delete User Confirmation Modal */}
+      {userToDelete && (
+        <ConfirmDialog
+          title="Delete User"
+          message={`Are you sure you want to permanently delete "${userToDelete.fullName}"? All tasks created by this user will be preserved and reassigned, assigned tasks will be unassigned, and this user account will be permanently removed. This action cannot be undone.`}
+          confirmLabel={deleteUser.isPending ? "Deleting…" : "Delete User"}
+          variant="danger"
+          onConfirm={async () => {
+            const id = userToDelete.id;
+            setDeletedIds((prev) => [...prev, id]);
+            setUserToDelete(null);
+            await deleteUser.mutateAsync(id);
+          }}
+          onCancel={() => setUserToDelete(null)}
+        />
+      )}
     </div>
   );
 }

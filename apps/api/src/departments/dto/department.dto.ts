@@ -42,5 +42,5 @@ export class UpdateDepartmentDto {
   /// elsewhere.
   @IsOptional()
   @IsUUID()
-  head_user_id?: string;
+  head_user_id?: string | null;
 }

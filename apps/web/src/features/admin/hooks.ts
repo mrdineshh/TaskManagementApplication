@@ -22,6 +22,9 @@ export function useUpdateDepartment() {
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiClient.departments.update(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['departments'] });
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['roles'] });
       toast.success('Department updated');
     },
   });
@@ -68,7 +71,10 @@ export function useDeleteRole() {
 
 // --- Users ---
 export function useUsersAdmin() {
-  return useQuery({ queryKey: ['admin-users'], queryFn: () => apiClient.users.list() });
+  return useQuery({
+    queryKey: ['admin-users'],
+    queryFn: () => apiClient.users.list({ is_active: true }),
+  });
 }
 export function useInviteUser() {
   const qc = useQueryClient();
@@ -108,6 +114,35 @@ export function useDeactivateUser() {
     },
   });
 }
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.users.delete(id),
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['admin-users'] });
+      const previousUsers = qc.getQueryData(['admin-users']);
+      qc.setQueryData(['admin-users'], (old: any) =>
+        Array.isArray(old) ? old.filter((u: any) => u.id !== id) : old
+      );
+      return { previousUsers };
+    },
+    onError: (_err: any, _id: string, context: any) => {
+      if (context?.previousUsers) {
+        qc.setQueryData(['admin-users'], context.previousUsers);
+      }
+      toast.error('Failed to delete user');
+    },
+    onSuccess: (_data, id) => {
+      qc.setQueryData(['admin-users'], (old: any) =>
+        Array.isArray(old) ? old.filter((u: any) => u.id !== id) : old
+      );
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('User deleted successfully');
+    },
+  });
+}
 export function useAssignRole() {
   const qc = useQueryClient();
   return useMutation({
@@ -115,6 +150,9 @@ export function useAssignRole() {
       apiClient.roles.assignToUser(userId, roleId, departmentId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-users'] });
+      qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['roles'] });
+      qc.invalidateQueries({ queryKey: ['departments'] });
       toast.success('Role assigned');
     },
   });
@@ -125,7 +163,23 @@ export function useRemoveRole() {
     mutationFn: ({ userId, roleId }: { userId: string; roleId: string }) => apiClient.roles.removeFromUser(userId, roleId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-users'] });
+      qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['roles'] });
+      qc.invalidateQueries({ queryKey: ['departments'] });
       toast.success('Role removed');
+    },
+  });
+}
+
+export function useCleanupNonAdminUsers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.users.cleanupNonAdminUsers(),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['dashboards'] });
+      toast.success(result.message ?? `Deleted ${result.deleted} users and their data`);
     },
   });
 }

@@ -36,6 +36,12 @@ import type {
   LeaderboardEntry,
   ScorecardConfig,
   ScorecardWeights,
+  TaskActionRequest,
+  TaskReview,
+  TaskReviewAttachment,
+  TaskReviewDecision,
+  ReviewAttachmentUpload,
+  ReviewActionInput,
 } from '@taskapp/shared-types';
 
 export class ApiError extends Error {
@@ -208,7 +214,10 @@ export function createApiClient(config: ApiClientConfig) {
         role_ids?: string[];
       }) => request('POST', '/users', data),
       update: (id: string, data: Record<string, unknown>) => request('PATCH', `/users/${id}`, data),
+      delete: (id: string) => request<{ success: boolean; message?: string }>('DELETE', `/users/${id}`),
       deactivate: (id: string) => request<{ success: boolean }>('DELETE', `/users/${id}`),
+      cleanupNonAdminUsers: () =>
+        request<{ deleted: number; message: string }>('DELETE', '/users/cleanup/all-non-admin'),
     },
     onHoldReasons: {
       list: () => request<OnHoldReason[]>('GET', '/on-hold-reasons'),
@@ -286,6 +295,75 @@ export function createApiClient(config: ApiClientConfig) {
         request<TaskDependency>('POST', `/tasks/${id}/dependencies`, { depends_on_task_id: dependsOnTaskId, type }),
       removeDependency: (id: string, depId: string) => request<{ success: boolean }>('DELETE', `/tasks/${id}/dependencies/${depId}`),
       approvalSteps: (id: string) => request<ApprovalStep[]>('GET', `/tasks/${id}/approval-steps`),
+      bulk: (payload: {
+        ids: string[];
+        action: 'reassign' | 'transition' | 'archive';
+        assignee_id?: string | null;
+        status_id?: string;
+      }) => request<{ succeeded: number; failed: number; results: { id: string; ok: boolean; error?: string }[] }>('POST', '/tasks/bulk', payload),
+      /** Manager review decision — approve (→ done) or request_changes (→ to-do), with optional reference attachments. */
+      reviewAction: (
+        id: string,
+        action: 'approve' | 'request_changes',
+        comment?: string,
+        attachments?: ReviewAttachmentUpload[],
+      ) => request<unknown>('POST', `/tasks/${id}/review-action`, { action, comment, attachments }),
+      getReviews: (id: string) => request<TaskReview[]>('GET', `/tasks/${id}/reviews`),
+      resubmitReview: (id: string, note?: string) =>
+        request<{ success: boolean; message: string }>('POST', `/tasks/${id}/reviews/resubmit`, { note }),
+      /** Employee clock-out — banks the active session time and stops the timer without changing status. */
+      clockOut: (id: string) => request<unknown>('POST', `/tasks/${id}/clock-out`, {}),
+      /** Employee clock-in — resumes the active session timer on an In Progress task. */
+      clockIn: (id: string) => request<unknown>('POST', `/tasks/${id}/clock-in`, {}),
+      archive: (id: string) => request<{ success: boolean; message: string }>('POST', `/tasks/${id}/archive`),
+      unarchive: (id: string) => request<{ success: boolean; message: string }>('POST', `/tasks/${id}/unarchive`),
+      permanentDelete: (id: string) => request<{ success: boolean; message: string }>('DELETE', `/tasks/${id}/permanent`),
+      listArchived: (params?: { department_id?: string; q?: string }) =>
+        request<any[]>('GET', `/tasks/archived${qs(params)}`),
+      requestAction: (id: string, actionType: 'archive' | 'delete', reason?: string) =>
+        request<TaskActionRequest>('POST', `/tasks/${id}/action-requests`, { action_type: actionType, reason }),
+      getActionRequest: (id: string) =>
+        request<TaskActionRequest | null>('GET', `/tasks/${id}/action-request`),
+      listPendingActionRequests: () =>
+        request<TaskActionRequest[]>('GET', '/tasks/action-requests/pending'),
+      decideActionRequest: (id: string, decision: 'approved' | 'rejected', reviewerNote?: string) =>
+        request<{ success: boolean; decision: string }>('POST', `/tasks/action-requests/${id}/decide`, { decision, reviewer_note: reviewerNote }),
+      /** Timesheet — aggregated time-log summary per task (one row per task). Role-scoped automatically. */
+      timesheetRows: (params?: { department_id?: string; from?: string; to?: string; user_id?: string }) =>
+        request<{
+          id: string;
+          title: string;
+          assignee_id: string | null;
+          assignee_name: string | null;
+          assignee_email: string | null;
+          department_id: string | null;
+          department_name: string | null;
+          status: { id: string; label: string; color: string | null; category: string } | null;
+          priority: { id: string; label: string; color: string | null } | null;
+          start_date: string | null;
+          due_date: string | null;
+          created_at: string;
+          total_logged_minutes: number;
+        }[]>('GET', `/tasks/timesheet${qs(params)}`),
+      /** Per-employee drilldown — all tasks + expanded time-log entries for one user. */
+      employeeTimesheetDetail: (userId: string, params?: { department_id?: string; from?: string; to?: string }) =>
+        request<{
+          id: string;
+          title: string;
+          description: string | null;
+          assignee_id: string | null;
+          assignee_name: string | null;
+          assignee_email: string | null;
+          department_name: string | null;
+          status: { id: string; label: string; color: string | null; category: string } | null;
+          priority: { id: string; label: string; color: string | null } | null;
+          start_date: string | null;
+          due_date: string | null;
+          created_at: string;
+          effort_estimate_minutes: number | null;
+          total_logged_minutes: number;
+          time_logs: { id: string; minutes: number; note: string | null; logged_at: string; created_at: string }[];
+        }[]>('GET', `/tasks/timesheet/employee/${encodeURIComponent(userId)}${qs(params)}`),
     },
     approvalSteps: {
       decide: (id: string, decision: 'approved' | 'rejected', comment?: string) =>
@@ -361,6 +439,17 @@ export function createApiClient(config: ApiClientConfig) {
       update: (reportId: string, scheduleId: string, data: Partial<Omit<ReportSchedule, 'id' | 'saved_report_id' | 'last_run_at'>>) =>
         request<ReportSchedule>('PATCH', `/reports/${reportId}/schedules/${scheduleId}`, data),
       remove: (reportId: string, scheduleId: string) => request<{ success: boolean }>('DELETE', `/reports/${reportId}/schedules/${scheduleId}`),
+    },
+    bugReports: {
+      /** Submit a bug report. Any authenticated user can call this. Reports stored in DB only. */
+      submit: (description: string, pageUrl?: string, screenshotBase64?: string) =>
+        request<{ success: boolean; message: string }>('POST', '/bug-reports', {
+          description,
+          page_url: pageUrl,
+          screenshot_base64: screenshotBase64,
+        }),
+      /** List all bug reports — admin only (user.manage permission required). */
+      list: () => request<unknown[]>('GET', '/bug-reports'),
     },
   };
 }

@@ -70,7 +70,7 @@ export class IntegrationSettingsController {
   @RequirePermission('integration_settings.manage')
   async test(@Param('key') key: string) {
     if (key === 'smtp') {
-      await this.mail.send('test@example.com', 'Task Management test email', 'This is a test.');
+      await this.mail.send('test@example.com', 'Pulse test email', 'This is a test.');
       return { success: true, message: 'Test email dispatched (see server logs if SMTP send is mocked).' };
     }
     return { success: false, message: `No test handler for integration "${key}"` };

@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AccessTokenPayload } from '../auth/auth.service';
@@ -7,7 +7,8 @@ import { decodeCursor, encodeCursor } from '../common/cursor-pagination.util';
 import { isOverdueOnBusinessDay } from '../common/business-days.util';
 import { HolidayCalendarsService } from '../holiday-calendars/holiday-calendars.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import type { CreateTaskDto, TaskListQueryDto, UpdateTaskDto } from './dto/task.dto';
+import { StorageService } from '../storage/storage.service';
+import type { CreateTaskDto, ReviewAttachmentItemDto, TaskListQueryDto, UpdateTaskDto } from './dto/task.dto';
 
 interface Cursor {
   id: string;
@@ -15,12 +16,65 @@ interface Cursor {
 }
 
 @Injectable()
-export class TasksService {
+export class TasksService implements OnApplicationBootstrap {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly holidayCalendars: HolidayCalendarsService,
+    private readonly storage: StorageService,
   ) {}
+
+  async onApplicationBootstrap() {
+    try {
+      await this.ensureDefaultWorkflowStatuses();
+    } catch (err) {
+      console.warn('[TasksService] ensureDefaultWorkflowStatuses bootstrap error:', err);
+    }
+  }
+
+  /**
+   * True for Admin, Management, Head, Manager roles (any role that has task.delete).
+   * Employees do NOT have task.delete, making this the clean dividing line.
+   * Used to scope read/write operations so employees only act on their own tasks.
+   */
+  private isManagerOrAbove(user: AccessTokenPayload): boolean {
+    return user.hasOrgWideRole || user.permissions.includes('task.delete');
+  }
+
+  /**
+   * Checks if user has the authority to directly archive or permanently delete a task
+   * without needing an approval request. Follows role-based rules:
+   * 1. Admin (org-wide role) — full authority.
+   * 2. Department Head — in-charge person of the task's department.
+   * 3. Direct Manager of the assignee.
+   * 4. Manager with task.delete in department when department has no head or user is head.
+   */
+  async canDirectlyManageTask(
+    user: AccessTokenPayload,
+    task: { departmentId: string; assigneeId?: string | null },
+  ): Promise<boolean> {
+    if (user.hasOrgWideRole) return true;
+
+    const dept = await this.prisma.department.findUnique({
+      where: { id: task.departmentId },
+      select: { headUserId: true },
+    });
+    if (dept?.headUserId === user.sub) return true;
+
+    if (task.assigneeId) {
+      const assignee = await this.prisma.user.findUnique({
+        where: { id: task.assigneeId },
+        select: { managerId: true },
+      });
+      if (assignee?.managerId === user.sub) return true;
+    }
+
+    if (this.isManagerOrAbove(user) && (!dept?.headUserId || dept.headUserId === user.sub)) {
+      return true;
+    }
+
+    return false;
+  }
 
   async list(user: AccessTokenPayload, query: TaskListQueryDto) {
     const limit = Math.min(query.limit ?? 25, 100);
@@ -45,6 +99,13 @@ export class TasksService {
       ...(query.q ? { title: { contains: query.q, mode: 'insensitive' } } : {}),
     };
 
+    if (query.due_this_week) {
+      const now = new Date();
+      const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      where.dueDate = { gte: now, lte: weekEnd };
+      where.status = { category: { in: ['todo', 'in_progress'] } };
+    }
+
     // Drill-down from a dashboard's "Overdue"/"Over budget" stat (docs/10-OPEN-DECISIONS.md
     // §M5) — same live definition dashboards.controller.ts's computeTaskStats() uses (open
     // tasks only, business-day-overdue as of now / logged minutes over the estimate). Computed
@@ -68,6 +129,7 @@ export class TasksService {
         status: true,
         priority: true,
         assignee: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+        createdBy: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
         department: { select: { id: true, name: true } },
         _count: { select: { subtasks: true } },
       },
@@ -136,17 +198,50 @@ export class TasksService {
         subtasks: { where: { deletedAt: null }, include: { status: true } },
         status: true,
         priority: true,
-        assignee: { select: { id: true, fullName: true, email: true } },
+        // Include managerId so the UI can show review-action controls and so the service
+        // can notify the assignee's manager when the task enters a review status.
+        assignee: { select: { id: true, fullName: true, email: true, managerId: true } },
+        createdBy: { select: { id: true, fullName: true, email: true } },
         department: { select: { id: true, name: true } },
       },
     });
     if (!task) throw new NotFoundException('Task not found');
-    assertDepartmentScope(user, task.departmentId);
-    return task;
+    assertDepartmentScope(user, task.departmentId, task.assigneeId);
+
+    // Compute true total from all logged sessions so manual logs and auto-logs are 100% unified
+    const totalLoggedMinutes = await this.sumTimeLogMinutes(task.id);
+    if (task.totalLoggedMinutes !== totalLoggedMinutes) {
+      this.prisma.task.update({ where: { id }, data: { totalLoggedMinutes } }).catch(() => {});
+    }
+
+    // Attach computed estimate_minutes so clients don't need to do unit math themselves.
+    const estimateMinutes =
+      task.estimateValue !== null && task.estimateUnit !== null
+        ? task.estimateUnit === 'days'
+          ? Math.round(task.estimateValue * 8 * 60)
+          : Math.round(task.estimateValue * 60)
+        : null;
+    return {
+      ...task,
+      timerStartedAt: task.timerStartedAt,
+      timer_started_at: task.timerStartedAt ? task.timerStartedAt.toISOString() : null,
+      totalLoggedMinutes,
+      total_logged_minutes: totalLoggedMinutes,
+      estimate_minutes: estimateMinutes,
+    };
   }
 
   async create(user: AccessTokenPayload, dto: CreateTaskDto) {
     assertDepartmentScope(user, dto.department_id);
+
+    // Regular employees can only create tasks assigned to themselves or unassigned.
+    // Assigning to other users requires task.assign or manager role.
+    const canAssignOthers = this.isManagerOrAbove(user) || user.permissions.includes('task.assign');
+    if (!canAssignOthers && dto.assignee_id && dto.assignee_id !== user.sub) {
+      throw new ForbiddenException(
+        'Employees can only create tasks assigned to themselves. Manager or Admin permission is required to assign tasks to other team members.',
+      );
+    }
 
     const workflow = dto.workflow_id
       ? await this.prisma.workflowDefinition.findUniqueOrThrow({ where: { id: dto.workflow_id } })
@@ -204,6 +299,10 @@ export class TasksService {
   async update(user: AccessTokenPayload, id: string, dto: UpdateTaskDto) {
     const existing = await this.get(user, id);
 
+    if (!this.isManagerOrAbove(user) && existing.assigneeId !== user.sub) {
+      throw new ForbiddenException('You cannot modify tasks assigned to other employees');
+    }
+
     const task = await this.prisma.task.update({
       where: { id },
       data: {
@@ -213,8 +312,12 @@ export class TasksService {
         dueDate: dto.due_date === undefined ? undefined : dto.due_date ? new Date(dto.due_date) : null,
         startDate: dto.start_date === undefined ? undefined : dto.start_date ? new Date(dto.start_date) : null,
         slaPolicyId: dto.sla_policy_id === undefined ? undefined : dto.sla_policy_id,
+        // RecurrenceWidget (plan §1.6) fields — only applied when present in the payload.
+        ...(dto.is_recurring !== undefined && { isRecurring: dto.is_recurring }),
+        ...(dto.recurrence_rule !== undefined && { recurrenceRule: dto.recurrence_rule }),
       },
     });
+
 
     if (dto.custom_field_values) {
       await this.upsertCustomFieldValues(id, existing.departmentId, dto.custom_field_values);
@@ -225,15 +328,282 @@ export class TasksService {
   }
 
   async remove(user: AccessTokenPayload, id: string) {
-    const existing = await this.get(user, id);
-    await this.prisma.task.update({ where: { id: existing.id }, data: { deletedAt: new Date() } });
-    await this.logActivity(id, user.sub, 'deleted', {});
-    return { success: true };
+    return this.archive(user, id);
+  }
+
+  async archive(user: AccessTokenPayload, id: string) {
+    const task = await this.prisma.task.findUnique({
+      where: { id },
+      include: { department: true, assignee: true },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+    assertDepartmentScope(user, task.departmentId, task.assigneeId);
+
+    const canManage = await this.canDirectlyManageTask(user, task);
+    if (!canManage) {
+      throw new ForbiddenException(
+        'Employees cannot directly archive tasks. Please submit an archive request to your manager.',
+      );
+    }
+
+    await this.prisma.task.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+    await this.logActivity(id, user.sub, 'archived', {});
+    return { success: true, message: 'Task archived successfully' };
+  }
+
+  async unarchive(user: AccessTokenPayload, id: string) {
+    const task = await this.prisma.task.findUnique({
+      where: { id },
+      include: { department: true },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+    assertDepartmentScope(user, task.departmentId, task.assigneeId);
+
+    const isOwner = task.assigneeId === user.sub || task.createdById === user.sub;
+    const canManage = await this.canDirectlyManageTask(user, task);
+    if (!canManage && !isOwner) {
+      throw new ForbiddenException('You do not have permission to unarchive this task.');
+    }
+
+    await this.prisma.task.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+    await this.logActivity(id, user.sub, 'unarchived', {});
+    return { success: true, message: 'Task unarchived successfully' };
+  }
+
+  async permanentDelete(user: AccessTokenPayload, id: string) {
+    const task = await this.prisma.task.findUnique({
+      where: { id },
+      include: { department: true, assignee: true },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+    assertDepartmentScope(user, task.departmentId, task.assigneeId);
+
+    const canManage = await this.canDirectlyManageTask(user, task);
+    if (!canManage) {
+      throw new ForbiddenException(
+        'Only managers, department heads, or admins can permanently delete tasks. Employees must submit a delete request.',
+      );
+    }
+
+    await this.prisma.task.delete({ where: { id } });
+    return { success: true, message: 'Task permanently deleted from database' };
+  }
+
+  async listArchived(user: AccessTokenPayload, departmentId?: string, query?: string) {
+    const where: Prisma.TaskWhereInput = {
+      deletedAt: { not: null },
+    };
+
+    if (departmentId) {
+      where.departmentId = departmentId;
+    } else if (!user.hasOrgWideRole) {
+      where.departmentId = { in: user.departmentIds };
+    }
+
+    if (query) {
+      where.title = { contains: query, mode: 'insensitive' };
+    }
+
+    return this.prisma.task.findMany({
+      where,
+      orderBy: { deletedAt: 'desc' },
+      include: {
+        department: { select: { id: true, name: true } },
+        status: { select: { id: true, label: true, color: true } },
+        priority: { select: { id: true, label: true, color: true } },
+        assignee: { select: { id: true, fullName: true, email: true } },
+        createdBy: { select: { id: true, fullName: true } },
+      },
+    });
+  }
+
+  async requestAction(
+    user: AccessTokenPayload,
+    taskId: string,
+    actionType: 'archive' | 'delete',
+    reason?: string,
+  ) {
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      include: { assignee: true, department: true },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+    assertDepartmentScope(user, task.departmentId, task.assigneeId);
+
+    const existingRequest = await this.prisma.taskActionRequest.findFirst({
+      where: { taskId, status: 'pending' },
+    });
+    if (existingRequest) {
+      throw new BadRequestException(
+        `There is already a pending ${existingRequest.actionType} request for this task.`,
+      );
+    }
+
+    const request = await this.prisma.taskActionRequest.create({
+      data: {
+        taskId,
+        actionType,
+        requesterId: user.sub,
+        reason,
+        status: 'pending',
+      },
+      include: {
+        requester: { select: { id: true, fullName: true, email: true } },
+        task: { select: { id: true, title: true, departmentId: true } },
+      },
+    });
+
+    await this.logActivity(taskId, user.sub, 'action_requested', {
+      actionType,
+      requestId: request.id,
+      reason,
+    });
+
+    // Notify manager or department head
+    const targetUserId = task.assignee?.managerId ?? task.department?.headUserId;
+    if (targetUserId && targetUserId !== user.sub) {
+      const requester = await this.prisma.user.findUnique({
+        where: { id: user.sub },
+        select: { fullName: true },
+      });
+      await this.notifications.notify(targetUserId, 'task_action_requested', {
+        taskId,
+        taskTitle: task.title,
+        actionType,
+        requesterName: requester?.fullName ?? user.email,
+      });
+    }
+
+    return request;
+  }
+
+  async decideActionRequest(
+    user: AccessTokenPayload,
+    requestId: string,
+    decision: 'approved' | 'rejected',
+    reviewerNote?: string,
+  ) {
+    const req = await this.prisma.taskActionRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        task: { include: { department: true, assignee: true } },
+        requester: true,
+      },
+    });
+    if (!req) throw new NotFoundException('Action request not found');
+    if (req.status !== 'pending') {
+      throw new BadRequestException('This action request has already been decided.');
+    }
+
+    assertDepartmentScope(user, req.task.departmentId, req.task.assigneeId);
+
+    const canManage = await this.canDirectlyManageTask(user, req.task);
+    if (!canManage) {
+      throw new ForbiddenException(
+        'Only managers, department heads, or admins can decide this request.',
+      );
+    }
+
+    await this.prisma.taskActionRequest.update({
+      where: { id: requestId },
+      data: {
+        status: decision,
+        reviewerId: user.sub,
+        reviewerNote,
+        decidedAt: new Date(),
+      },
+    });
+
+    if (decision === 'approved') {
+      if (req.actionType === 'archive') {
+        await this.prisma.task.update({
+          where: { id: req.taskId },
+          data: { deletedAt: new Date() },
+        });
+        await this.logActivity(req.taskId, user.sub, 'archived', { approvedRequestId: req.id });
+      } else if (req.actionType === 'delete') {
+        await this.prisma.task.delete({ where: { id: req.taskId } });
+      }
+    }
+
+    if (req.requesterId && req.requesterId !== user.sub) {
+      await this.notifications.notify(req.requesterId, 'task_action_decided', {
+        taskId: req.taskId,
+        taskTitle: req.task.title,
+        decision,
+        actionType: req.actionType,
+      });
+    }
+
+    return { success: true, decision };
+  }
+
+  async listPendingActionRequests(user: AccessTokenPayload) {
+    const where: Prisma.TaskActionRequestWhereInput = {
+      status: 'pending',
+    };
+
+    if (!user.hasOrgWideRole) {
+      where.task = {
+        departmentId: { in: user.departmentIds },
+      };
+    }
+
+    return this.prisma.taskActionRequest.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        requester: { select: { id: true, fullName: true, email: true } },
+        task: {
+          select: {
+            id: true,
+            title: true,
+            departmentId: true,
+            department: { select: { id: true, name: true } },
+            status: { select: { id: true, label: true, color: true } },
+            assignee: { select: { id: true, fullName: true, email: true } },
+          },
+        },
+      },
+    });
+  }
+
+  async getActionRequestForTask(user: AccessTokenPayload, taskId: string) {
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      select: { departmentId: true, assigneeId: true },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+    assertDepartmentScope(user, task.departmentId, task.assigneeId);
+
+    return this.prisma.taskActionRequest.findFirst({
+      where: { taskId, status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        requester: { select: { id: true, fullName: true, email: true } },
+      },
+    });
   }
 
   async assign(user: AccessTokenPayload, id: string, assigneeId: string | null) {
     const existing = await this.get(user, id);
     const previousAssigneeId = existing.assigneeId;
+
+    // Self-assignment is allowed for any employee in the department for unassigned tasks.
+    // Reassigning to other users or unassigning requires being the task creator or a manager/admin.
+    const isCreator = existing.createdById === user.sub;
+    const canAssignOthers = this.isManagerOrAbove(user) || isCreator;
+    if (!canAssignOthers && assigneeId !== user.sub) {
+      throw new ForbiddenException(
+        'Only the task creator or a manager/admin can reassign this task to other team members.',
+      );
+    }
 
     const task = await this.prisma.task.update({ where: { id }, data: { assigneeId } });
     await this.logActivity(id, user.sub, 'reassigned', { from: previousAssigneeId, to: assigneeId });
@@ -259,9 +629,32 @@ export class TasksService {
   async transition(user: AccessTokenPayload, id: string, toStatusId: string, onHoldReasonId?: string) {
     const existing = await this.get(user, id);
 
-    const transition = await this.prisma.workflowTransition.findFirst({
+    // Employees can only move tasks that are assigned to them.
+    if (!this.isManagerOrAbove(user) && existing.assigneeId !== user.sub) {
+      throw new ForbiddenException(
+        'You can only change the status of tasks that are assigned to you.',
+      );
+    }
+
+    let transition = await this.prisma.workflowTransition.findFirst({
       where: { workflowId: existing.workflowId, fromStatusId: existing.statusId, toStatusId },
     });
+    if (!transition) {
+      const toStatusCandidate = await this.prisma.workflowStatus.findFirst({
+        where: { workflowId: existing.workflowId, id: toStatusId },
+      });
+      if (toStatusCandidate) {
+        transition = await this.prisma.workflowTransition
+          .create({
+            data: {
+              workflowId: existing.workflowId,
+              fromStatusId: existing.statusId,
+              toStatusId,
+            },
+          })
+          .catch(() => null);
+      }
+    }
     if (!transition) {
       throw new BadRequestException('No such transition is allowed from the task\'s current status');
     }
@@ -281,15 +674,6 @@ export class TasksService {
       if (!reason || !reason.isActive) {
         throw new BadRequestException('on_hold_reason_id does not reference an active, existing reason');
       }
-    }
-
-    // Effort estimate gate (§H2) — mandatory before work starts, set by the assignee via
-    // POST /tasks/:id/estimate, never by this endpoint. Gated on requiresEstimateBeforeEntry,
-    // NOT category === 'in_progress' — that category also covers On Hold/Blocked/In Review,
-    // none of which should demand a fresh estimate (hit live: pausing an un-started task via
-    // On Hold was incorrectly blocked by a category-based check).
-    if (toStatus.requiresEstimateBeforeEntry && existing.estimateValue === null) {
-      throw new BadRequestException('An effort estimate is required before starting work on this task.');
     }
 
     // Hard block on open subtasks — unlike getOpenBlockers()'s soft warning for task
@@ -319,6 +703,18 @@ export class TasksService {
     return { ...task, warnings: openBlockers.length ? { open_blockers: openBlockers } : undefined };
   }
 
+  private isReviewStatus(status: { isReviewStatus?: boolean | null; key?: string | null; label?: string | null }): boolean {
+    return Boolean(
+      status.isReviewStatus ||
+      status.key === 'in_review' ||
+      (status.label && status.label.toLowerCase().includes('review'))
+    );
+  }
+
+  private isInProgressStatus(status: { category?: string | null; isReviewStatus?: boolean | null; key?: string | null; label?: string | null }): boolean {
+    return status.category === 'in_progress' && !this.isReviewStatus(status);
+  }
+
   /**
    * Shared by transition() and the approval-decide path — actually moves the task to a new
    * status. onHoldReasonId is only meaningful when called from transition(); the
@@ -329,14 +725,62 @@ export class TasksService {
   private async applyStatusChange(id: string, toStatusId: string, actorId: string, onHoldReasonId?: string) {
     const before = await this.prisma.task.findUniqueOrThrow({ where: { id } });
     const toStatus = await this.prisma.workflowStatus.findUniqueOrThrow({ where: { id: toStatusId } });
+
+    const wasRunning = before.timerStartedAt !== null;
+    const isEnteringReview = this.isReviewStatus(toStatus);
+    const isEnteringInProgress = this.isInProgressStatus(toStatus);
+
+    let sessionMinutes = 0;
+    let newTotalLogged = before.totalLoggedMinutes;
+
+    // ── Timer lifecycle ────────────────────────────────────────────────────────
+    // When timer was running and task is moving OUT of active in-progress (into review, on hold, todo, done, etc.):
+    // Stop the timer and bank elapsed session time into TimeLog.
+    if (wasRunning && !isEnteringInProgress) {
+      const elapsedMs = Date.now() - before.timerStartedAt!.getTime();
+      // If at least 15 seconds elapsed, bank at least 1 minute so work isn't lost
+      if (elapsedMs >= 15000) {
+        sessionMinutes = Math.max(1, Math.round(elapsedMs / 60000));
+      } else {
+        sessionMinutes = 0;
+      }
+
+      if (sessionMinutes > 0) {
+        const note = isEnteringReview
+          ? 'Auto-logged: submitted for review'
+          : `Auto-logged: paused work (${toStatus.label})`;
+
+        await this.prisma.timeLog.create({
+          data: {
+            taskId: id,
+            userId: before.assigneeId ?? actorId,
+            minutes: sessionMinutes,
+            note,
+            loggedAt: new Date(),
+          },
+        });
+        await this.logActivity(id, actorId, 'time_logged', { minutes: sessionMinutes, note });
+      }
+
+      // Re-sum all time logs to have the exact true total
+      newTotalLogged = await this.sumTimeLogMinutes(id);
+    } else if (!wasRunning) {
+      // Keep totalLoggedMinutes in sync with actual TimeLog sum
+      newTotalLogged = await this.sumTimeLogMinutes(id);
+    }
+
     const task = await this.prisma.task.update({
       where: { id },
       data: {
         statusId: toStatusId,
         completedAt: toStatus.category === 'done' ? new Date() : null,
         onHoldReasonId: toStatus.requiresHoldReason ? onHoldReasonId : null,
+        // Start or resume timer when entering in_progress (and not review)
+        timerStartedAt: isEnteringInProgress ? (wasRunning ? before.timerStartedAt : new Date()) : null,
+        totalLoggedMinutes: newTotalLogged,
       },
     });
+    // ── End timer lifecycle ────────────────────────────────────────────────────
 
     await this.logActivity(id, actorId, 'status_changed', { from: before.statusId, to: toStatusId });
 
@@ -348,11 +792,366 @@ export class TasksService {
       await this.notifications.notify(task.createdById, 'task_on_hold', { taskId: id, taskTitle: task.title });
     }
 
+    // When entering a review status: notify the assignee's manager, department head, and higher roles.
+    if (isEnteringReview) {
+      await this.notifyReviewersOfSubmission(task, actorId);
+    }
+
     if (toStatus.category === 'done' && task.isRecurring && task.recurrenceRule) {
       await this.generateNextOccurrence(task);
     }
 
-    return task;
+    return {
+      ...task,
+      timerStartedAt: task.timerStartedAt,
+      timer_started_at: task.timerStartedAt ? task.timerStartedAt.toISOString() : null,
+      totalLoggedMinutes: task.totalLoggedMinutes,
+      total_logged_minutes: task.totalLoggedMinutes,
+    };
+  }
+
+  // ── Review actions (manager/head/admin only) ────────────────────────────────
+
+  /**
+   * Manager-facing review decision on a task that is currently in a review-gate status.
+   * - approve: moves to the first 'done' status in the workflow, resolves active reviews.
+   * - request_changes: moves back to the first 'todo' status, records a TaskReview with
+   *   mandatory comments and optional reference attachments, and notifies the assignee.
+   */
+  async reviewAction(
+    user: AccessTokenPayload,
+    taskId: string,
+    action: 'approve' | 'request_changes',
+    comment?: string,
+    attachments?: ReviewAttachmentItemDto[],
+  ) {
+    if (!this.isManagerOrAbove(user)) {
+      throw new ForbiddenException('Only managers and above can approve or request changes on tasks.');
+    }
+    if (action === 'request_changes' && (!comment || !comment.trim())) {
+      throw new BadRequestException('A comment explaining what needs to change is required when requesting changes.');
+    }
+
+    const task = await this.get(user, taskId);
+
+    // Verify the task is currently in a review-gate status.
+    const currentStatus = await this.prisma.workflowStatus.findUniqueOrThrow({ where: { id: task.statusId } });
+    if (!this.isReviewStatus(currentStatus)) {
+      throw new BadRequestException('This task is not currently in a review status.');
+    }
+
+    // Find target status in the same workflow.
+    const targetCategory = action === 'approve' ? 'done' : 'todo';
+    const targetStatus = await this.prisma.workflowStatus.findFirst({
+      where: { workflowId: task.workflowId, category: targetCategory },
+      orderBy: { displayOrder: 'asc' },
+    });
+    if (!targetStatus) {
+      throw new BadRequestException(`No '${targetCategory}' status found in this workflow.`);
+    }
+
+    // Apply the status change (this also handles timer/TimeLog cleanup).
+    await this.applyStatusChange(taskId, targetStatus.id, user.sub);
+
+    // Create the formal TaskReview record
+    const review = await this.prisma.taskReview.create({
+      data: {
+        taskId,
+        reviewerId: user.sub,
+        decision: action === 'approve' ? 'approved' : 'changes_requested',
+        feedback: comment?.trim() || (action === 'approve' ? 'Approved and marked Done' : 'Changes requested'),
+        status: action === 'request_changes' ? 'active' : 'resolved',
+        resolvedAt: action === 'approve' ? new Date() : null,
+      },
+    });
+
+    // Save any reference attachments uploaded by the reviewer
+    if (attachments && attachments.length > 0) {
+      for (const att of attachments) {
+        const sanitizedName = att.file_name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storagePath = `review-attachments/${taskId}/${Date.now()}-${sanitizedName}`;
+        try {
+          // Review attachments are uploaded by the client directly via the
+          // POST /tasks/:id/attachments/upload-url → GCS → POST /attachments/:id/confirm
+          // flow (P5-04). The legacy base64 path is no longer supported with GCS.
+          await this.prisma.taskReviewAttachment.create({
+            data: {
+              reviewId: review.id,
+              fileName: att.file_name,
+              storagePath: `review-attachments/${taskId}/${Date.now()}-${att.file_name.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+              mimeType: att.mime_type,
+              sizeBytes: BigInt(att.size_bytes),
+            },
+          });
+        } catch (err) {
+          console.error('[TasksService] Failed to save review attachment:', err);
+        }
+      }
+    }
+
+    // When approving, resolve any older active review requests for this task
+    if (action === 'approve') {
+      await this.prisma.taskReview.updateMany({
+        where: { taskId, status: 'active', id: { not: review.id } },
+        data: { status: 'resolved', resolvedAt: new Date() },
+      });
+    }
+
+    // Notify the assignee of the review outcome
+    if (task.assigneeId) {
+      const reviewer = await this.prisma.user.findUnique({
+        where: { id: user.sub },
+        select: { fullName: true },
+      });
+      const notifType = action === 'approve' ? 'task_approved' : 'review_changes_requested';
+      await this.notifications.notify(task.assigneeId, notifType, {
+        taskId,
+        taskTitle: task.title,
+        reviewerName: reviewer?.fullName ?? 'Manager',
+        reviewAction: action,
+        comment: comment?.trim(),
+        attachmentCount: attachments?.length ?? 0,
+      });
+    }
+
+    await this.logActivity(
+      taskId,
+      user.sub,
+      action === 'approve' ? 'review_approved' : 'review_changes_requested',
+      { action, comment: comment?.trim(), attachmentCount: attachments?.length ?? 0 },
+    );
+
+    return this.get(user, taskId);
+  }
+
+  /**
+   * Fetches all formal review records for a task, with reviewer details and attachments.
+   */
+  async getReviews(user: AccessTokenPayload, taskId: string) {
+    const task = await this.prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) throw new NotFoundException('Task not found');
+    assertDepartmentScope(user, task.departmentId, task.assigneeId);
+
+    const reviews = await this.prisma.taskReview.findMany({
+      where: { taskId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        reviewer: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+        attachments: true,
+      },
+    });
+
+    return Promise.all(reviews.map(async (r) => ({
+      id: r.id,
+      task_id: r.taskId,
+      reviewer_id: r.reviewerId,
+      reviewer: r.reviewer
+        ? {
+            id: r.reviewer.id,
+            full_name: r.reviewer.fullName,
+            email: r.reviewer.email,
+            avatar_url: r.reviewer.avatarUrl,
+          }
+        : undefined,
+      decision: r.decision,
+      feedback: r.feedback,
+      status: r.status,
+      created_at: r.createdAt.toISOString(),
+      resolved_at: r.resolvedAt ? r.resolvedAt.toISOString() : null,
+      attachments: await Promise.all(r.attachments.map(async (a) => ({
+        id: a.id,
+        review_id: a.reviewId,
+        file_name: a.fileName,
+        storage_path: a.storagePath,
+        mime_type: a.mimeType,
+        size_bytes: Number(a.sizeBytes),
+        created_at: a.createdAt.toISOString(),
+        download_url: await this.storage.getDownloadUrl(a.storagePath).catch(() => null),
+      }))),
+    })));
+  }
+
+  /**
+   * Called by an employee when they have finished making requested changes
+   * and want to re-submit the task for manager review.
+   */
+  async resubmitReview(user: AccessTokenPayload, taskId: string, note?: string) {
+    const task = await this.get(user, taskId);
+    if (!this.isManagerOrAbove(user) && task.assigneeId !== user.sub) {
+      throw new ForbiddenException('Only the assignee or a manager can resubmit this task for review.');
+    }
+
+    // Find review status in the workflow
+    const inReviewStatus = await this.prisma.workflowStatus.findFirst({
+      where: { workflowId: task.workflowId, isReviewStatus: true },
+    });
+    if (!inReviewStatus) {
+      throw new BadRequestException('No review status found in this workflow.');
+    }
+
+    // Mark previous active reviews as resolved
+    await this.prisma.taskReview.updateMany({
+      where: { taskId, status: 'active' },
+      data: { status: 'resolved', resolvedAt: new Date() },
+    });
+
+    // Move task to in_review status
+    await this.applyStatusChange(taskId, inReviewStatus.id, user.sub);
+
+    if (note?.trim()) {
+      await this.prisma.taskComment.create({
+        data: { taskId, authorId: user.sub, body: `[Resubmitted for Review]: ${note.trim()}` },
+      });
+    }
+
+    await this.logActivity(taskId, user.sub, 'resubmitted_for_review', { note: note?.trim() });
+
+    return { success: true, message: 'Task resubmitted for review successfully' };
+  }
+
+  private async notifyReviewersOfSubmission(
+    task: { id: string; title: string; departmentId: string; assigneeId?: string | null },
+    actorId: string,
+  ) {
+    const recipients = new Set<string>();
+
+    if (task.assigneeId) {
+      const assignee = await this.prisma.user.findUnique({
+        where: { id: task.assigneeId },
+        select: { id: true, fullName: true, managerId: true },
+      });
+      if (assignee?.managerId && assignee.managerId !== actorId) {
+        recipients.add(assignee.managerId);
+      }
+    }
+
+    // Notify Department Head
+    const department = await this.prisma.department.findUnique({
+      where: { id: task.departmentId },
+      select: { headUserId: true },
+    });
+    if (department?.headUserId && department.headUserId !== actorId) {
+      recipients.add(department.headUserId);
+    }
+
+    // If no direct supervisor or head, alert managers/admins in the department
+    if (recipients.size === 0) {
+      const deptManagers = await this.prisma.user.findMany({
+        where: {
+          id: { not: actorId },
+          isActive: true,
+          OR: [
+            {
+              primaryDepartmentId: task.departmentId,
+              roles: {
+                some: {
+                  role: {
+                    permissions: { some: { permission: { key: 'task.delete' } } },
+                  },
+                },
+              },
+            },
+            {
+              roles: {
+                some: {
+                  role: { isSystemRole: true, name: 'Admin' },
+                },
+              },
+            },
+          ],
+        },
+        select: { id: true },
+        take: 5,
+      });
+      for (const m of deptManagers) {
+        recipients.add(m.id);
+      }
+    }
+
+    const assignee = task.assigneeId
+      ? await this.prisma.user.findUnique({ where: { id: task.assigneeId }, select: { fullName: true } })
+      : null;
+
+    for (const recipientId of recipients) {
+      await this.notifications.notify(recipientId, 'task_submitted_for_review', {
+        taskId: task.id,
+        taskTitle: task.title,
+        assigneeName: assignee?.fullName ?? 'An employee',
+      });
+    }
+  }
+
+  /**
+   * Ensures all workflows have an 'In Review' status flagged as isReviewStatus=true
+   * and the 'In Progress' status flagged as requiresEstimateBeforeEntry=true.
+   * Called from onApplicationBootstrap in the workflow seeder.
+   */
+  async ensureDefaultWorkflowStatuses() {
+    const workflows = await this.prisma.workflowDefinition.findMany({
+      include: { statuses: true, transitions: true },
+    });
+    for (const wf of workflows) {
+      const inProgressStatus = wf.statuses.find((s) => s.key === 'in_progress');
+      let inReviewStatus = wf.statuses.find((s) => s.key === 'in_review' || (s.label && s.label.toLowerCase().includes('review')));
+      const todoStatus = wf.statuses.find((s) => s.key === 'todo');
+      const doneStatus = wf.statuses.find((s) => s.key === 'done');
+
+      // Ensure in_review status exists and has isReviewStatus = true
+      if (!inReviewStatus) {
+        inReviewStatus = await this.prisma.workflowStatus.create({
+          data: {
+            workflowId: wf.id,
+            key: 'in_review',
+            label: 'In Review',
+            category: 'in_progress',
+            displayOrder: (inProgressStatus?.displayOrder ?? 1) + 1,
+            color: '#f59e0b',
+            requiresHoldReason: false,
+            requiresEstimateBeforeEntry: false,
+            isReviewStatus: true,
+          },
+        }).catch(() => undefined);
+      } else if (!inReviewStatus.isReviewStatus) {
+        await this.prisma.workflowStatus.update({
+          where: { id: inReviewStatus.id },
+          data: { isReviewStatus: true },
+        }).catch(() => {});
+      }
+
+      // Ensure essential transitions exist
+      if (inProgressStatus && inReviewStatus) {
+        const hasProgToRev = wf.transitions.some(
+          (t) => t.fromStatusId === inProgressStatus.id && t.toStatusId === inReviewStatus!.id,
+        );
+        if (!hasProgToRev) {
+          await this.prisma.workflowTransition.create({
+            data: { workflowId: wf.id, fromStatusId: inProgressStatus.id, toStatusId: inReviewStatus.id },
+          }).catch(() => {});
+        }
+      }
+
+      if (inReviewStatus && doneStatus) {
+        const hasRevToDone = wf.transitions.some(
+          (t) => t.fromStatusId === inReviewStatus!.id && t.toStatusId === doneStatus.id,
+        );
+        if (!hasRevToDone) {
+          await this.prisma.workflowTransition.create({
+            data: { workflowId: wf.id, fromStatusId: inReviewStatus.id, toStatusId: doneStatus.id },
+          }).catch(() => {});
+        }
+      }
+
+      if (inReviewStatus && todoStatus) {
+        const hasRevToTodo = wf.transitions.some(
+          (t) => t.fromStatusId === inReviewStatus!.id && t.toStatusId === todoStatus.id,
+        );
+        if (!hasRevToTodo) {
+          await this.prisma.workflowTransition.create({
+            data: { workflowId: wf.id, fromStatusId: inReviewStatus.id, toStatusId: todoStatus.id },
+          }).catch(() => {});
+        }
+      }
+    }
   }
 
   // --- Phase 2: effort estimation (docs/10-OPEN-DECISIONS.md §H2) ---
@@ -371,8 +1170,16 @@ export class TasksService {
       if (!isOverride && !withinWindow) {
         throw new ForbiddenException('This estimate is locked (more than 30 minutes old) — ask an Admin to change it.');
       }
-    } else if (!isOverride && task.assigneeId !== user.sub) {
-      throw new ForbiddenException('Only the assignee can submit an effort estimate for this task.');
+    } else if (!isOverride) {
+      // A task with no estimate yet: only the current assignee can submit the first estimate.
+      // If the task is unassigned, only a Manager or above may submit.
+      if (task.assigneeId === null) {
+        if (!this.isManagerOrAbove(user)) {
+          throw new ForbiddenException('Only a Manager can submit an estimate for an unassigned task.');
+        }
+      } else if (task.assigneeId !== user.sub) {
+        throw new ForbiddenException('Only the assignee can submit an effort estimate for this task.');
+      }
     }
 
     const updated = await this.prisma.task.update({
@@ -396,6 +1203,94 @@ export class TasksService {
     return updated;
   }
 
+  /**
+   * Employee clock-out — banks the active session time into a TimeLog and stops the timer
+   * without changing the task's workflow status. The task stays In Progress; the assignee
+   * can restart the timer later by simply transitioning back into In Progress.
+   */
+  async clockOut(user: AccessTokenPayload, taskId: string) {
+    const existing = await this.get(user, taskId);
+
+    if (!this.isManagerOrAbove(user) && existing.assigneeId !== user.sub) {
+      throw new ForbiddenException('You can only clock out of tasks assigned to you.');
+    }
+
+    const before = await this.prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+
+    // Idempotent: if timer is already stopped, nothing to bank.
+    if (before.timerStartedAt === null) {
+      return this.get(user, taskId);
+    }
+
+    // Bank elapsed session time using the same rounding rules as applyStatusChange.
+    const elapsedMs = Date.now() - before.timerStartedAt.getTime();
+    let sessionMinutes = 0;
+    if (elapsedMs >= 15000) {
+      sessionMinutes = Math.max(1, Math.round(elapsedMs / 60000));
+    }
+
+    if (sessionMinutes > 0) {
+      await this.prisma.timeLog.create({
+        data: {
+          taskId,
+          userId: before.assigneeId ?? user.sub,
+          minutes: sessionMinutes,
+          note: 'Auto-logged: employee clocked out',
+          loggedAt: new Date(),
+        },
+      });
+      await this.logActivity(taskId, user.sub, 'time_logged', { minutes: sessionMinutes, note: 'Auto-logged: employee clocked out' });
+    }
+
+    const newTotalLogged = await this.sumTimeLogMinutes(taskId);
+
+    const updated = await this.prisma.task.update({
+      where: { id: taskId },
+      data: { timerStartedAt: null, totalLoggedMinutes: newTotalLogged },
+    });
+
+    await this.notifyIfEffortBudgetCrossed(existing, newTotalLogged - sessionMinutes, newTotalLogged);
+    await this.logActivity(taskId, user.sub, 'clocked_out', {});
+
+    return this.get(user, taskId);
+  }
+
+  /**
+   * Employee clock-in — resumes or starts the live session timer on a task that is currently
+   * in an In Progress status (e.g. after clocking out, or returning to work).
+   * Idempotent: if the timer is already running, returns the task without modification.
+   */
+  async clockIn(user: AccessTokenPayload, taskId: string) {
+    const existing = await this.get(user, taskId);
+
+    if (!this.isManagerOrAbove(user) && existing.assigneeId !== user.sub) {
+      throw new ForbiddenException('You can only clock in to tasks assigned to you.');
+    }
+
+    const before = await this.prisma.task.findUniqueOrThrow({
+      where: { id: taskId },
+      include: { status: true },
+    });
+
+    if (!this.isInProgressStatus(before.status)) {
+      throw new BadRequestException('Clock in is only available for tasks in an In Progress status.');
+    }
+
+    // Idempotent: if timer is already running, return existing task.
+    if (before.timerStartedAt !== null) {
+      return this.get(user, taskId);
+    }
+
+    await this.prisma.task.update({
+      where: { id: taskId },
+      data: { timerStartedAt: new Date() },
+    });
+
+    await this.logActivity(taskId, user.sub, 'clocked_in', { note: 'Employee clocked in' });
+
+    return this.get(user, taskId);
+  }
+
   /** Soft-warning dependency check (docs/10-OPEN-DECISIONS.md B2) — only relevant moving into 'done'. */
   private async getOpenBlockers(taskId: string, toStatusId: string) {
     const toStatus = await this.prisma.workflowStatus.findUnique({ where: { id: toStatusId } });
@@ -417,6 +1312,164 @@ export class TasksService {
     return this.prisma.timeLog.findMany({ where: { taskId }, orderBy: { loggedAt: 'desc' } });
   }
 
+  /**
+   * Aggregated timesheet — returns one row per task with total logged minutes.
+   * Employees see only their own tasks; managers/admins see all tasks in the given department.
+   */
+  async listAllTimeLogs(
+    user: AccessTokenPayload,
+    params: { department_id?: string; from?: string; to?: string; user_id?: string },
+  ) {
+    const isPrivileged = this.isManagerOrAbove(user);
+
+    // Employees are always scoped to their own tasks only
+    const assigneeFilter = !isPrivileged ? user.sub : params.user_id ?? undefined;
+
+    const where: Prisma.TaskWhereInput = {
+      deletedAt: null,
+      ...(assigneeFilter ? { assigneeId: assigneeFilter } : {}),
+      ...(params.department_id ? { departmentId: params.department_id } : {}),
+      // If date filters are provided, include tasks whose due_date or start_date falls in range
+      ...(params.from || params.to
+        ? {
+            OR: [
+              {
+                dueDate: {
+                  ...(params.from ? { gte: new Date(params.from) } : {}),
+                  ...(params.to ? { lte: new Date(params.to) } : {}),
+                },
+              },
+              {
+                startDate: {
+                  ...(params.from ? { gte: new Date(params.from) } : {}),
+                  ...(params.to ? { lte: new Date(params.to) } : {}),
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const tasks = await this.prisma.task.findMany({
+      where,
+      orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
+      take: 500,
+      include: {
+        status: { select: { id: true, label: true, color: true, category: true } },
+        priority: { select: { id: true, label: true, color: true } },
+        assignee: { select: { id: true, fullName: true, email: true } },
+        department: { select: { id: true, name: true } },
+        timeLogs: { select: { minutes: true } },
+      },
+    });
+
+    return tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      assignee_id: t.assigneeId,
+      assignee_name: t.assignee?.fullName ?? null,
+      assignee_email: t.assignee?.email ?? null,
+      department_id: t.departmentId,
+      department_name: t.department?.name ?? null,
+      status: t.status,
+      priority: t.priority,
+      start_date: t.startDate,
+      due_date: t.dueDate,
+      created_at: t.createdAt,
+      total_logged_minutes: t.timeLogs.reduce((sum, l) => sum + l.minutes, 0),
+    }));
+  }
+
+  /**
+   * Per-employee timesheet detail — returns every task assigned to a given user with
+   * all individual time-log entries expanded. Role-scoped: employees can only query their
+   * own ID; managers/admins can query any user in their department scope.
+   */
+  async employeeTimesheetDetail(
+    actor: AccessTokenPayload,
+    targetUserId: string,
+    params: { department_id?: string; from?: string; to?: string },
+  ) {
+    const isPrivileged = this.isManagerOrAbove(actor);
+
+    // Employees can only view their own detail
+    if (!isPrivileged && actor.sub !== targetUserId) {
+      throw new ForbiddenException('You can only view your own timesheet detail.');
+    }
+
+    const where: Prisma.TaskWhereInput = {
+      deletedAt: null,
+      assigneeId: targetUserId,
+      ...(params.department_id ? { departmentId: params.department_id } : {}),
+      ...(params.from || params.to
+        ? {
+            OR: [
+              {
+                dueDate: {
+                  ...(params.from ? { gte: new Date(params.from) } : {}),
+                  ...(params.to ? { lte: new Date(params.to) } : {}),
+                },
+              },
+              {
+                startDate: {
+                  ...(params.from ? { gte: new Date(params.from) } : {}),
+                  ...(params.to ? { lte: new Date(params.to) } : {}),
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const tasks = await this.prisma.task.findMany({
+      where,
+      orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
+      take: 500,
+      include: {
+        status: { select: { id: true, label: true, color: true, category: true } },
+        priority: { select: { id: true, label: true, color: true } },
+        assignee: { select: { id: true, fullName: true, email: true } },
+        department: { select: { id: true, name: true } },
+        timeLogs: {
+          orderBy: { loggedAt: 'asc' },
+          select: { id: true, minutes: true, note: true, loggedAt: true, createdAt: true },
+        },
+      },
+    });
+
+    return tasks.map((t) => {
+      // Convert estimateValue + estimateUnit to minutes for the frontend
+      let estimateMinutes: number | null = null;
+      if (t.estimateValue != null && t.estimateUnit != null) {
+        const multipliers: Record<string, number> = { minutes: 1, hours: 60, days: 480 };
+        estimateMinutes = Math.round(t.estimateValue * (multipliers[t.estimateUnit] ?? 60));
+      }
+      return {
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        assignee_id: t.assigneeId,
+        assignee_name: t.assignee?.fullName ?? null,
+        assignee_email: t.assignee?.email ?? null,
+        department_name: t.department?.name ?? null,
+        status: t.status,
+        priority: t.priority,
+        start_date: t.startDate,
+        due_date: t.dueDate,
+        created_at: t.createdAt,
+        effort_estimate_minutes: estimateMinutes,
+        total_logged_minutes: t.timeLogs.reduce((sum, l) => sum + l.minutes, 0),
+        time_logs: t.timeLogs.map((l) => ({
+          id: l.id,
+          minutes: l.minutes,
+          note: l.note,
+          logged_at: l.loggedAt,
+          created_at: l.createdAt,
+        })),
+      };
+    });
+  }
+
   async addTimeLog(user: AccessTokenPayload, taskId: string, minutes: number, note?: string, loggedAt?: string) {
     const task = await this.get(user, taskId);
     const totalBefore = await this.sumTimeLogMinutes(taskId);
@@ -425,7 +1478,14 @@ export class TasksService {
       data: { taskId, userId: user.sub, minutes, note, loggedAt: loggedAt ? new Date(loggedAt) : undefined },
     });
     await this.logActivity(taskId, user.sub, 'time_logged', { minutes, timeLogId: log.id });
-    await this.notifyIfEffortBudgetCrossed(task, totalBefore, totalBefore + minutes);
+
+    const totalAfter = totalBefore + minutes;
+    await this.prisma.task.update({
+      where: { id: taskId },
+      data: { totalLoggedMinutes: totalAfter },
+    }).catch(() => {});
+
+    await this.notifyIfEffortBudgetCrossed(task, totalBefore, totalAfter);
     return log;
   }
 
@@ -471,6 +1531,11 @@ export class TasksService {
     });
 
     const totalAfter = totalBefore - log.minutes + updated.minutes;
+    await this.prisma.task.update({
+      where: { id: taskId },
+      data: { totalLoggedMinutes: totalAfter },
+    }).catch(() => {});
+
     await this.notifyIfEffortBudgetCrossed(task, totalBefore, totalAfter);
     return updated;
   }
@@ -484,21 +1549,56 @@ export class TasksService {
    * Fires once, the moment logged effort first crosses the estimate (docs/10-OPEN-DECISIONS.md
    * §H3) — comparing totalBefore/totalAfter against the threshold, not just "is it over now",
    * so re-logging more time after already crossing doesn't notify again and again.
+   * Notifies both the assigned employee and the person who created/assigned the task.
    */
   private async notifyIfEffortBudgetCrossed(
-    task: { id: string; title: string; assigneeId: string | null; estimateValue: number | null; estimateUnit: string | null },
+    task: { id: string; title: string; assigneeId?: string | null; createdById?: string | null; estimateValue?: number | null; estimateUnit?: string | null; timerStartedAt?: Date | null },
     totalBefore: number,
     totalAfter: number,
   ) {
-    if (task.estimateValue === null || task.estimateUnit === null || !task.assigneeId) return;
+    if (!task.estimateValue || !task.estimateUnit) return;
     const estimateMinutes = task.estimateUnit === 'days' ? task.estimateValue * 8 * 60 : task.estimateValue * 60;
+    if (estimateMinutes <= 0) return;
+
     if (totalBefore <= estimateMinutes && totalAfter > estimateMinutes) {
-      await this.notifications.notify(task.assigneeId, 'effort_budget_exceeded', {
-        taskId: task.id,
-        taskTitle: task.title,
-        estimateMinutes,
-        loggedMinutes: totalAfter,
+      // --- Auto-pause the timer if it's currently running ---
+      const liveTask = await this.prisma.task.findUnique({
+        where: { id: task.id },
+        select: { timerStartedAt: true, assigneeId: true },
       });
+      if (liveTask?.timerStartedAt) {
+        const elapsedMs = Date.now() - liveTask.timerStartedAt.getTime();
+        const elapsedMinutes = Math.max(1, Math.round(elapsedMs / 60000));
+        // Bank the live session time
+        await this.prisma.timeLog.create({
+          data: {
+            taskId: task.id,
+            userId: liveTask.assigneeId ?? task.id,
+            minutes: elapsedMinutes,
+            note: '[Auto-paused] Timer stopped automatically — estimated time exceeded.',
+            loggedAt: new Date(),
+          },
+        }).catch(() => {});
+        // Clear the timer
+        const newTotal = totalAfter + elapsedMinutes;
+        await this.prisma.task.update({
+          where: { id: task.id },
+          data: { timerStartedAt: null, totalLoggedMinutes: newTotal },
+        }).catch(() => {});
+      }
+
+      const recipients = new Set<string>();
+      if (task.assigneeId) recipients.add(task.assigneeId);
+      if (task.createdById) recipients.add(task.createdById);
+
+      for (const userId of recipients) {
+        await this.notifications.notify(userId, 'effort_budget_exceeded', {
+          taskId: task.id,
+          taskTitle: task.title,
+          estimateMinutes,
+          loggedMinutes: totalAfter,
+        });
+      }
     }
   }
 
@@ -506,10 +1606,28 @@ export class TasksService {
 
   async listDependencies(user: AccessTokenPayload, taskId: string) {
     await this.get(user, taskId);
-    return this.prisma.taskDependency.findMany({
+    const deps = await this.prisma.taskDependency.findMany({
       where: { taskId },
-      include: { dependsOnTask: { select: { id: true, title: true } } },
+      include: {
+        dependsOnTask: {
+          select: {
+            id: true,
+            title: true,
+            status: { select: { id: true, key: true, label: true, color: true, category: true } },
+          },
+        },
+      },
     });
+    return deps.map((d) => ({
+      ...d,
+      depends_on_task: d.dependsOnTask
+        ? {
+            id: d.dependsOnTask.id,
+            title: d.dependsOnTask.title,
+            status: d.dependsOnTask.status,
+          }
+        : null,
+    }));
   }
 
   async addDependency(user: AccessTokenPayload, taskId: string, dependsOnTaskId: string, type: 'blocks' | 'relates_to') {
@@ -558,7 +1676,7 @@ export class TasksService {
     if (step.status !== 'pending') {
       throw new BadRequestException('This approval step has already been decided');
     }
-    assertDepartmentScope(user, step.task.departmentId);
+    assertDepartmentScope(user, step.task.departmentId, step.task.assigneeId);
 
     const updated = await this.prisma.approvalStep.update({
       where: { id: approvalStepId },
@@ -697,11 +1815,24 @@ export class TasksService {
   }
 
   private async extractMentionedUserIds(body: string): Promise<string[]> {
+    const ids = new Set<string>();
+
+    // Tiptap mention nodes rendered as HTML: <span data-type="mention" data-id="<uuid>">
+    // We match just the UUID attr value so we don't need a full HTML parser.
+    for (const m of body.matchAll(/data-id="([0-9a-f-]{36})"/gi)) {
+      ids.add(m[1]);
+    }
+
+    // Legacy plain-text @email mentions — kept for backward compat with non-RTE comments.
     const emails = [...body.matchAll(/@([\w.+-]+@[\w.-]+\.\w+)/g)].map((m) => m[1]);
-    if (!emails.length) return [];
-    const users = await this.prisma.user.findMany({ where: { email: { in: emails } } });
-    return users.map((u) => u.id);
+    if (emails.length) {
+      const users = await this.prisma.user.findMany({ where: { email: { in: emails } } });
+      for (const u of users) ids.add(u.id);
+    }
+
+    return [...ids];
   }
+
 
   private async resolveDefaultWorkflow(departmentId: string) {
     const deptSpecific = await this.prisma.workflowDefinition.findFirst({
@@ -755,4 +1886,46 @@ export class TasksService {
       data: { taskId, actorId, action, metadata: metadata as Prisma.InputJsonValue },
     });
   }
+
+  /**
+   * Bulk action on a set of tasks (plan §1.3) — reassign, transition, or soft-delete (archive).
+   * Each task is processed independently: RBAC + department-scope are checked per task so partial
+   * success is possible. The response reports how many succeeded and lists per-row errors.
+   */
+  async bulkAction(
+    user: AccessTokenPayload,
+    ids: string[],
+    action: 'reassign' | 'transition' | 'archive',
+    payload: { assignee_id?: string | null; status_id?: string },
+  ) {
+    const results: { id: string; ok: boolean; error?: string }[] = [];
+
+    for (const id of ids) {
+      try {
+        if (action === 'reassign') {
+          await this.assign(user, id, payload.assignee_id ?? null);
+        } else if (action === 'transition') {
+          if (!payload.status_id) throw new BadRequestException('status_id required for transition');
+          await this.transition(user, id, payload.status_id);
+        } else if (action === 'archive') {
+          const task = await this.prisma.task.findUnique({ where: { id } });
+          if (!task) throw new NotFoundException('Task not found');
+          assertDepartmentScope(user, task.departmentId, task.assigneeId);
+          const canManage = await this.canDirectlyManageTask(user, task);
+          if (!canManage) {
+            throw new ForbiddenException('Only managers and in-charge roles can directly archive tasks.');
+          }
+          await this.prisma.task.update({ where: { id }, data: { deletedAt: new Date() } });
+          await this.logActivity(id, user.sub, 'archived', { bulk: true });
+        }
+        results.push({ id, ok: true });
+      } catch (err) {
+        results.push({ id, ok: false, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    const succeeded = results.filter((r) => r.ok).length;
+    return { succeeded, failed: results.length - succeeded, results };
+  }
 }
+
