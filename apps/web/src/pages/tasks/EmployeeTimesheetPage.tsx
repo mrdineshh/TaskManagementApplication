@@ -118,8 +118,8 @@ function KpiCard({
     slate: 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800',
   };
   return (
-    <div className="neu-card !p-0 overflow-hidden p-4 shadow-sm flex items-center gap-3">
-      <div className={`rounded-lg p-2.5 ${colorMap[color]}`}>{icon}</div>
+    <div className="neu-card p-4 sm:p-5 shadow-sm flex items-center gap-3.5 rounded-2xl">
+      <div className={`rounded-xl p-2.5 shrink-0 ${colorMap[color]}`}>{icon}</div>
       <div className="min-w-0">
         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{label}</p>
         <p className="text-xl font-black text-slate-900 dark:text-slate-100 tabular-nums leading-tight">{value}</p>
@@ -353,7 +353,7 @@ export function EmployeeTimesheetPage() {
       </div>
 
       {/* Filters & Actions */}
-      <div className="flex flex-wrap items-center gap-3 neu-card !p-0 overflow-hidden px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 neu-card px-5 py-3.5 shadow-sm rounded-2xl">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-slate-500" />
           <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Period:</span>
@@ -396,14 +396,14 @@ export function EmployeeTimesheetPage() {
 
       {/* Table */}
       {isLoading ? (
-        <div className="flex h-48 items-center justify-center neu-card !p-0 overflow-hidden">
+        <div className="flex h-48 items-center justify-center neu-card p-8 rounded-2xl">
           <div className="text-center space-y-2">
             <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin mx-auto" />
             <p className="text-sm text-slate-400 dark:text-slate-500 animate-pulse">Loading employee timesheet…</p>
           </div>
         </div>
       ) : sortedRows.length === 0 ? (
-        <div className="neu-card !p-0 overflow-hidden p-8 shadow-sm">
+        <div className="neu-card p-8 shadow-sm rounded-2xl">
           <EmptyState
             icon={<UserCircle2 className="w-8 h-8 text-slate-400 dark:text-slate-500" />}
             title="No Employee Data"
@@ -415,7 +415,7 @@ export function EmployeeTimesheetPage() {
           />
         </div>
       ) : (
-        <div className="neu-card !p-0 overflow-hidden shadow-md overflow-hidden">
+        <div className="neu-card !p-0 overflow-hidden shadow-md rounded-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

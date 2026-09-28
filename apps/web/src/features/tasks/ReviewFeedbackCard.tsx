@@ -287,7 +287,7 @@ export function ReviewFeedbackCard({
                   return (
                     <div
                       key={att.id}
-                      className="group flex flex-col justify-between neu-card !p-0 overflow-hidden p-2.5 hover:border-brand-500/50 dark:hover:border-brand-500/50 transition-all shadow-sm"
+                      className="group flex flex-col justify-between neu-card p-3 hover:border-brand-500/50 dark:hover:border-brand-500/50 transition-all shadow-sm rounded-xl"
                     >
                       <div className="flex items-start gap-2.5">
                         <div className="rounded-md p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
@@ -407,7 +407,7 @@ export function ReviewFeedbackCard({
 
       {/* Review History Toggle (if multiple review cycles exist) */}
       {pastReviews.length > 0 && (
-        <div className="neu-card !p-0 overflow-visible shadow-sm">
+        <div className="neu-card !p-0 overflow-hidden shadow-sm rounded-2xl">
           <button
             type="button"
             onClick={() => setHistoryOpen(!historyOpen)}

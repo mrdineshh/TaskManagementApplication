@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles,
@@ -94,7 +94,7 @@ export function OnboardingModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl neu-card !p-0 overflow-hidden shadow-2xl">
+      <div className="relative w-full max-w-md overflow-hidden rounded-2xl neu-card !p-0 shadow-2xl">
         {/* Progress bar */}
         <div className="h-1 bg-slate-100 dark:bg-slate-800">
           <div

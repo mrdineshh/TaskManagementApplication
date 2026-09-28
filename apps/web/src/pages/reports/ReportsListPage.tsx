@@ -85,7 +85,7 @@ export function ReportsListPage() {
             />
           </div>
         ) : (
-          <div className="neu-card !p-0 overflow-hidden">
+          <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
             <table className="neu-table">
               <thead>
                 <tr>

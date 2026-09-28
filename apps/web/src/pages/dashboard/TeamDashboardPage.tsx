@@ -110,7 +110,7 @@ export function TeamDashboardPage() {
           <StatusBadges statuses={d.counts_by_status ?? []} />
           <StatRow stats={d} linkParams={members.length ? { assignee_id: members.map((m: Member) => m.id).join(",") } : null} />
         </div>
-        <div className="neu-card !p-0 overflow-hidden">
+        <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
           <div className="px-5 py-3.5 font-bold text-sm flex items-center gap-2" style={{ color: "var(--text-primary)", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
             <Users className="w-4 h-4" style={{ color: "#2563EB" }} /> Direct Reports ({members.length})
           </div>
@@ -160,7 +160,7 @@ export function TeamDashboardPage() {
           <StatusBadges statuses={d.counts_by_status ?? []} />
           <StatRow stats={d} linkParams={{ department_id: d.department_id }} />
         </div>
-        <div className="neu-card !p-0 overflow-hidden">
+        <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
           <div className="px-5 py-3.5 font-bold text-sm" style={{ color: "var(--text-primary)", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>By Manager</div>
           <ul>
             {byManager.map((m: ManagerBreakdown) => {
@@ -220,7 +220,7 @@ export function TeamDashboardPage() {
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>{departmentsList.length} departments</p>
         </div>
       </div>
-      <div className="neu-card !p-0 overflow-hidden">
+      <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <div className="px-5 py-3.5 font-bold text-sm" style={{ color: "var(--text-primary)", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>By Department</div>
         <ul>
           {departmentsList.map((dept: DepartmentSummary) => (

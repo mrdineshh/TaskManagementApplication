@@ -127,8 +127,8 @@ function KpiCard({ icon, label, value, sub, color }: {
     slate: 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800',
   };
   return (
-    <div className="neu-card !p-0 overflow-hidden p-4 shadow-sm flex items-center gap-3">
-      <div className={`rounded-lg p-2.5 shrink-0 ${colorMap[color]}`}>{icon}</div>
+    <div className="neu-card p-4 sm:p-5 shadow-sm flex items-center gap-3.5 rounded-2xl">
+      <div className={`rounded-xl p-2.5 shrink-0 ${colorMap[color]}`}>{icon}</div>
       <div className="min-w-0">
         <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{label}</p>
         <p className="text-xl font-black text-slate-900 dark:text-slate-100 tabular-nums leading-tight">{value}</p>
@@ -276,7 +276,7 @@ function TaskCard({ task, canOpen }: { task: TaskDetail; canOpen: boolean }) {
   const isOver = effortPct !== null && effortPct >= 100;
 
   return (
-    <div className="neu-card !p-0 overflow-hidden shadow-sm overflow-hidden">
+    <div className="neu-card !p-0 overflow-hidden shadow-sm rounded-2xl">
       {/* Header row */}
       <button
         className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
@@ -539,7 +539,7 @@ export function EmployeeDetailPage() {
       {/* Summary + Donut */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Donut chart */}
-        <div className="neu-card !p-0 overflow-hidden p-5 shadow-sm flex flex-col items-center gap-4">
+        <div className="neu-card p-5 sm:p-6 shadow-sm flex flex-col items-center gap-4 rounded-2xl">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 self-start flex items-center gap-2">
             <Zap className="w-4 h-4 text-brand-500" />
             Task Breakdown
@@ -569,7 +569,7 @@ export function EmployeeDetailPage() {
         </div>
 
         {/* Productivity stats */}
-        <div className="sm:col-span-2 neu-card !p-0 overflow-hidden p-5 shadow-sm">
+        <div className="sm:col-span-2 neu-card p-5 sm:p-6 shadow-sm rounded-2xl">
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-brand-500" />
             Productivity Summary
@@ -607,7 +607,7 @@ export function EmployeeDetailPage() {
         </div>
 
         {!tasks || tasks.length === 0 ? (
-          <div className="neu-card !p-0 overflow-hidden p-8 shadow-sm">
+          <div className="neu-card p-8 shadow-sm rounded-2xl">
             <EmptyState
               icon={<UserCircle2 className="w-8 h-8 text-slate-400 dark:text-slate-500" />}
               title="No Tasks Found"
@@ -676,7 +676,7 @@ function ExpandableTaskCard({ task, canOpen, forceExpand }: { task: TaskDetail; 
   const isOver = effortPct !== null && effortPct >= 100;
 
   return (
-    <div className="neu-card !p-0 overflow-hidden shadow-sm overflow-hidden">
+    <div className="neu-card !p-0 overflow-hidden shadow-sm rounded-2xl">
       <button
         className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
         onClick={() => setLocalExpanded((e) => !e)}

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useCreatePriority, useDeletePriority, usePrioritiesAdmin, useUpdatePriority } from '../../features/admin/hooks';
 import { Badge } from '../../components/Badge';
 
@@ -54,7 +54,7 @@ export function PrioritiesAdminPage() {
         </button>
       </form>
 
-      <div className="neu-card !p-0 overflow-hidden">
+      <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <table className="w-full text-sm">
           <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             <tr>

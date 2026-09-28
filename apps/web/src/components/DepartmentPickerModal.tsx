@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Building2, CheckCircle2, Loader2 } from 'lucide-react';
 import { useSessionStore } from '../lib/auth/session-store';
 import { apiClient } from '../lib/api-client/client';
@@ -118,7 +118,7 @@ export function DepartmentPickerModal({ onDone }: DepartmentPickerModalProps) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl neu-card !p-0 overflow-hidden shadow-2xl">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl neu-card !p-0 shadow-2xl">
 
         {/* Header */}
         <div className="border-b border-slate-100 dark:border-slate-800 px-8 py-6">

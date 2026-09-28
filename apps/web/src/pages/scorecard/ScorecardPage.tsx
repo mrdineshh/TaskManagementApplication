@@ -191,7 +191,7 @@ export function ScorecardPage() {
       <ScorecardSection userId={viewing?.id} userName={viewing?.name} onBack={viewing ? () => setViewing(undefined) : undefined} />
 
       {/* Leaderboard */}
-      <div className="neu-card !p-0 overflow-visible">
+      <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <div
           className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
           style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}

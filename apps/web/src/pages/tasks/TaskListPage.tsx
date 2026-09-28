@@ -163,7 +163,7 @@ export function TaskListPage() {
       )}
 
       {/* Filter bar — compact single row */}
-      <div className="neu-card !p-3 flex items-center gap-3">
+      <div className="neu-card !p-3.5 sm:!p-4 flex items-center gap-3 rounded-2xl shadow-sm">
         {/* Search */}
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--text-faint)" }} />
@@ -285,7 +285,7 @@ export function TaskListPage() {
       </div>
 
       {/* Table */}
-      <div className="neu-card !p-0 overflow-hidden">
+      <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <div className="overflow-x-auto">
           <table className="neu-table min-w-[1020px]" style={{ tableLayout: "fixed", width: "100%" }}>
             <colgroup>

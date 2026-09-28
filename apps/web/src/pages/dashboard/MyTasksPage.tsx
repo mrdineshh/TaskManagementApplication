@@ -160,7 +160,7 @@ export function MyTasksPage() {
       </div>
 
       {/* Open tasks */}
-      <div className="neu-card !p-0 overflow-hidden">
+      <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
           <h2 className="text-base" style={{ fontFamily: "Poppins, sans-serif", fontWeight: 700 }}>Open Tasks</h2>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "rgba(37,99,235,0.1)", color: "#2563EB" }}>
@@ -221,7 +221,7 @@ export function MyTasksPage() {
       </div>
 
       {/* Recently completed */}
-      <div className="neu-card !p-0 overflow-hidden">
+      <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
           <h2 className="text-base" style={{ fontFamily: "Poppins, sans-serif", fontWeight: 700 }}>Recently Completed</h2>
           <CheckCircle2 className="w-4 h-4 text-emerald-500" />

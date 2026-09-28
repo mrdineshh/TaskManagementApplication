@@ -129,20 +129,20 @@ export function WorkSessionTimer({
   }
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-3">
       {/* Estimate-exceeded warning banner */}
       {isExceeded && (
-        <div className="rounded-t-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/50 px-4 py-3">
+        <div className="rounded-2xl border border-red-300 dark:border-red-800 bg-red-50/90 dark:bg-red-950/60 p-4 sm:p-5 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <div className="rounded-lg bg-red-100 dark:bg-red-900/60 p-1.5 text-red-600 dark:text-red-400 shrink-0 mt-0.5">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-red-100 dark:bg-red-900/60 p-2 text-red-600 dark:text-red-400 shrink-0 mt-0.5">
                 <AlertTriangle className="h-4 w-4" />
               </div>
               <div>
                 <p className="text-sm font-bold text-red-800 dark:text-red-200">
                   Estimated time exceeded — timer paused
                 </p>
-                <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">
+                <p className="text-xs text-red-700 dark:text-red-300 mt-1 leading-relaxed">
                   You've logged <strong>{formatDuration(totalMinutes * 60, false)}</strong> against an estimate of{' '}
                   <strong>{formatDuration(estimateMinutes! * 60, false)}</strong>.
                   {onExtendEstimate
@@ -177,7 +177,7 @@ export function WorkSessionTimer({
 
           {/* Inline extend estimate form */}
           {showExtend && onExtendEstimate && (
-            <form onSubmit={handleExtend} className="mt-3 flex items-center gap-2 pt-3 border-t border-red-200 dark:border-red-800">
+            <form onSubmit={handleExtend} className="mt-3 flex items-center gap-2 pt-3 border-t border-red-200 dark:border-red-800/80">
               <span className="text-xs text-red-700 dark:text-red-300 font-medium shrink-0">New total estimate:</span>
               <input
                 type="number"
@@ -208,11 +208,11 @@ export function WorkSessionTimer({
         </div>
       )}
 
-      <div className={`neu-card !p-0 p-5 shadow-sm transition-all ${isExceeded ? 'rounded-t-none border-t-0' : ''}`}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+      <div className={`neu-card p-5 sm:p-6 shadow-sm transition-all rounded-2xl ${isExceeded ? 'border border-red-200 dark:border-red-900/50' : ''}`}>
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="flex items-center gap-3">
             <div
-              className={`rounded-lg p-2 ${
+              className={`rounded-xl p-2.5 shrink-0 ${
                 isExceeded
                   ? 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400'
                   : isRunning
@@ -242,7 +242,7 @@ export function WorkSessionTimer({
                   </span>
                 )}
                 {isExceeded && (
-                  <span className="flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
+                  <span className="flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-900/40 px-2.5 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
                     OVER BUDGET
                   </span>
                 )}
@@ -253,7 +253,7 @@ export function WorkSessionTimer({
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                 {isExceeded
                   ? 'Timer auto-paused — estimate exceeded'
                   : isRunning
@@ -266,7 +266,7 @@ export function WorkSessionTimer({
           </div>
 
           <div className="text-right">
-            <span className={`text-2xl font-black tabular-nums tracking-tight ${timeColor}`}>
+            <span className={`text-2xl sm:text-3xl font-black tabular-nums tracking-tight ${timeColor}`}>
               {formatDuration(totalSeconds, isRunning && !isExceeded)}
             </span>
             {isRunning && sessionSeconds > 0 && !isExceeded && (
@@ -275,7 +275,7 @@ export function WorkSessionTimer({
               </div>
             )}
             {hasEstimate && (
-              <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 tabular-nums">
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 tabular-nums font-medium">
                 of {formatDuration(estimateMinutes! * 60, false)} estimated
               </div>
             )}
@@ -284,8 +284,8 @@ export function WorkSessionTimer({
 
         {/* Progress bar vs estimate */}
         {hasEstimate && (
-          <div className="mb-3">
-            <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+          <div className="my-3.5">
+            <div className="h-2 w-full rounded-full bg-slate-200/80 dark:bg-slate-800 overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   isExceeded
@@ -297,21 +297,21 @@ export function WorkSessionTimer({
                 style={{ width: `${Math.min(100, progressPct)}%` }}
               />
             </div>
-            <div className="flex justify-between mt-0.5">
-              <span className="text-[9px] text-slate-400">0</span>
-              <span className={`text-[9px] font-medium ${isExceeded ? 'text-red-500' : 'text-slate-400'}`}>
+            <div className="flex justify-between mt-1">
+              <span className="text-[10px] text-slate-400">0</span>
+              <span className={`text-[10px] font-semibold ${isExceeded ? 'text-red-500' : 'text-slate-400'}`}>
                 {Math.round(progressPct)}%
               </span>
-              <span className="text-[9px] text-slate-400">{formatDuration(estimateMinutes! * 60, false)}</span>
+              <span className="text-[10px] text-slate-400 font-medium">{formatDuration(estimateMinutes! * 60, false)}</span>
             </div>
           </div>
         )}
 
-        <div className="mt-1 flex items-center text-xs text-slate-500 dark:text-slate-400">
+        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center text-xs text-slate-500 dark:text-slate-400">
           <span className="font-medium">
             {isExceeded ? (
-              <span className="text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                <AlertTriangle className="h-3 w-3" />
+              <span className="text-red-600 dark:text-red-400 flex items-center gap-1.5 font-semibold">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                 Estimate exceeded by {formatDuration((totalMinutes - estimateMinutes!) * 60, false)}
               </span>
             ) : isRunning ? (

@@ -404,7 +404,7 @@ export function SettingsPage() {
       </section>
 
       {/* Notification preferences */}
-      <section className="neu-card !p-0 overflow-hidden">
+      <section className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
           <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>Notification Preferences</h2>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Toggle which channels you receive each event on.</p>
@@ -488,7 +488,7 @@ export function SettingsPage() {
       )}
 
       {/* Archived Tasks Section */}
-      <section className="neu-card !p-0 overflow-hidden">
+      <section className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
           <div className="flex items-center gap-2">
             <Archive className="w-4 h-4" style={{ color: "#2563EB" }} />

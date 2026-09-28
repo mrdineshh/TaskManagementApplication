@@ -98,7 +98,7 @@ export function SLAAdminPage() {
         New policies default to escalation at 80% elapsed (notify assignee) and 100% elapsed (notify assignee's manager).
       </p>
 
-      <div className="neu-card !p-0 overflow-hidden">
+      <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <table className="w-full text-sm">
           <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
             <tr>

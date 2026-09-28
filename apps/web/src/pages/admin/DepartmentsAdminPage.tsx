@@ -61,7 +61,7 @@ export function DepartmentsAdminPage() {
         </button>
       </form>
 
-      <div className="neu-card !p-0 overflow-visible">
+      <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <table className="w-full text-sm">
           <thead
             className="text-left text-xs font-semibold uppercase tracking-wider"

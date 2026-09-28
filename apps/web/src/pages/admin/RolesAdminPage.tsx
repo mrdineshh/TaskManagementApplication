@@ -102,7 +102,7 @@ export function RolesAdminPage() {
         >
           + New Role
         </button>
-        <ul className="neu-card !p-0 overflow-hidden">
+        <ul className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
           {roles?.map((r) => {
             const count = (users as any[])?.filter((u) =>
               u.roles?.some((ur: any) => ur.id === r.id || ur.name === r.name)

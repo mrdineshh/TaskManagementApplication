@@ -342,7 +342,7 @@ export function TaskDetailPage() {
 
         {/* Manager Review Action Panel */}
         {isReviewStatus && (
-          <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/30 p-5 shadow-sm">
+          <div className="rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/30 p-5 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="rounded-lg bg-indigo-100 dark:bg-indigo-900/60 p-2 text-indigo-600 dark:text-indigo-400">
                 <Clock className="w-5 h-5" />
@@ -502,7 +502,7 @@ export function TaskDetailPage() {
 
         {/* Pending Action Request Banner */}
         {pendingActionRequest && (
-          <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/50 p-4 shadow-sm">
+          <div className="rounded-2xl border border-amber-300 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/50 p-4 sm:p-5 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3">
                 <div className="rounded-lg p-2 bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0">
@@ -553,7 +553,7 @@ export function TaskDetailPage() {
           </div>
         )}
 
-        <div className="neu-card">
+        <div className="neu-card rounded-2xl">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
               {parentTask && (
@@ -828,7 +828,7 @@ export function TaskDetailPage() {
           )}
 
           {pendingHoldStatusId && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl p-3 neu-card" style={{ borderLeft: '3px solid #f59e0b' }}>
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl p-3 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 shadow-xs" style={{ borderLeft: '4px solid #f59e0b' }}>
               <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Reason for {statusLabel(pendingHoldStatusId)}:</span>
               <NeuSelect
                 value={holdReasonId}

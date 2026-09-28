@@ -296,7 +296,7 @@ export function TimelinePage() {
   if (activeTab === 'gantt') {
     if (sorted.length === 0) {
       ganttContent = (
-        <div className="mt-6 neu-card !p-0 overflow-hidden p-8 shadow-sm">
+        <div className="mt-6 neu-card p-8 shadow-sm rounded-2xl">
           <EmptyState
             icon={<Calendar className="w-8 h-8 text-slate-400 dark:text-slate-500" />}
             title="No Scheduled Tasks Found"
@@ -418,7 +418,7 @@ export function TimelinePage() {
           )}
 
           {filteredTasks.length === 0 ? (
-            <div className="neu-card !p-0 overflow-hidden p-8 shadow-sm">
+            <div className="neu-card p-8 shadow-sm rounded-2xl">
               <EmptyState
                 icon={<Filter className="w-8 h-8 text-slate-400 dark:text-slate-500" />}
                 title="No Tasks Match Filter"
@@ -426,7 +426,7 @@ export function TimelinePage() {
               />
             </div>
           ) : (
-            <div className="flex overflow-hidden neu-card !p-0 overflow-hidden shadow-md">
+            <div className="flex neu-card !p-0 overflow-hidden shadow-md rounded-2xl">
               {/* Left frozen column */}
               <div className="w-72 shrink-0 border-r border-[var(--neu-dark)] bg-[var(--neu-bg)] z-10">
                 {/* Two-row header to match chart */}
@@ -669,7 +669,7 @@ export function TimelinePage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 neu-card !p-0 overflow-hidden px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 neu-card px-5 py-3.5 shadow-sm rounded-2xl">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-slate-500" />
           <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Date Range:</span>
@@ -710,11 +710,11 @@ export function TimelinePage() {
 
       {/* Table */}
       {tsLoading ? (
-        <div className="flex h-48 items-center justify-center neu-card !p-0 overflow-hidden">
+        <div className="flex h-48 items-center justify-center neu-card p-8 rounded-2xl">
           <p className="text-sm text-slate-400 dark:text-slate-500 animate-pulse">Loading timesheet…</p>
         </div>
       ) : sortedTimesheet.length === 0 ? (
-        <div className="neu-card !p-0 overflow-hidden p-8 shadow-sm">
+        <div className="neu-card p-8 shadow-sm rounded-2xl">
           <EmptyState
             icon={<Table2 className="w-8 h-8 text-slate-400 dark:text-slate-500" />}
             title="No Timesheet Data"
@@ -722,7 +722,7 @@ export function TimelinePage() {
           />
         </div>
       ) : (
-        <div className="neu-card !p-0 overflow-hidden shadow-md overflow-hidden">
+        <div className="neu-card !p-0 overflow-hidden shadow-md rounded-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -958,8 +958,8 @@ function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: 
   };
   const cls = colorMap[color] ?? colorMap.slate;
   return (
-    <div className="neu-card !p-0 overflow-hidden p-4 shadow-sm flex items-center gap-3">
-      <div className={`rounded-lg p-2 ${cls}`}>{icon}</div>
+    <div className="neu-card p-4 sm:p-5 shadow-sm flex items-center gap-3.5 rounded-2xl">
+      <div className={`rounded-xl p-2.5 shrink-0 ${cls}`}>{icon}</div>
       <div>
         <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">{label}</p>
         <p className="text-xl font-black tabular-nums text-slate-900 dark:text-slate-100 leading-tight">{value}</p>

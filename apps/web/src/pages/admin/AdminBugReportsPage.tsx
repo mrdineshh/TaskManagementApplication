@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Bug, Calendar, Globe, User, ChevronDown, ChevronUp, Activity, ExternalLink, Image as ImageIcon } from 'lucide-react';
 import { apiClient } from '../../lib/api-client/client';
@@ -67,7 +67,7 @@ function BugReportCard({ report }: { report: BugReportEntry }) {
   const hasScreenshot = Boolean(screenshotBase64);
 
   return (
-    <div className="neu-card !p-0 overflow-hidden shadow-sm overflow-hidden transition-all hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700">
+    <div className="neu-card !p-0 overflow-hidden shadow-sm rounded-2xl transition-all hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700">
       <div className="p-4 sm:p-5">
         <div className="flex items-start gap-3.5">
           <ReporterAvatar name={reporterName} url={reporterAvatar} />

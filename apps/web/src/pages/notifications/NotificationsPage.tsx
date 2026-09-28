@@ -25,8 +25,8 @@ const LABELS: Record<NotificationType, (p: Record<string, unknown>) => string> =
   task_action_requested:     (p) => `Request to ${p.actionType ?? "update"}: ${p.taskTitle ?? "a task"}`,
   task_action_decided:       (p) => `Task ${p.actionType ?? "action"} ${p.decision ?? "decided"}: ${p.taskTitle ?? "a task"}`,
   timer_auto_stopped:        (p) => `Work timer auto-stopped: ${p.taskTitle ?? "a task"} (${p.loggedMinutes ?? 0}min logged)`,
-  role_assigned:             (p) => `Role updated: You are now a ${p.roleName ?? "team member"}${p.departmentName ? ` in ${p.departmentName}` : ""} — refresh to apply`,
-  role_revoked:              (p) => `Your ${p.roleName ?? ""} role was removed — refresh to apply`,
+  role_assigned:             (p) => `Role updated: You are now a ${p.roleName ?? "team member"}${p.departmentName ? ` in ${p.departmentName}` : ""} ï¿½ refresh to apply`,
+  role_revoked:              (p) => `Your ${p.roleName ?? ""} role was removed ï¿½ refresh to apply`,
   manager_assigned:          (p) => `Your new manager is ${p.managerName ?? "a team lead"}`,
 };
 
@@ -171,7 +171,7 @@ export function NotificationsPage() {
 
       {/* List */}
       {visible.length > 0 && (
-        <div className="neu-card !p-0 overflow-hidden">
+        <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
           <ul className="divide-y" style={{ "--tw-divide-opacity": 1 } as any}>
             {visible.map((n) => {
               const meta = ICON_MAP[n.type] ?? { icon: Bell, color: "#8e9ab5", bg: "rgba(142,154,181,0.1)" };

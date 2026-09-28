@@ -135,8 +135,9 @@ export function UsersAdminPage() {
       </form>
 
       {/* Users table */}
-      <div className="neu-card !p-0 overflow-x-auto">
-        <table className="w-full text-sm" style={{ tableLayout: "auto", borderCollapse: "collapse" }}>
+      <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ tableLayout: "auto", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--neu-dark)" }}>
               {["Name", "Email", "Region", "Reports to", "Roles", "Admin Access", "Assign Role", "Status", ""].map((h) => (
@@ -319,6 +320,7 @@ export function UsersAdminPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Delete User Confirmation Modal */}
