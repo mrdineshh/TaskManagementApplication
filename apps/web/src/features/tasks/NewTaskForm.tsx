@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCreateTask, useDepartments, usePriorities, useUsers } from './hooks';
+import { apiClient } from '../../lib/api-client/client';
 import { Spinner } from '../../components/Spinner';
 import { NeuSelect } from '../../components/NeuSelect';
 import { NeuDatePicker } from '../../components/NeuDatePicker';
@@ -21,6 +22,8 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
   const [assigneeId, setAssigneeId] = useState(isManagerOrAdmin ? '' : (currentUser?.id ?? ''));
   const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [estimateValue, setEstimateValue] = useState('');
+  const [estimateUnit, setEstimateUnit] = useState<'hours' | 'days'>('hours');
   const { data: priorities } = usePriorities(departmentId || undefined);
   // fetchAll=true for managers/admins so they see all team members (not restricted to department).
   const { data: members } = useUsers(departmentId || undefined, isManagerOrAdmin);
@@ -64,6 +67,8 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !departmentId) return;
+    const estVal = parseFloat(estimateValue);
+    if (!estimateValue || isNaN(estVal) || estVal <= 0) return;
     const task = await createTask.mutateAsync({
       title,
       department_id: departmentId,
@@ -72,8 +77,11 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
       start_date: startDate ? new Date(startDate).toISOString() : undefined,
       due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
     });
+    const taskId = (task as { id: string }).id;
+    // Submit the estimate immediately after creation — mandatory for task timing
+    await apiClient.tasks.submitEstimate(taskId, estVal, estimateUnit).catch(() => {});
     onDone();
-    navigate(`/tasks/${(task as { id: string }).id}`);
+    navigate(`/tasks/${taskId}`);
   }
 
   const deptOptions = [
@@ -165,10 +173,47 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
           />
         </div>
       </div>
+
+      {/* Mandatory Effort Estimate */}
+      <div className="rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/60 dark:bg-amber-950/30 p-3">
+        <label className="block text-[10px] uppercase font-bold mb-1.5 text-amber-800 dark:text-amber-300 tracking-wider">
+          Effort Estimate <span className="text-red-500">*</span>
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="0.25"
+            step="0.25"
+            value={estimateValue}
+            onChange={(e) => setEstimateValue(e.target.value)}
+            placeholder="e.g. 4"
+            required
+            className="w-28 neu-input text-sm"
+          />
+          <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 text-xs font-semibold shrink-0">
+            <button
+              type="button"
+              onClick={() => setEstimateUnit('hours')}
+              className={`px-3 py-1.5 transition-colors ${estimateUnit === 'hours' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+            >
+              Hours
+            </button>
+            <button
+              type="button"
+              onClick={() => setEstimateUnit('days')}
+              className={`px-3 py-1.5 transition-colors ${estimateUnit === 'days' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+            >
+              Days
+            </button>
+          </div>
+          <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">Required before task can be created</span>
+        </div>
+      </div>
+
       {createTask.isError && <p className="text-sm text-red-600 dark:text-red-400">{(createTask.error as Error).message}</p>}
       <button
         type="submit"
-        disabled={createTask.isPending}
+        disabled={createTask.isPending || !estimateValue || parseFloat(estimateValue) <= 0}
         className="flex items-center gap-2 btn-primary disabled:opacity-50"
       >
         {createTask.isPending && <Spinner className="h-4 w-4" />}

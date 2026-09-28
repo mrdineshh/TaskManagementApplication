@@ -1,4 +1,4 @@
-﻿import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -34,7 +34,7 @@ export class TimerSweeperService implements OnModuleInit, OnModuleDestroy {
   }
 
   private get maxSessionMinutes(): number {
-    return Number(this.config.get<string>("MAX_TIMER_SESSION_MINUTES") ?? 600);
+    return Number(this.config.get<string>("MAX_TIMER_SESSION_MINUTES") ?? 360);
   }
 
   async runSweep(): Promise<{ stopped: number; errors: number }> {
