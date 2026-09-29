@@ -37,11 +37,13 @@ export function TaskListPage() {
   const overdue      = params.get("overdue")       === "true";
   const overBudget   = params.get("over_budget")   === "true";
   const dueThisWeek  = params.get("due_this_week") === "true";
-  const hasDrillFilters = Boolean(assigneeIds || statusId || priorityId || searchQuery || overdue || overBudget || dueThisWeek);
+  // Include departmentId and searchQuery in the active-filter check
+  const hasDrillFilters = Boolean(departmentId || assigneeIds || statusId || priorityId || searchQuery || overdue || overBudget || dueThisWeek);
 
   const { data: departments } = useDepartments();
   const { data: workflows }   = useWorkflows();
-  const defaultWorkflow       = workflows?.find((w) => w.is_default);
+  // Fall back to first workflow if none is marked default, so statuses always load
+  const defaultWorkflow = workflows?.find((w) => w.is_default) ?? workflows?.[0];
   const { data: statuses }    = useWorkflowStatuses(defaultWorkflow?.id);
   const { data: priorities }  = usePriorities(departmentId);
   const { data: members }     = useUsers(departmentId, isManagerOrAdmin);
@@ -59,16 +61,22 @@ export function TaskListPage() {
 
   const tasks = data?.items ?? [];
 
-  const assigneeLabel = useMemo(() => {
-    if (!assigneeIds || !tasks.length) return null;
-    const ids = assigneeIds.split(",");
-    if (ids.length === 1) { const n = (tasks[0] as any)?.assignee?.full_name; return n ? `${n}'s tasks` : "1 person"; }
-    return `${ids.length} team members`;
-  }, [assigneeIds, tasks]);
-
-  const statusLabel   = statusId   ? (tasks[0] as any)?.status?.label   : null;
-  const priorityLabel = priorityId ? (tasks[0] as any)?.priority?.label : null;
+  // Resolve chip labels from reference data, not from returned tasks
+  // This ensures labels still show even when the filter returns 0 results
   const departmentName = departments?.find((d) => d.id === departmentId)?.name;
+  const statusLabel    = statusId   ? (statuses?.find((s: any) => s.id === statusId)?.label ?? statusId) : null;
+  const priorityLabel  = priorityId ? (priorities?.find((p: any) => p.id === priorityId)?.label ?? priorityId) : null;
+  const assigneeLabel  = useMemo(() => {
+    if (!assigneeIds) return null;
+    const ids = assigneeIds.split(",").filter(Boolean);
+    if (ids.length === 0) return null;
+    if (ids.length === 1) {
+      const member = (members as any[])?.find((m: any) => m.id === ids[0]);
+      const name = member?.full_name ?? (tasks[0] as any)?.assignee?.full_name;
+      return name ? `${name}'s tasks` : "1 person";
+    }
+    return `${ids.length} team members`;
+  }, [assigneeIds, members, tasks]);
 
   const selectableTasks = useMemo(() =>
     tasks.filter((t: any) => isManagerOrAdmin || (t.assignee_id ?? t.assignee?.id) === currentUser?.id),
@@ -96,7 +104,7 @@ export function TaskListPage() {
 
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
-  const activeFilterCount = [departmentId, statusId, priorityId, assigneeIds].filter(Boolean).length;
+  const activeFilterCount = [departmentId, statusId, priorityId, assigneeIds, searchQuery || null].filter(Boolean).length;
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -211,7 +219,7 @@ export function TaskListPage() {
                   <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Department</label>
                   <NeuSelect
                     value={departmentId ?? ""}
-                    onChange={(v) => setParam("department_id", v)}
+                    onChange={(v) => { setParam("department_id", v); setFilterOpen(false); }}
                     options={[
                       { value: "", label: "All departments" },
                       ...(departments ?? []).map((d) => ({ value: d.id, label: d.name })),
@@ -226,7 +234,7 @@ export function TaskListPage() {
                   <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Status</label>
                   <NeuSelect
                     value={statusId ?? ""}
-                    onChange={(v) => setParam("status_id", v)}
+                    onChange={(v) => { setParam("status_id", v); setFilterOpen(false); }}
                     options={[
                       { value: "", label: "All statuses" },
                       ...(statuses ?? []).map((s) => ({ value: s.id, label: s.label })),
@@ -241,7 +249,7 @@ export function TaskListPage() {
                   <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Priority</label>
                   <NeuSelect
                     value={priorityId ?? ""}
-                    onChange={(v) => setParam("priority_id", v)}
+                    onChange={(v) => { setParam("priority_id", v); setFilterOpen(false); }}
                     options={[
                       { value: "", label: "All priorities" },
                       ...(priorities ?? []).map((p) => ({ value: p.id, label: p.label })),
@@ -256,7 +264,7 @@ export function TaskListPage() {
                   <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Assignee</label>
                   <NeuSelect
                     value={assigneeIds ?? ""}
-                    onChange={(v) => setParam("assignee_id", v)}
+                    onChange={(v) => { setParam("assignee_id", v); setFilterOpen(false); }}
                     options={[
                       { value: "", label: "All assignees" },
                       ...((members as any[]) ?? []).map((m: any) => ({ value: m.id, label: m.full_name })),

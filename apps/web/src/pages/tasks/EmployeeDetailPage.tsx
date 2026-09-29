@@ -9,7 +9,6 @@ import {
   ChevronDown,
   ChevronUp,
   UserCircle2,
-  Target,
   Zap,
   TrendingUp,
 } from 'lucide-react';
@@ -459,7 +458,6 @@ export function EmployeeDetailPage() {
   }, [tasks, now]);
 
   const completionRate = kpi.totalTasks > 0 ? Math.round((kpi.doneTasks / kpi.totalTasks) * 100) : 0;
-  const effortAccuracy = kpi.estimatedMins > 0 ? Math.round((kpi.totalMins / kpi.estimatedMins) * 100) : null;
 
   // Tasks sorted: overdue first, then active, then done
   const sortedTasks = useMemo(() => {
@@ -528,11 +526,10 @@ export function EmployeeDetailPage() {
         </div>
       </div>
 
-      {/* KPI Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* KPI Strip — 3 cards, evenly distributed */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <KpiCard icon={<Clock className="w-4 h-4" />} label="Total Hours Logged" value={fmt(kpi.totalMins)} sub={`${kpi.sessionCount} sessions`} color="blue" />
         <KpiCard icon={<CheckCircle2 className="w-4 h-4" />} label="Tasks Completed" value={String(kpi.doneTasks)} sub={`${completionRate}% completion rate`} color="emerald" />
-        <KpiCard icon={<Target className="w-4 h-4" />} label="Effort Accuracy" value={effortAccuracy !== null ? `${effortAccuracy}%` : '—'} sub={effortAccuracy !== null ? (effortAccuracy > 100 ? 'Over estimate' : 'Within estimate') : 'No estimates'} color={effortAccuracy !== null && effortAccuracy > 110 ? 'amber' : 'violet'} />
         <KpiCard icon={<AlertCircle className="w-4 h-4" />} label="Overdue Tasks" value={String(kpi.overdueTasks)} color={kpi.overdueTasks > 0 ? 'red' : 'slate'} />
       </div>
 
