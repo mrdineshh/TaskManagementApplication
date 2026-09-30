@@ -108,18 +108,39 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
       ? (!isNaN(parsedHours) && parsedHours > 0 ? parsedHours : undefined)
       : durationDays;
 
-    const task = await createTask.mutateAsync({
-      title,
-      department_id: departmentId,
-      priority_id: priorityId || undefined,
-      assignee_id: assigneeId || undefined,
-      start_date: startDate ? new Date(startDate).toISOString() : undefined,
-      due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
-      estimate_value: finalEstVal,
-      estimate_unit: estimateUnit,
-    });
-    const taskId = (task as { id: string }).id;
-    if (finalEstVal && finalEstVal > 0) {
+    let taskId = '';
+    try {
+      const task = await createTask.mutateAsync({
+        title,
+        department_id: departmentId,
+        priority_id: priorityId || undefined,
+        assignee_id: assigneeId || undefined,
+        start_date: startDate ? new Date(startDate).toISOString() : undefined,
+        due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
+        estimate_value: finalEstVal,
+        estimate_unit: estimateUnit,
+      });
+      taskId = (task as { id: string }).id;
+    } catch (err: any) {
+      if (
+        err?.message?.includes('estimate_value should not exist') ||
+        err?.message?.includes('estimate_unit should not exist')
+      ) {
+        const task = await createTask.mutateAsync({
+          title,
+          department_id: departmentId,
+          priority_id: priorityId || undefined,
+          assignee_id: assigneeId || undefined,
+          start_date: startDate ? new Date(startDate).toISOString() : undefined,
+          due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
+        });
+        taskId = (task as { id: string }).id;
+      } else {
+        throw err;
+      }
+    }
+
+    if (finalEstVal && finalEstVal > 0 && taskId) {
       await apiClient.tasks.submitEstimate(taskId, finalEstVal, estimateUnit).catch(() => {});
     }
     onDone();
