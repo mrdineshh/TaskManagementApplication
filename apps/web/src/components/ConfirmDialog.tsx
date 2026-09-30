@@ -38,17 +38,17 @@ export function ConfirmDialog({
 
   const iconColor =
     variant === 'danger'
-      ? 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40'
+      ? 'text-red-600 border-2 border-red-600 bg-white dark:bg-slate-900 shadow-2xs'
       : variant === 'warning'
-      ? 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40'
-      : 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800';
+      ? 'text-amber-500 border-2 border-amber-500 bg-white dark:bg-slate-900 shadow-2xs'
+      : 'text-blue-600 border-2 border-blue-600 bg-white dark:bg-slate-900 shadow-2xs';
 
   const confirmClass =
     variant === 'danger'
-      ? 'bg-red-600 hover:bg-red-700 text-white shadow-sm shadow-red-500/20'
+      ? 'bg-white dark:bg-slate-900 border-2 border-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-900 dark:text-slate-100 shadow-2xs'
       : variant === 'warning'
-      ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm shadow-amber-500/20'
-      : 'bg-brand-600 hover:bg-brand-700 text-white shadow-sm shadow-brand-500/20';
+      ? 'bg-white dark:bg-slate-900 border-2 border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-900 dark:text-slate-100 shadow-2xs'
+      : 'bg-white dark:bg-slate-900 border-2 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-900 dark:text-slate-100 shadow-2xs';
 
   const Icon = variant === 'danger' ? Trash2 : variant === 'warning' ? Archive : AlertTriangle;
 

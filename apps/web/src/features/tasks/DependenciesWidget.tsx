@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAddDependency, useRemoveDependency, useTaskDependencies, useTasks } from './hooks';
 import { NeuSelect } from '../../components/NeuSelect';
-import { AlertTriangle, Link2 } from 'lucide-react';
+import { AlertTriangle, Ban, Link2, Plus } from 'lucide-react';
 
 /**
  * Task dependencies (docs/02-DATA-MODEL.md §3). Blocking is a soft warning, not a hard
@@ -54,18 +54,29 @@ export function DependenciesWidget({
 
   return (
     <div className="neu-card">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Dependencies
-          {dependencies?.length ? (
-            <span className="ml-2 rounded-full bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
-              {dependencies.length}
-            </span>
-          ) : null}
-        </h2>
+      {/* Header matching Time Log standard */}
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 border-indigo-600 bg-white dark:bg-slate-900 text-indigo-600 shadow-neu-sm">
+            <Link2 className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                Dependencies
+              </h2>
+              {dependencies?.length ? (
+                <span className="rounded-full bg-white dark:bg-slate-900 border-2 border-indigo-600 px-2 py-0.2 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 shadow-2xs">
+                  {dependencies.length}
+                </span>
+              ) : null}
+            </div>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">Blockers &amp; related task chains</p>
+          </div>
+        </div>
         {openBlockers.length > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
-            <AlertTriangle className="h-3 w-3" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 px-2.5 py-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 shrink-0">
+            <AlertTriangle className="h-3 w-3 text-amber-600" />
             {openBlockers.length} open blocker{openBlockers.length > 1 ? 's' : ''}
           </span>
         )}
@@ -90,15 +101,25 @@ export function DependenciesWidget({
               }`}
             >
               <div className="flex items-center gap-2 min-w-0">
-                {/* Dependency type badge */}
+                {/* Dependency type badge with SVG icons instead of emojis */}
                 <span
-                  className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                  className={`shrink-0 inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                     isBlock
-                      ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
-                      : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                      ? 'bg-red-50 dark:bg-red-950/60 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300'
+                      : 'bg-blue-50 dark:bg-blue-950/60 border border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300'
                   }`}
                 >
-                  {isBlock ? '🔴 blocks' : '🔵 relates'}
+                  {isBlock ? (
+                    <>
+                      <Ban className="w-3 h-3 text-red-600 dark:text-red-400 shrink-0" />
+                      <span>blocks</span>
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <span>relates</span>
+                    </>
+                  )}
                 </span>
 
                 {/* Target task link */}
@@ -136,7 +157,7 @@ export function DependenciesWidget({
                   <button
                     onClick={() => removeDependency.mutate(d.id)}
                     disabled={removeDependency.isPending}
-                    className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-300 hover:underline transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-md border-2 border-red-600 bg-white dark:bg-slate-900 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/50 shadow-neu-sm transition-all disabled:opacity-50"
                   >
                     Remove
                   </button>
@@ -147,7 +168,7 @@ export function DependenciesWidget({
         })}
         {dependencies?.length === 0 && (
           <li className="flex items-center gap-2 text-sm py-1" style={{ color: 'var(--text-faint)' }}>
-            <Link2 className="h-3.5 w-3.5" />
+            <Link2 className="h-3.5 w-3.5 text-slate-400" />
             No dependencies set.
           </li>
         )}
@@ -177,9 +198,10 @@ export function DependenciesWidget({
           <button
             type="submit"
             disabled={addDependency.isPending || !selectedTaskId}
-            className="btn-primary !py-1.5 !px-3 text-xs disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border-2 border-indigo-600 bg-white dark:bg-slate-900 px-3.5 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 shadow-neu-sm transition-all disabled:opacity-50"
           >
-            Add
+            <Plus className="w-3.5 h-3.5" />
+            Add Dependency
           </button>
         </form>
       )}

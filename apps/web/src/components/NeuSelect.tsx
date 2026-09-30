@@ -189,18 +189,14 @@ export function NeuSelect({
         type="button"
         disabled={disabled}
         onClick={toggleOpen}
-        className="flex items-center justify-between gap-2 w-full text-left transition-all"
+        className="flex items-center justify-between gap-2 w-full text-left transition-all border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
         style={{
           padding: `${py} ${px}`,
           fontSize: fs,
           borderRadius: '0.625rem',
-          background: 'var(--neu-bg)',
           color: selectedLabel ? 'var(--text-primary)' : 'var(--text-faint)',
-          boxShadow: open
-            ? 'inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light), 0 0 0 3px rgba(37,99,235,0.15)'
-            : 'inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light)',
+          boxShadow: open ? '0 0 0 3px rgba(37,99,235,0.15)' : undefined,
           outline: 'none',
-          border: 'none',
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.5 : 1,
           fontFamily: '"Inter", ui-sans-serif, system-ui, sans-serif',
@@ -224,7 +220,7 @@ export function NeuSelect({
           <div
             ref={listRef}
             role="listbox"
-            className="py-1 overflow-y-auto animate-pop-in"
+            className="py-1 overflow-y-auto animate-pop-in border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl"
             style={{
               position: 'fixed',
               left: `${coords.left}px`,
@@ -234,10 +230,6 @@ export function NeuSelect({
               minWidth: `${coords.minWidth}px`,
               maxHeight: `${coords.maxHeight}px`,
               borderRadius: '0.875rem',
-              background: 'var(--neu-bg)',
-              boxShadow:
-                '0 12px 28px -4px rgba(0, 0, 0, 0.25), 6px 6px 16px var(--neu-dark), -4px -4px 12px var(--neu-light)',
-              border: '1px solid rgba(148, 163, 184, 0.25)',
               zIndex: 999999,
             }}
           >

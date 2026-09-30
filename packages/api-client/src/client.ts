@@ -315,6 +315,8 @@ export function createApiClient(config: ApiClientConfig) {
       clockOut: (id: string) => request<unknown>('POST', `/tasks/${id}/clock-out`, {}),
       /** Employee clock-in — resumes the active session timer on an In Progress task. */
       clockIn: (id: string) => request<unknown>('POST', `/tasks/${id}/clock-in`, {}),
+      /** Spawns the next recurrence instance ahead of time */
+      spawnRecurrence: (id: string) => request<Task>('POST', `/tasks/${id}/spawn-recurrence`, {}),
       archive: (id: string) => request<{ success: boolean; message: string }>('POST', `/tasks/${id}/archive`),
       unarchive: (id: string) => request<{ success: boolean; message: string }>('POST', `/tasks/${id}/unarchive`),
       permanentDelete: (id: string) => request<{ success: boolean; message: string }>('DELETE', `/tasks/${id}/permanent`),

@@ -27,9 +27,123 @@ export class TasksService implements OnApplicationBootstrap {
   async onApplicationBootstrap() {
     try {
       await this.ensureDefaultWorkflowStatuses();
+      await this.remediateIncompleteTasksToTodo();
     } catch (err) {
-      console.warn('[TasksService] ensureDefaultWorkflowStatuses bootstrap error:', err);
+      console.warn('[TasksService] onApplicationBootstrap error:', err);
     }
+  }
+
+  /**
+   * Remediates any active tasks in an In Progress status that are missing mandatory
+   * scheduling specifications (Start Date, Due Date, or Effort Estimate). Pushes them
+   * back to the initial Todo status with timer stopped so work cannot proceed without details.
+   */
+  async remediateIncompleteTasksToTodo() {
+    try {
+      const incompleteTasks = await this.prisma.task.findMany({
+        where: {
+          deletedAt: null,
+          status: { category: 'in_progress' },
+          OR: [
+            { startDate: null },
+            { dueDate: null },
+            { estimateValue: null },
+            { estimateValue: { lte: 0 } },
+          ],
+        },
+        include: { workflow: true },
+      });
+
+      for (const t of incompleteTasks) {
+        const todoStatus = await this.prisma.workflowStatus.findFirst({
+          where: { workflowId: t.workflowId, category: 'todo' },
+          orderBy: { displayOrder: 'asc' },
+        });
+        if (todoStatus) {
+          await this.prisma.task.update({
+            where: { id: t.id },
+            data: { statusId: todoStatus.id, timerStartedAt: null },
+          });
+          await this.logActivity(t.id, t.createdById, 'remediated_to_todo', {
+            note: 'Pushed back to Todo: missing required scheduling details (start date, due date, or effort estimate)',
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[TasksService] remediateIncompleteTasksToTodo error:', err);
+    }
+  }
+
+  /**
+   * Returns daily working limit in minutes.
+   * If estimate_value is given in hours, daily budget is estimateValue * 60.
+   * If no hours given (or days unit), default is 6 hours (360 minutes).
+   */
+  getDailyCapMinutes(task: { estimateValue?: number | null; estimateUnit?: string | null }): number {
+    if (task.estimateValue && task.estimateValue > 0) {
+      if (task.estimateUnit === 'hours') {
+        return Math.round(task.estimateValue * 60);
+      }
+      return 6 * 60;
+    }
+    return 6 * 60;
+  }
+
+  /**
+   * Checks whether the current live session has exceeded the daily limit (e.g. 5h or 6h default).
+   * If reached or exceeded, auto-banks the session up to the daily cap and clears timerStartedAt.
+   */
+  async checkAndAutoPauseDailyCap(taskId: string) {
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      include: { status: true },
+    });
+    if (!task || !task.timerStartedAt) return task;
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const todayLogs = await this.prisma.timeLog.findMany({
+      where: { taskId, loggedAt: { gte: todayStart, lte: todayEnd } },
+    });
+    const todayLoggedMinutes = todayLogs.reduce((sum, l) => sum + l.minutes, 0);
+    const dailyCapMinutes = this.getDailyCapMinutes(task);
+
+    const currentSessionMinutes = Math.max(0, Math.floor((now.getTime() - task.timerStartedAt.getTime()) / 60000));
+
+    if (todayLoggedMinutes + currentSessionMinutes >= dailyCapMinutes) {
+      const minutesToBank = Math.max(1, dailyCapMinutes - todayLoggedMinutes);
+      await this.prisma.timeLog.create({
+        data: {
+          taskId,
+          userId: task.assigneeId ?? task.createdById,
+          minutes: minutesToBank,
+          note: 'Auto-logged: daily work limit reached (auto-paused)',
+          loggedAt: now,
+        },
+      });
+
+      const newTotal = await this.sumTimeLogMinutes(taskId);
+      const updated = await this.prisma.task.update({
+        where: { id: taskId },
+        data: { timerStartedAt: null, totalLoggedMinutes: newTotal },
+        include: {
+          customFieldValues: true,
+          subtasks: { where: { deletedAt: null }, include: { status: true } },
+          status: true,
+          priority: true,
+          assignee: { select: { id: true, fullName: true, email: true, managerId: true } },
+          createdBy: { select: { id: true, fullName: true, email: true } },
+          department: { select: { id: true, name: true } },
+        },
+      });
+      await this.logActivity(taskId, task.assigneeId ?? task.createdById, 'auto_paused', {
+        note: `Daily limit of ${Math.round(dailyCapMinutes / 60)}h reached — timer automatically paused`,
+      });
+      return updated;
+    }
+    return task;
   }
 
   /**
@@ -140,7 +254,18 @@ export class TasksService implements OnApplicationBootstrap {
     const last = page[page.length - 1];
 
     return {
-      items: page,
+      items: page.map((t) => ({
+        ...t,
+        is_recurring: t.isRecurring,
+        recurrence_rule: t.recurrenceRule,
+        recurrence_index: t.recurrenceIndex,
+        recurrence_parent_id: t.recurrenceParentId,
+        start_date: t.startDate,
+        due_date: t.dueDate,
+        estimate_value: t.estimateValue,
+        estimate_unit: t.estimateUnit,
+        total_logged_minutes: t.totalLoggedMinutes,
+      })),
       next_cursor: hasMore && last ? encodeCursor({ id: last.id, sortValue: String(last[orderField as keyof typeof last]) }) : null,
     };
   }
@@ -187,10 +312,27 @@ export class TasksService implements OnApplicationBootstrap {
       }
     }
 
-    return { items: matches.slice(0, limit), next_cursor: null };
+    return {
+      items: matches.slice(0, limit).map((t) => ({
+        ...t,
+        is_recurring: t.isRecurring,
+        recurrence_rule: t.recurrenceRule,
+        recurrence_index: t.recurrenceIndex,
+        recurrence_parent_id: t.recurrenceParentId,
+        start_date: t.startDate,
+        due_date: t.dueDate,
+        estimate_value: t.estimateValue,
+        estimate_unit: t.estimateUnit,
+        total_logged_minutes: t.timeLogs.reduce((sum, l) => sum + l.minutes, 0),
+      })),
+      next_cursor: null,
+    };
   }
 
   async get(user: AccessTokenPayload, id: string) {
+    // Check and auto-pause if daily cap reached
+    await this.checkAndAutoPauseDailyCap(id);
+
     const task = await this.prisma.task.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -228,6 +370,14 @@ export class TasksService implements OnApplicationBootstrap {
       totalLoggedMinutes,
       total_logged_minutes: totalLoggedMinutes,
       estimate_minutes: estimateMinutes,
+      estimate_value: task.estimateValue,
+      estimate_unit: task.estimateUnit,
+      start_date: task.startDate,
+      due_date: task.dueDate,
+      is_recurring: task.isRecurring,
+      recurrence_rule: task.recurrenceRule,
+      recurrence_index: task.recurrenceIndex,
+      recurrence_parent_id: task.recurrenceParentId,
     };
   }
 
@@ -241,6 +391,37 @@ export class TasksService implements OnApplicationBootstrap {
       throw new ForbiddenException(
         'Employees can only create tasks assigned to themselves. Manager or Admin permission is required to assign tasks to other team members.',
       );
+    }
+
+    // Start date must be today or future (date comparison at beginning of today in UTC/local)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (dto.start_date) {
+      const sDate = new Date(dto.start_date);
+      // 12-hour timezone grace
+      if (sDate.getTime() < today.getTime() - 12 * 3600 * 1000) {
+        throw new BadRequestException('Start date cannot be set in the past.');
+      }
+    }
+
+    if (dto.start_date && dto.due_date) {
+      if (new Date(dto.due_date) < new Date(dto.start_date)) {
+        throw new BadRequestException('Due date must be on or after the start date.');
+      }
+    }
+
+    // For non-managers creating their own tasks, Start Date, Due Date, and Estimate are strictly required!
+    if (!canAssignOthers) {
+      if (!dto.start_date) {
+        throw new BadRequestException('Start date is mandatory when creating a task.');
+      }
+      if (!dto.due_date) {
+        throw new BadRequestException('Due date is mandatory when creating a task.');
+      }
+      if (!dto.estimate_value || dto.estimate_value <= 0) {
+        throw new BadRequestException('Effort estimate is mandatory when creating a task.');
+      }
     }
 
     const workflow = dto.workflow_id
@@ -277,8 +458,14 @@ export class TasksService implements OnApplicationBootstrap {
         parentTaskId: dto.parent_task_id ?? null,
         dueDate: dto.due_date ? new Date(dto.due_date) : null,
         startDate: dto.start_date ? new Date(dto.start_date) : null,
+        estimateValue: dto.estimate_value ?? null,
+        estimateUnit: dto.estimate_unit ?? 'hours',
+        estimateSubmittedAt: dto.estimate_value ? new Date() : null,
+        estimateSubmittedById: dto.estimate_value ? user.sub : null,
         isRecurring: dto.is_recurring ?? false,
         recurrenceRule: dto.is_recurring ? dto.recurrence_rule : null,
+        recurrenceIndex: dto.recurrence_index ?? 1,
+        recurrenceParentId: dto.recurrence_parent_id ?? null,
         slaPolicyId: dto.sla_policy_id ?? null,
       },
     });
@@ -303,6 +490,22 @@ export class TasksService implements OnApplicationBootstrap {
       throw new ForbiddenException('You cannot modify tasks assigned to other employees');
     }
 
+    if (dto.start_date) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const sDate = new Date(dto.start_date);
+      if (sDate.getTime() < today.getTime() - 12 * 3600 * 1000) {
+        throw new BadRequestException('Start date cannot be set in the past.');
+      }
+    }
+
+    const effectiveStartDate = dto.start_date !== undefined ? (dto.start_date ? new Date(dto.start_date) : null) : existing.startDate;
+    const effectiveDueDate = dto.due_date !== undefined ? (dto.due_date ? new Date(dto.due_date) : null) : existing.dueDate;
+
+    if (effectiveStartDate && effectiveDueDate && effectiveDueDate < effectiveStartDate) {
+      throw new BadRequestException('Due date must be on or after the start date.');
+    }
+
     const task = await this.prisma.task.update({
       where: { id },
       data: {
@@ -312,12 +515,20 @@ export class TasksService implements OnApplicationBootstrap {
         dueDate: dto.due_date === undefined ? undefined : dto.due_date ? new Date(dto.due_date) : null,
         startDate: dto.start_date === undefined ? undefined : dto.start_date ? new Date(dto.start_date) : null,
         slaPolicyId: dto.sla_policy_id === undefined ? undefined : dto.sla_policy_id,
-        // RecurrenceWidget (plan §1.6) fields — only applied when present in the payload.
+        // RecurrenceWidget fields — only applied when present in the payload.
         ...(dto.is_recurring !== undefined && { isRecurring: dto.is_recurring }),
         ...(dto.recurrence_rule !== undefined && { recurrenceRule: dto.recurrence_rule }),
+        ...(dto.recurrence_index !== undefined && { recurrenceIndex: dto.recurrence_index }),
+        ...(dto.recurrence_parent_id !== undefined && { recurrenceParentId: dto.recurrence_parent_id }),
+        // Effort estimation fields
+        ...(dto.estimate_value !== undefined && {
+          estimateValue: dto.estimate_value,
+          estimateUnit: dto.estimate_unit ?? 'hours',
+          estimateSubmittedAt: new Date(),
+          estimateSubmittedById: user.sub,
+        }),
       },
     });
-
 
     if (dto.custom_field_values) {
       await this.upsertCustomFieldValues(id, existing.departmentId, dto.custom_field_values);
@@ -696,6 +907,15 @@ export class TasksService implements OnApplicationBootstrap {
       await this.logActivity(id, user.sub, 'approval_requested', { transitionId: transition.id, approvalStepId: step.id });
       await this.notifyApprovers(existing.departmentId, id, existing.title);
       return { pending_approval: true, approval_step: step };
+    }
+
+    // Check mandatory fields before entering In Progress
+    if (this.isInProgressStatus(toStatus)) {
+      if (!existing.startDate || !existing.dueDate || !existing.estimateValue || existing.estimateValue <= 0) {
+        throw new BadRequestException(
+          'Cannot start work on this task. Start Date, Due Date, and Effort Estimate are mandatory before entering In Progress.',
+        );
+      }
     }
 
     const openBlockers = await this.getOpenBlockers(id, toStatusId);
@@ -1276,6 +1496,13 @@ export class TasksService implements OnApplicationBootstrap {
       throw new BadRequestException('Clock in is only available for tasks in an In Progress status.');
     }
 
+    // Ensure mandatory scheduling details are provided before clocking in
+    if (!before.startDate || !before.dueDate || !before.estimateValue || before.estimateValue <= 0) {
+      throw new BadRequestException(
+        'Cannot clock in to this task. Start Date, Due Date, and Effort Estimate are mandatory before starting work.',
+      );
+    }
+
     // Idempotent: if timer is already running, return existing task.
     if (before.timerStartedAt !== null) {
       return this.get(user, taskId);
@@ -1726,6 +1953,10 @@ export class TasksService implements OnApplicationBootstrap {
     dueDate: Date | null;
     startDate: Date | null;
     recurrenceRule: string | null;
+    recurrenceIndex?: number;
+    recurrenceParentId?: string | null;
+    estimateValue?: number | null;
+    estimateUnit?: any;
   }) {
     const { RRule } = await import('rrule');
     if (!task.recurrenceRule) return;
@@ -1761,6 +1992,8 @@ export class TasksService implements OnApplicationBootstrap {
     if (!initialStatus) return;
 
     const offsetMs = task.dueDate && task.startDate ? task.dueDate.getTime() - task.startDate.getTime() : null;
+    const nextIndex = (task.recurrenceIndex ?? 1) + 1;
+    const parentId = task.recurrenceParentId ?? task.id;
 
     const newTask = await this.prisma.task.create({
       data: {
@@ -1776,12 +2009,30 @@ export class TasksService implements OnApplicationBootstrap {
         startDate: offsetMs !== null ? new Date(next.getTime() - offsetMs) : null,
         isRecurring: true,
         recurrenceRule: task.recurrenceRule,
+        recurrenceIndex: nextIndex,
+        recurrenceParentId: parentId,
+        estimateValue: task.estimateValue ?? null,
+        estimateUnit: task.estimateUnit ?? 'hours',
       },
     });
-    await this.logActivity(newTask.id, task.createdById, 'created', { recurrenceOf: task.id });
+    await this.logActivity(newTask.id, task.createdById, 'created', { recurrenceOf: task.id, recurrenceIndex: nextIndex });
     if (newTask.assigneeId) {
       await this.notifications.notify(newTask.assigneeId, 'task_assigned', { taskId: newTask.id, taskTitle: newTask.title });
     }
+    return newTask;
+  }
+
+  /** Explicitly spawns the next occurrence ahead of time on user request */
+  async spawnNextOccurrence(user: AccessTokenPayload, taskId: string) {
+    const task = await this.get(user, taskId);
+    if (!task.isRecurring || !task.recurrenceRule) {
+      throw new BadRequestException('This task does not have a recurrence rule configured.');
+    }
+    const created = await this.generateNextOccurrence(task);
+    if (!created) {
+      throw new BadRequestException('Could not compute next occurrence date for this recurrence rule.');
+    }
+    return created;
   }
 
   async activity(user: AccessTokenPayload, id: string) {

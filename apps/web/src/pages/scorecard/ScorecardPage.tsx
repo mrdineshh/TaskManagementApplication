@@ -123,16 +123,19 @@ function ScorecardSection({ userId, userName, onBack }: { userId?: string; userN
                 <button
                   key={key}
                   onClick={() => setExpandedKey(expanded ? undefined : key)}
-                  className="rounded-2xl p-4 text-left transition-all"
+                  className="rounded-2xl p-4 text-left transition-all bg-white dark:bg-slate-900 shadow-2xs"
                   style={expanded
-                    ? { background: "var(--neu-bg)", boxShadow: `inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light)`, border: `2px solid ${color}33` }
-                    : { background: "var(--neu-bg)", boxShadow: "4px 4px 8px var(--neu-dark), -4px -4px 8px var(--neu-light)" }}
+                    ? { border: `2px solid ${color}`, boxShadow: `0 4px 14px ${color}25` }
+                    : { border: "2px solid #e2e8f0" }}
                 >
-                  <p className="text-[10px] font-700 uppercase tracking-widest" style={{ color: "var(--text-faint)", fontWeight: 700 }}>
-                    {SUB_SCORE_LABELS[key] ?? key}
-                  </p>
-                  <p className="mt-1.5 text-2xl font-bold" style={{ color }}>{Number(value ?? 0)}</p>
-                  {expanded && <ChevronRight className="w-3 h-3 mt-1 rotate-90" style={{ color }} />}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                      {SUB_SCORE_LABELS[key] ?? key}
+                    </p>
+                  </div>
+                  <p className="mt-1.5 text-2xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">{Number(value ?? 0)}</p>
+                  {expanded && <ChevronRight className="w-3.5 h-3.5 mt-1 rotate-90" style={{ color }} />}
                 </button>
               );
             })}
@@ -141,13 +144,13 @@ function ScorecardSection({ userId, userName, onBack }: { userId?: string; userN
           {/* Expanded detail */}
           {expandedKey && data.raw && (
             <div
-              className="rounded-xl px-4 py-3 animate-fade-in"
-              style={{ background: `${SUB_SCORE_COLORS[expandedKey]}08`, border: `1px solid ${SUB_SCORE_COLORS[expandedKey]}25` }}
+              className="rounded-xl px-4 py-3 animate-fade-in bg-white dark:bg-slate-900 shadow-2xs"
+              style={{ border: `2px solid ${SUB_SCORE_COLORS[expandedKey] ?? "#2563EB"}` }}
             >
               {subScoreDetail(expandedKey, (data.raw ?? {}) as unknown as Record<string, number | null>).map((row) => (
                 <div key={row.label} className="flex items-center justify-between py-1.5">
-                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>{row.label}</span>
-                  <span className="text-sm font-bold" style={{ color: SUB_SCORE_COLORS[expandedKey] ?? "#2563EB" }}>{row.value}</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{row.label}</span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{row.value}</span>
                 </div>
               ))}
             </div>
@@ -231,10 +234,10 @@ export function ScorecardPage() {
                   style={isMe ? { background: "rgba(37,99,235,0.04)" } : undefined}
                 >
                   <span
-                    className="w-8 h-8 flex items-center justify-center rounded-xl text-sm font-bold shrink-0"
+                    className="w-8 h-8 flex items-center justify-center rounded-xl text-sm font-bold shrink-0 bg-white dark:bg-slate-900 shadow-2xs"
                     style={isTop3
-                      ? { background: `${rankColors[entry.rank - 1]}18`, color: rankColors[entry.rank - 1] }
-                      : { color: "var(--text-faint)", fontWeight: 600 }}
+                      ? { border: `2px solid ${rankColors[entry.rank - 1]}`, color: rankColors[entry.rank - 1] }
+                      : { border: "2px solid #cbd5e1", color: "var(--text-faint)", fontWeight: 600 }}
                   >
                     {isTop3 ? <Trophy className="w-3.5 h-3.5" /> : `#${entry.rank}`}
                   </span>

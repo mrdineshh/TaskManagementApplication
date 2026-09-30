@@ -45,8 +45,9 @@ async function bootstrap() {
   // ── CORS ─────────────────────────────────────────────────────────────────
   // Strict allow-list from env; fall back to permissive in non-production so
   // localhost dev still works without requiring extra env setup.
-  const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
-    ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  const corsOriginsRaw = process.env.CORS_ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN;
+  const allowedOrigins = corsOriginsRaw && corsOriginsRaw !== '*'
+    ? corsOriginsRaw.split(/[,|]/).map((o) => o.trim()).filter(Boolean)
     : null;
   app.enableCors({
     origin: (origin, callback) => {

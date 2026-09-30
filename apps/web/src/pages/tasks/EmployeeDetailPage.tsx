@@ -103,10 +103,10 @@ function avatarColor(name: string): string {
 
 function statusBadgeStyle(category: string): string {
   const map: Record<string, string> = {
-    todo: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700',
-    in_progress: 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-    done: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-    cancelled: 'bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700',
+    todo: 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-slate-400',
+    in_progress: 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-blue-600',
+    done: 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-emerald-600',
+    cancelled: 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-slate-400',
   };
   return map[category] ?? map.todo;
 }
@@ -223,7 +223,7 @@ function DailyHoursChart({ tasks }: { tasks: TaskDetail[] }) {
             <span className="w-2.5 h-2.5 rounded-sm bg-brand-500 shrink-0" />
             <span>Time Logged</span>
           </div>
-          <span className="badge text-xs" style={{ background: 'rgba(37,99,235,0.1)', color: '#2563EB' }}>
+          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-blue-600 shadow-2xs">
             Total: {fmt(totalPeriodMins)}
           </span>
         </div>
@@ -306,7 +306,7 @@ function TaskCard({ task, canOpen }: { task: TaskDetail; canOpen: boolean }) {
               </span>
             )}
             {isOverdue && (
-              <span className="inline-flex items-center rounded-full bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-2 py-0.5 text-[10px] font-semibold shrink-0">
+              <span className="inline-flex items-center rounded-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-red-600 px-2 py-0.5 text-[10px] font-semibold shrink-0 shadow-2xs">
                 overdue
               </span>
             )}
@@ -514,10 +514,10 @@ export function EmployeeDetailPage() {
             <button
               key={p}
               onClick={() => setDatePreset(p)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-all ${
                 datePreset === p
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-blue-600 shadow-2xs'
+                  : 'bg-slate-100 dark:bg-slate-800 border-2 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
               {p === 'week' ? 'Week' : p === 'month' ? 'Month' : p === 'last30' ? '30 Days' : p === 'quarter' ? '3 Months' : 'All Time'}
@@ -547,16 +547,16 @@ export function EmployeeDetailPage() {
               <>
                 <DonutChart done={kpi.doneTasks} onTrack={onTrackTasks} overdue={kpi.overdueTasks} total={kpi.totalTasks} />
                 <div className="flex flex-wrap gap-2 justify-center pt-1">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.2)' }}>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-emerald-600 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
                     Completed ({kpi.doneTasks})
                   </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(59,130,246,0.1)', color: '#2563EB', border: '1px solid rgba(59,130,246,0.2)' }}>
-                    <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-blue-600 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
                     On Track ({onTrackTasks})
                   </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626', border: '1px solid rgba(239,68,68,0.2)' }}>
-                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-red-600 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" />
                     Overdue ({kpi.overdueTasks})
                   </div>
                 </div>
@@ -700,7 +700,7 @@ function ExpandableTaskCard({ task, canOpen, forceExpand }: { task: TaskDetail; 
               </span>
             )}
             {isOverdue && (
-              <span className="inline-flex items-center rounded-full bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-2 py-0.5 text-[10px] font-semibold shrink-0">
+              <span className="inline-flex items-center rounded-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-red-600 px-2 py-0.5 text-[10px] font-semibold shrink-0 shadow-2xs">
                 overdue
               </span>
             )}

@@ -86,13 +86,13 @@ export function LoginPage() {
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
             <div
-              className="flex items-center justify-center w-16 h-16 rounded-2xl mb-4 animate-float"
+              className="flex items-center justify-center w-16 h-16 rounded-2xl mb-4 animate-float bg-white dark:bg-slate-900 shadow-2xs"
               style={{
-                background: "linear-gradient(135deg, #2563EB, #1d4ed8)",
-                boxShadow: "0 8px 24px rgba(37,99,235,0.4)",
+                border: "2px solid #2563EB",
+                color: "#2563EB",
               }}
             >
-              <Activity className="w-8 h-8 text-white" />
+              <Activity className="w-8 h-8 text-blue-600" />
             </div>
             <h1 className="text-2xl font-bold text-gradient mb-1">Pulse</h1>
             <p className="text-sm text-[var(--text-muted)]">Task Management Platform</p>
@@ -101,8 +101,7 @@ export function LoginPage() {
           {/* Error */}
           {error && (
             <div
-              className="mb-5 rounded-xl px-4 py-3 text-sm text-red-700 animate-fade-in"
-              style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+              className="mb-5 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 border-2 border-red-600 animate-fade-in shadow-2xs"
             >
               {error}
             </div>
@@ -131,7 +130,7 @@ export function LoginPage() {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
             )}
-            {loading ? "Signing in…" : "Continue with Google"}
+            {loading ? "Signing inâ€¦" : "Continue with Google"}
           </button>
 
           {!firebaseEnabled && !devLoginEnabled && (
@@ -146,8 +145,7 @@ export function LoginPage() {
               <div className="flex items-center gap-3 my-4">
                 <div className="neu-divider flex-1 my-0" />
                 <span
-                  className="shrink-0 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
-                  style={{ background: "rgba(245,158,11,0.1)", color: "#d97706" }}
+                  className="shrink-0 text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-white dark:bg-slate-900 border-2 border-amber-500 text-slate-900 dark:text-slate-100 shadow-2xs"
                 >
                   Dev Only
                 </span>
@@ -157,8 +155,7 @@ export function LoginPage() {
               <form onSubmit={handleDevLogin} className="space-y-3">
                 {/* Email field */}
                 <div
-                  className="flex items-center gap-3 rounded-xl px-4 py-3"
-                  style={{ boxShadow: "inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light)" }}
+                  className="flex items-center gap-3 rounded-xl px-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all"
                 >
                   <Mail className="w-4 h-4 text-[var(--text-faint)] shrink-0" />
                   <input
@@ -180,7 +177,7 @@ export function LoginPage() {
                   style={{ background: "linear-gradient(135deg, #d97706, #b45309)" }}
                 >
                   {loading && <Spinner className="h-4 w-4" />}
-                  {loading ? "Signing in…" : "Dev Sign In (local only)"}
+                  {loading ? "Signing inï¿½" : "Dev Sign In (local only)"}
                 </button>
               </form>
             </>

@@ -40,7 +40,7 @@ export function IntegrationsAdminPage() {
     <div className="max-w-xl space-y-4">
       <form onSubmit={handleSave} className="space-y-5 neu-card">
         <div className="flex items-center gap-3 pb-4" style={{ borderBottom: "1px solid var(--neu-dark)" }}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #2563EB22, #1d4ed822)", color: "#2563EB" }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-white dark:bg-slate-900 border-2 border-blue-600 text-blue-600 shadow-2xs">
             <Mail className="h-5 w-5" />
           </div>
           <div>
@@ -97,15 +97,15 @@ export function IntegrationsAdminPage() {
             </div>
 
             {test.data && (
-              <div className="flex items-center gap-2 rounded-xl p-3 text-xs" style={{ background: "rgba(16,185,129,0.08)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)" }}>
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <div className="flex items-center gap-2 rounded-xl p-3 text-xs bg-white dark:bg-slate-900 border-2 border-emerald-600 text-slate-900 dark:text-slate-100 shadow-2xs">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
                 <span>{(test.data as any).message || 'Test email triggered successfully.'}</span>
               </div>
             )}
 
             {test.isError && (
-              <div className="flex items-center gap-2 rounded-xl p-3 text-xs" style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
-                <AlertCircle className="h-4 w-4 shrink-0" />
+              <div className="flex items-center gap-2 rounded-xl p-3 text-xs bg-white dark:bg-slate-900 border-2 border-red-600 text-slate-900 dark:text-slate-100 shadow-2xs">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
                 <span>Failed to send test email. Check server configuration.</span>
               </div>
             )}

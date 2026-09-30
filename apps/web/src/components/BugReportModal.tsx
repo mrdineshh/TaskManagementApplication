@@ -72,7 +72,7 @@ export function BugReportModal({ onClose }: BugReportModalProps) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             {/* Pulse logo icon */}
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-500 text-white shadow-sm shadow-brand-500/30">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-blue-600 bg-white dark:bg-slate-900 text-blue-600 shadow-neu-sm">
               <Activity className="w-4 h-4" />
             </div>
             <div>
@@ -126,9 +126,9 @@ export function BugReportModal({ onClose }: BugReportModalProps) {
                   <button
                     type="button"
                     onClick={removeImage}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1.5 rounded-lg border-2 border-red-600 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100 hover:bg-red-50 dark:hover:bg-red-950/30 shadow-neu-sm"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-3.5 h-3.5 text-red-600" />
                     Remove
                   </button>
                 </div>
@@ -137,7 +137,7 @@ export function BugReportModal({ onClose }: BugReportModalProps) {
                   <button
                     type="button"
                     onClick={removeImage}
-                    className="text-[11px] text-red-600 dark:text-red-400 hover:underline shrink-0"
+                    className="text-[11px] text-red-600 dark:text-red-400 hover:underline shrink-0 font-medium"
                   >
                     Remove
                   </button>
@@ -180,9 +180,9 @@ export function BugReportModal({ onClose }: BugReportModalProps) {
             <button
               type="submit"
               disabled={submitBugReport.isPending || description.trim().length < 10}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border-2 border-red-600 bg-white dark:bg-slate-900 hover:bg-red-50 dark:hover:bg-red-950/30 px-4 py-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100 shadow-neu-sm transition-all disabled:opacity-50"
             >
-              <Send className="w-3.5 h-3.5" />
+              <Send className="w-3.5 h-3.5 text-red-600" />
               {submitBugReport.isPending ? 'Submitting…' : 'Submit Report'}
             </button>
           </div>

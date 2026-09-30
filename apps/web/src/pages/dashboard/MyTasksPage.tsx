@@ -18,22 +18,20 @@ function TaskTimerActionButton({ taskId, isRunning }: { taskId: string; isRunnin
       type="button"
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); clockOut.mutate(); }}
       disabled={pending}
-      className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 transition-all"
-      style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", boxShadow: "0 4px 12px rgba(245,158,11,0.35)" }}
+      className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-amber-500 shadow-neu-sm hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-50 transition-all"
     >
-      <LogOut className="w-3 h-3" />
-      {clockOut.isPending ? "â€¦" : "Clock Out"}
+      <LogOut className="w-3 h-3 text-amber-600" />
+      {clockOut.isPending ? "…" : "Clock Out"}
     </button>
   ) : (
     <button
       type="button"
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); clockIn.mutate(); }}
       disabled={pending}
-      className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 transition-all"
-      style={{ background: "linear-gradient(135deg, #10b981, #059669)", boxShadow: "0 4px 12px rgba(16,185,129,0.35)" }}
+      className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-emerald-600 shadow-neu-sm hover:bg-emerald-50 dark:hover:bg-emerald-950/30 disabled:opacity-50 transition-all"
     >
-      <Play className="w-3 h-3 fill-current" />
-      {clockIn.isPending ? "â€¦" : "Clock In"}
+      <Play className="w-3 h-3 fill-current text-emerald-600" />
+      {clockIn.isPending ? "…" : "Clock In"}
     </button>
   );
 }
@@ -90,7 +88,7 @@ export function MyTasksPage() {
       <div>
         <h1 className="text-2xl">My Tasks</h1>
         <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
-          Welcome back, {currentUser?.full_name?.split(" ")[0] ?? "there"} ðŸ‘‹
+          Welcome back, {currentUser?.full_name?.split(" ")[0] ?? "there"}
         </p>
       </div>
 
@@ -145,8 +143,8 @@ export function MyTasksPage() {
             <Link key={s.label} to={s.href} className="stat-card group">
               <div className="flex items-start justify-between">
                 <div
-                  className="flex items-center justify-center w-10 h-10 rounded-xl mb-3"
-                  style={{ background: s.bg, color: s.color }}
+                  className="flex items-center justify-center w-10 h-10 rounded-xl mb-3 bg-white dark:bg-slate-900 border-2 shadow-neu-sm"
+                  style={{ borderColor: s.color, color: s.color }}
                 >
                   <Icon className="w-5 h-5" />
                 </div>
@@ -163,7 +161,7 @@ export function MyTasksPage() {
       <div className="neu-card !p-0 overflow-hidden rounded-2xl shadow-sm">
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
           <h2 className="text-base" style={{ fontFamily: "Poppins, sans-serif", fontWeight: 700 }}>Open Tasks</h2>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "rgba(37,99,235,0.1)", color: "#2563EB" }}>
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-blue-600 shadow-xs">
             {openTasks.length}
           </span>
         </div>

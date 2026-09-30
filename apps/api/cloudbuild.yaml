@@ -19,13 +19,7 @@ steps:
           --region=us-central1 \
           --project=testing-sujeeth \
           --quiet \
-          --update-env-vars="^||^DATABASE_URL=${_DATABASE_URL}||JWT_ACCESS_SECRET=${_JWT_ACCESS_SECRET}||JWT_REFRESH_SECRET=${_JWT_REFRESH_SECRET}||JWT_ACCESS_TTL=15m||JWT_REFRESH_TTL=7d||ALLOWED_EMAIL_DOMAIN=econz.net||AUTH_PROVIDERS=google||NODE_ENV=production||FIREBASE_PROJECT_ID=testing-sujeeth||GCS_ATTACHMENTS_BUCKET=taskapp-attachments-testing-sujeeth"
-        # ALLOWED_ORIGIN set separately — it also contains || so we chain a second update
-        gcloud run services update taskapp-api \
-          --region=us-central1 \
-          --project=testing-sujeeth \
-          --quiet \
-          --update-env-vars="^||^ALLOWED_ORIGIN=https://pulse.econz.cloud||https://taskapp-web-jnimlvkvmq-uc.a.run.app"
+          --update-env-vars="^||^DATABASE_URL=${_DATABASE_URL}||JWT_ACCESS_SECRET=${_JWT_ACCESS_SECRET}||JWT_REFRESH_SECRET=${_JWT_REFRESH_SECRET}||JWT_ACCESS_TTL=15m||JWT_REFRESH_TTL=7d||ALLOWED_EMAIL_DOMAIN=econz.net||AUTH_PROVIDERS=google||NODE_ENV=production||FIREBASE_PROJECT_ID=testing-sujeeth||GCS_ATTACHMENTS_BUCKET=taskapp-attachments-testing-sujeeth||CORS_ALLOWED_ORIGINS=https://pulse.econz.cloud,https://taskapp-web-jnimlvkvmq-uc.a.run.app||ALLOWED_ORIGIN=https://pulse.econz.cloud"
 
 images:
   - '${_IMAGE}'

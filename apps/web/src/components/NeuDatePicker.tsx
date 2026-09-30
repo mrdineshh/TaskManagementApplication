@@ -273,18 +273,14 @@ export function NeuDatePicker({
         type="button"
         disabled={disabled}
         onClick={toggleOpen}
-        className="flex items-center justify-between gap-2 text-left transition-all w-full"
+        className="flex items-center justify-between gap-2 text-left transition-all w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
         style={{
           padding: `${py} ${px}`,
           fontSize: fs,
           borderRadius: '0.625rem',
-          background: 'var(--neu-bg)',
           color: value ? 'var(--text-primary)' : 'var(--text-faint)',
-          boxShadow: open
-            ? 'inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light), 0 0 0 3px rgba(37,99,235,0.15)'
-            : 'inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light)',
+          boxShadow: open ? '0 0 0 3px rgba(37,99,235,0.15)' : undefined,
           outline: 'none',
-          border: 'none',
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.5 : 1,
           fontFamily: '"Inter", ui-sans-serif, system-ui, sans-serif',
@@ -305,7 +301,7 @@ export function NeuDatePicker({
             </span>
           )}
           <CalendarIcon
-            className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 transition-transform duration-200"
+            className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 transition-transform duration-200"
             style={{ transform: open ? 'scale(1.1)' : 'scale(1)' }}
           />
         </div>
@@ -316,7 +312,7 @@ export function NeuDatePicker({
         createPortal(
           <div
             ref={popoverRef}
-            className="p-3 animate-pop-in select-none"
+            className="p-3 animate-pop-in select-none border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl"
             style={{
               position: 'fixed',
               left: `${coords.left}px`,
@@ -324,10 +320,6 @@ export function NeuDatePicker({
               bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
               width: '18rem',
               borderRadius: '1rem',
-              background: 'var(--neu-bg)',
-              boxShadow:
-                '0 12px 28px -4px rgba(0, 0, 0, 0.25), 6px 6px 16px var(--neu-dark), -4px -4px 12px var(--neu-light)',
-              border: '1px solid rgba(148, 163, 184, 0.25)',
               zIndex: 999999,
               fontFamily: '"Inter", ui-sans-serif, system-ui, sans-serif',
             }}

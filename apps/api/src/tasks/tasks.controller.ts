@@ -309,4 +309,10 @@ export class TasksController {
   clockIn(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.tasks.clockIn(user, id);
   }
+
+  @Post(':id/spawn-recurrence')
+  @RequirePermission('task.edit')
+  spawnNextOccurrence(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.tasks.spawnNextOccurrence(user, id);
+  }
 }

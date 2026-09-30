@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from '../../lib/toast/toast-store';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -25,10 +25,12 @@ import {
   useDecideTaskActionRequest,
   useUpdateComment,
   useSubmitEstimate,
+  useUpdateTask,
 } from '../../features/tasks/hooks';
 import { Badge } from '../../components/Badge';
 import { NeuSelect } from '../../components/NeuSelect';
-import { ShieldAlert, Clock, CheckCircle, CheckCircle2, RotateCcw, LogOut, Play, Archive, Trash2, Pencil, AlertTriangle, X, Paperclip, FileText, ChevronLeft, Activity, ChevronRight } from 'lucide-react';
+import { NeuDatePicker } from '../../components/NeuDatePicker';
+import { ShieldAlert, Clock, CheckCircle, CheckCircle2, RotateCcw, LogOut, Play, Archive, Trash2, Pencil, AlertTriangle, X, Paperclip, FileText, ChevronLeft, Activity, ChevronRight, Calendar, CheckSquare, MessageSquare, Send, Plus, Repeat, Pause, History } from 'lucide-react';
 import { DependenciesWidget } from '../../features/tasks/DependenciesWidget';
 import { ApprovalBanner } from '../../features/tasks/ApprovalBanner';
 import { RichTextEditor } from '../../components/RichTextEditor';
@@ -84,6 +86,19 @@ export function TaskDetailPage() {
   const deleteComment = useDeleteComment(id!);
   const updateComment = useUpdateComment(id!);
   const submitEstimate = useSubmitEstimate(id!);
+  const updateTask = useUpdateTask(id!);
+  const [timelineEditing, setTimelineEditing] = useState(false);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [timelineSaving, setTimelineSaving] = useState(false);
+
+  useEffect(() => {
+    if (task) {
+      if (task.start_date) setEditStartDate(task.start_date.slice(0, 10));
+      if (task.due_date) setEditDueDate(task.due_date.slice(0, 10));
+    }
+  }, [task]);
+
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentBody, setEditingCommentBody] = useState('');
 
@@ -224,6 +239,31 @@ export function TaskDetailPage() {
   const isInProgressStatus = Boolean(
     currentStatus?.category === 'in_progress' && !isReviewStatus
   );
+
+  const estimateVal = (task as any)?.estimate_value ?? (task as any)?.estimateValue ?? null;
+  const isMissingSchedule = !task?.start_date || !task?.due_date || estimateVal === null;
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  async function handleSaveTimeline() {
+    if (!editStartDate || !editDueDate) {
+      toast.error('Both Start Date and Due Date are required.');
+      return;
+    }
+    if (editDueDate < editStartDate) {
+      toast.error('Due Date cannot be earlier than Start Date.');
+      return;
+    }
+    setTimelineSaving(true);
+    try {
+      await updateTask.mutateAsync({ start_date: editStartDate, due_date: editDueDate });
+      setTimelineEditing(false);
+      toast.success('Task schedule updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update timeline');
+    } finally {
+      setTimelineSaving(false);
+    }
+  }
 
   const rawTransitions = (transitions ?? []).filter((t: any) => t.from_status_id === task.status_id);
   const doneStatus = statuses?.find((s: any) => s.category === 'done' || s.key === 'done');
@@ -439,9 +479,9 @@ export function TaskDetailPage() {
                           setReviewComment('');
                           setReviewFiles([]);
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-sm"
+                        className="inline-flex items-center gap-1.5 rounded-md border-2 border-emerald-600 bg-white dark:bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors disabled:opacity-50 shadow-neu-sm"
                       >
-                        <CheckCircle className="w-3.5 h-3.5" />
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                         Approve &amp; Mark Done
                       </button>
                       <button
@@ -461,9 +501,9 @@ export function TaskDetailPage() {
                           setReviewComment('');
                           setReviewFiles([]);
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors disabled:opacity-50 shadow-sm"
+                        className="inline-flex items-center gap-1.5 rounded-md border-2 border-amber-500 bg-white dark:bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors disabled:opacity-50 shadow-neu-sm"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" />
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
                         Request Changes (Return to To Do)
                       </button>
                     </div>
@@ -533,21 +573,72 @@ export function TaskDetailPage() {
                     type="button"
                     disabled={decideActionRequest.isPending}
                     onClick={() => handleDecideRequest('approved')}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border-2 border-emerald-600 bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-slate-900 dark:text-slate-100 px-3 py-1.5 text-xs font-semibold shadow-neu-sm transition-all disabled:opacity-50"
                   >
-                    <CheckCircle className="w-3.5 h-3.5" />
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                     Approve &amp; {pendingActionRequest.action_type === 'archive' ? 'Archive' : 'Delete'}
                   </button>
                   <button
                     type="button"
                     disabled={decideActionRequest.isPending}
                     onClick={() => handleDecideRequest('rejected')}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Reject
                   </button>
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Action Required: Mandatory Scheduling & Effort Estimation Warning */}
+        {isMissingSchedule && (
+          <div className="rounded-2xl border-2 border-amber-500 bg-amber-50/90 dark:bg-amber-950/40 p-4 sm:p-5 shadow-neu-sm animate-fade-in">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg p-2 bg-amber-500 text-white shrink-0 shadow-sm">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                    Action Required: Complete Scheduling &amp; Effort Estimation
+                  </h3>
+                  <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+                    {isManagerOrAdmin
+                      ? 'This task was assigned without full schedule parameters. Assignees cannot start work or run work timers until Start Date, Due Date, and Effort Estimation are specified.'
+                      : 'You cannot move this task to In Progress or clock in until Start Date, Due Date, and Effort Estimation are provided below.'}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
+                    {!task.start_date && (
+                      <span className="rounded bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 px-2 py-0.5 text-red-700 dark:text-red-300">
+                        Missing Start Date
+                      </span>
+                    )}
+                    {!task.due_date && (
+                      <span className="rounded bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 px-2 py-0.5 text-red-700 dark:text-red-300">
+                        Missing Due Date
+                      </span>
+                    )}
+                    {estimateVal === null && (
+                      <span className="rounded bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 px-2 py-0.5 text-red-700 dark:text-red-300">
+                        Missing Effort Estimation
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {canEditTaskSettings && !timelineEditing && (!task.start_date || !task.due_date) && (
+                <button
+                  type="button"
+                  onClick={() => setTimelineEditing(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md border-2 border-amber-600 bg-white dark:bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/40 shadow-neu-sm transition-all shrink-0"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                  Set Dates Now
+                </button>
               )}
             </div>
           </div>
@@ -571,16 +662,16 @@ export function TaskDetailPage() {
                     type="button"
                     onClick={handleDirectArchive}
                     disabled={archiveTask.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border-2 border-slate-600 dark:border-slate-400 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 shadow-neu-sm transition-all disabled:opacity-50"
                   >
-                    <Archive className="w-3.5 h-3.5 text-slate-500" />
+                    <Archive className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                     Archive
                   </button>
                   <button
                     type="button"
                     onClick={handleDirectDelete}
                     disabled={permanentDelete.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors shadow-sm disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border-2 border-red-600 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 shadow-neu-sm transition-all disabled:opacity-50"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Delete
@@ -595,10 +686,10 @@ export function TaskDetailPage() {
                       setRequestModalOpen(true);
                     }}
                     disabled={Boolean(pendingActionRequest)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border-2 border-slate-600 dark:border-slate-400 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 shadow-neu-sm transition-all disabled:opacity-50"
                     title={pendingActionRequest ? 'A request is already pending for this task' : 'Request manager to archive this task'}
                   >
-                    <Archive className="w-3.5 h-3.5 text-slate-500" />
+                    <Archive className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                     Request Archive
                   </button>
                   <button
@@ -608,7 +699,7 @@ export function TaskDetailPage() {
                       setRequestModalOpen(true);
                     }}
                     disabled={Boolean(pendingActionRequest)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors shadow-sm disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border-2 border-red-600 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 shadow-neu-sm transition-all disabled:opacity-50"
                     title={pendingActionRequest ? 'A request is already pending for this task' : 'Request manager to delete this task'}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -628,18 +719,18 @@ export function TaskDetailPage() {
             {(task as any).status && <Badge label={(task as any).status.label} color={(task as any).status.color} />}
             {(task as any).priority && <Badge label={(task as any).priority.label} color={(task as any).priority.color} />}
             {task.is_recurring && (
-              <Badge
-                label={`🔁 ${
-                  task.recurrence_rule === 'FREQ=DAILY' ? 'Every day' :
+              <Badge color="#8b5cf6">
+                <Repeat className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0 mr-0.5" />
+                <span>
+                  {task.recurrence_rule === 'FREQ=DAILY' ? 'Every day' :
                   task.recurrence_rule === 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' ? 'Every weekday (Mon–Fri)' :
                   task.recurrence_rule === 'FREQ=WEEKLY' ? 'Every week' :
                   task.recurrence_rule === 'FREQ=WEEKLY;INTERVAL=2' ? 'Every 2 weeks' :
                   task.recurrence_rule === 'FREQ=MONTHLY' ? 'Every month' :
                   task.recurrence_rule === 'FREQ=MONTHLY;INTERVAL=3' ? 'Every quarter' :
-                  task.recurrence_rule ? `Custom: ${task.recurrence_rule}` : 'Recurring'
-                }`}
-                color="#8b5cf6"
-              />
+                  task.recurrence_rule ? `Custom: ${task.recurrence_rule}` : 'Recurring'}
+                </span>
+              </Badge>
             )}
             {(task as any).on_hold_reason_id &&
               (() => {
@@ -699,13 +790,86 @@ export function TaskDetailPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Timeline:</span>
-              <span className="text-xs text-slate-700 dark:text-slate-300">
-                {fmtDate(task.start_date)} →{' '}
-                {fmtDate(task.due_date)}
-              </span>
+              {task.start_date && task.due_date ? (
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  {fmtDate(task.start_date)} → {fmtDate(task.due_date)}
+                </span>
+              ) : (
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                  Schedule Not Set
+                </span>
+              )}
+              {canEditTaskSettings && !timelineEditing && (
+                <button
+                  type="button"
+                  onClick={() => setTimelineEditing(true)}
+                  className="inline-flex items-center gap-1 rounded-md border-2 border-blue-600 bg-white dark:bg-slate-900 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 shadow-neu-sm transition-all ml-1"
+                >
+                  <Pencil className="w-3 h-3 text-blue-600" />
+                  {task.start_date && task.due_date ? 'Edit Dates' : 'Set Dates'}
+                </button>
+              )}
             </div>
+
+            {timelineEditing && (
+              <div className="col-span-full rounded-xl border-2 border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 p-3 shadow-neu-sm animate-fade-in mt-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Start Date (Today or future)
+                    </label>
+                    <NeuDatePicker
+                      value={editStartDate}
+                      onChange={(v) => {
+                        setEditStartDate(v);
+                        if (editDueDate && editDueDate < v) setEditDueDate(v);
+                      }}
+                      min={todayStr}
+                      placeholder="Start date"
+                      compact
+                      style={{ minWidth: '140px' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Due Date (&ge; Start Date)
+                    </label>
+                    <NeuDatePicker
+                      value={editDueDate}
+                      onChange={setEditDueDate}
+                      min={editStartDate || todayStr}
+                      placeholder="Due date"
+                      compact
+                      style={{ minWidth: '140px' }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 self-end pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSaveTimeline}
+                      disabled={timelineSaving || !editStartDate || !editDueDate}
+                      className="inline-flex items-center gap-1 rounded-md border-2 border-emerald-600 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 shadow-neu-sm transition-all disabled:opacity-50"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      {timelineSaving ? 'Saving…' : 'Save Dates'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTimelineEditing(false);
+                        setEditStartDate(task?.start_date ? task.start_date.slice(0, 10) : '');
+                        setEditDueDate(task?.due_date ? task.due_date.slice(0, 10) : '');
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 shadow-neu-sm transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {availableTransitions.length > 0 && (
@@ -718,29 +882,46 @@ export function TaskDetailPage() {
                 const isDone = toStatus?.category === 'done' || toStatus?.key === 'done';
                 const isReview = toStatus?.key === 'in_review' || toStatus?.is_review_status || toStatus?.label?.toLowerCase().includes('review');
                 const isCancelled = toStatus?.category === 'cancelled' || toStatus?.key === 'cancelled';
+                const isToInProgress = toStatus?.category === 'in_progress' || toStatus?.key === 'in_progress' || toStatus?.label?.toLowerCase() === 'in progress';
+                const isBlockedBySchedule = isToInProgress && isMissingSchedule;
 
-                let buttonClass = 'rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 shadow-2xs';
+                let buttonClass = 'inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 px-3.5 py-1.5 text-xs font-semibold shadow-2xs transition-all disabled:opacity-50';
 
-                if (isDone) {
-                  buttonClass = 'inline-flex items-center gap-1.5 rounded-md border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/80 transition-colors disabled:opacity-50 shadow-xs';
+                if (isBlockedBySchedule) {
+                  buttonClass = 'inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500 px-3.5 py-1.5 text-xs font-semibold shadow-none cursor-not-allowed opacity-60';
+                } else if (isDone) {
+                  buttonClass = 'inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-slate-900 dark:text-slate-100 px-3.5 py-1.5 text-xs font-semibold shadow-2xs transition-all disabled:opacity-50';
                 } else if (isReview) {
-                  buttonClass = 'inline-flex items-center gap-1.5 rounded-md border border-indigo-300 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 transition-colors disabled:opacity-50 shadow-xs';
+                  buttonClass = 'inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-900 dark:text-slate-100 px-3.5 py-1.5 text-xs font-semibold shadow-2xs transition-all disabled:opacity-50';
                 } else if (isCancelled) {
-                  buttonClass = 'inline-flex items-center gap-1 rounded-md border border-red-200 dark:border-red-900/60 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors disabled:opacity-50';
+                  buttonClass = 'inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-900 dark:text-slate-100 px-3 py-1.5 text-xs font-semibold shadow-2xs transition-all disabled:opacity-50';
                 }
 
                 return (
                   <button
                     key={t.id}
-                    onClick={() => handleTransition(t.to_status_id)}
-                    disabled={transitionTask.isPending || (!canEditTaskSettings && !isAssignee)}
+                    onClick={() => {
+                      if (isBlockedBySchedule) {
+                        toast.error('Cannot move to In Progress: Start Date, Due Date, and Effort Estimation must be filled first.');
+                        return;
+                      }
+                      handleTransition(t.to_status_id);
+                    }}
+                    disabled={transitionTask.isPending || (!canEditTaskSettings && !isAssignee) || isBlockedBySchedule}
                     className={buttonClass}
-                    title={isDone ? 'Mark this task as completed' : undefined}
+                    title={
+                      isBlockedBySchedule
+                        ? 'Mandatory: Set Start Date, Due Date, and Effort Estimation before moving to In Progress'
+                        : isDone
+                        ? 'Mark this task as completed'
+                        : undefined
+                    }
                   >
-                    {isDone && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
-                    {isReview && <Clock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                    {isDone && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                    {isReview && <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                    {isCancelled && <X className="w-3.5 h-3.5 text-red-600 shrink-0" />}
                     {statusLabel(t.to_status_id)}
-                    {t.requires_approval && <span className="ml-1 text-amber-500 dark:text-amber-400">*</span>}
+                    {t.requires_approval && <span className="ml-1 text-amber-500 font-bold">*</span>}
                   </button>
                 );
               })}
@@ -749,20 +930,20 @@ export function TaskDetailPage() {
 
           {/* Clock In / Clock Out session controls — ONLY for the assignee (not managers) on In Progress tasks */}
           {isInProgressStatus && isAssignee && (
-            <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
+            <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-slate-900 border-2 shadow-2xs ${
                       isRunning
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300/80 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800/60'
-                        : 'bg-amber-100 text-amber-800 border-amber-300/80 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800/60'
+                        ? 'border-emerald-600 text-emerald-600'
+                        : 'border-amber-500 text-amber-500'
                     }`}
                   >
                     {isRunning ? (
-                      <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
+                      <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-600 animate-ping" />
                     ) : (
-                      <Clock className="w-4 h-4" />
+                      <Clock className="w-4 h-4 text-amber-500" />
                     )}
                   </div>
                   <div>
@@ -771,21 +952,21 @@ export function TaskDetailPage() {
                         Work Session:
                       </span>
                       <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-white dark:bg-slate-900 border-2 text-slate-900 dark:text-slate-100 shadow-2xs ${
                           isRunning
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300/80 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800/60'
-                            : 'bg-amber-100 text-amber-800 border-amber-300/80 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800/60'
+                            ? 'border-emerald-600'
+                            : 'border-amber-500'
                         }`}
                       >
                         {isRunning ? (
                           <>
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
                             Timer Active
                           </>
                         ) : (
                           <>
-                            <span>⏸</span>
-                            Clocked Out
+                            <Pause className="w-3 h-3 text-amber-500 shrink-0" />
+                            <span>Clocked Out</span>
                           </>
                         )}
                       </span>
@@ -805,20 +986,31 @@ export function TaskDetailPage() {
                       id="clock-out-btn"
                       onClick={() => clockOut.mutate()}
                       disabled={clockOut.isPending}
-                      className="inline-flex items-center gap-2 rounded-lg border border-amber-300 dark:border-amber-700/80 bg-amber-50 dark:bg-amber-950/50 px-3.5 py-2 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 shadow-sm transition-all disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-lg bg-white dark:bg-slate-900 border-2 border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-900 dark:text-slate-100 px-3.5 py-2 text-xs font-semibold shadow-2xs transition-all disabled:opacity-50"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
+                      <LogOut className="w-3.5 h-3.5 text-amber-600" />
                       {clockOut.isPending ? 'Clocking out…' : 'Clock Out (Pause Timer)'}
                     </button>
                   ) : (
                     <button
                       type="button"
                       id="clock-in-btn"
-                      onClick={() => clockIn.mutate()}
-                      disabled={clockIn.isPending}
-                      className="inline-flex items-center gap-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 text-xs font-semibold shadow-sm shadow-brand-600/20 transition-all disabled:opacity-50"
+                      onClick={() => {
+                        if (isMissingSchedule) {
+                          toast.error('Start Date, Due Date, and Effort Estimation are required before clocking in.');
+                          return;
+                        }
+                        clockIn.mutate();
+                      }}
+                      disabled={clockIn.isPending || isMissingSchedule}
+                      className={`inline-flex items-center gap-2 rounded-lg bg-white dark:bg-slate-900 border-2 px-4 py-2 text-xs font-semibold shadow-2xs transition-all ${
+                        isMissingSchedule
+                          ? 'border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
+                          : 'border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-900 dark:text-slate-100 disabled:opacity-50'
+                      }`}
+                      title={isMissingSchedule ? 'Start Date, Due Date, and Effort Estimation are required before clocking in' : undefined}
                     >
-                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <Play className="w-3.5 h-3.5 fill-current text-blue-600" />
                       {clockIn.isPending ? 'Clocking in…' : 'Clock In (Resume Work)'}
                     </button>
                   )}
@@ -878,6 +1070,10 @@ export function TaskDetailPage() {
           taskId={id!}
           isRecurring={(task as any).is_recurring ?? false}
           recurrenceRule={(task as any).recurrence_rule ?? null}
+          startDate={task.start_date}
+          dueDate={task.due_date}
+          recurrenceIndex={(task as any).recurrence_index ?? (task as any).recurrenceIndex ?? 1}
+          recurrenceParentId={(task as any).recurrence_parent_id ?? (task as any).recurrenceParentId ?? null}
           canEdit={canEditTaskSettings}
         />
         <EstimateWidget
@@ -896,13 +1092,27 @@ export function TaskDetailPage() {
         />
 
         <div className="neu-card">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Subtasks
-              {subtasks?.items?.length ? ` (${subtasks.items.length})` : ''}
-            </h2>
-            <span className="text-xs text-slate-400">
-              {canManageSubtasks ? 'Manage child work items' : 'View only'}
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 border-emerald-600 bg-white dark:bg-slate-900 text-emerald-600 shadow-neu-sm">
+                <CheckSquare className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    Subtasks
+                  </h2>
+                  {subtasks?.items?.length ? (
+                    <span className="rounded-full bg-white dark:bg-slate-900 border-2 border-emerald-600 px-2 py-0.2 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 shadow-2xs">
+                      {subtasks.items.length}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">Child work items &amp; checklist</p>
+              </div>
+            </div>
+            <span className="text-xs text-slate-400 font-medium shrink-0 pt-1">
+              {canManageSubtasks ? 'Manage child items' : 'View only'}
             </span>
           </div>
 
@@ -941,9 +1151,9 @@ export function TaskDetailPage() {
                 <li key={s.id} className="flex items-center justify-between rounded-md border border-slate-100 dark:border-slate-800/80 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-2 min-w-0">
                     <span
-                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
                         isDone
-                          ? 'bg-emerald-500 border-emerald-500 text-white'
+                          ? 'bg-white dark:bg-slate-900 border-emerald-600 text-emerald-600'
                           : 'border-slate-300 dark:border-slate-600'
                       }`}
                     >
@@ -986,9 +1196,10 @@ export function TaskDetailPage() {
               />
               <button
                 type="submit"
-                disabled={createTask.isPending}
-                className="btn-primary"
+                disabled={createTask.isPending || !newSubtaskTitle.trim()}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border-2 border-emerald-600 bg-white dark:bg-slate-900 px-4 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 shadow-neu-sm transition-all disabled:opacity-50 shrink-0"
               >
+                <Plus className="w-3.5 h-3.5 text-emerald-600" />
                 Add subtask
               </button>
             </form>
@@ -996,7 +1207,26 @@ export function TaskDetailPage() {
         </div>
 
         <div className="neu-card">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Comments</h2>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 border-blue-600 bg-white dark:bg-slate-900 text-blue-600 shadow-neu-sm">
+                <MessageSquare className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    Comments &amp; Discussion
+                  </h2>
+                  {comments?.length ? (
+                    <span className="rounded-full bg-white dark:bg-slate-900 border-2 border-blue-600 px-2 py-0.2 text-[10px] font-bold text-blue-700 dark:text-blue-300 shadow-2xs">
+                      {comments.length}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">Team collaboration &amp; mentions</p>
+              </div>
+            </div>
+          </div>
           <div className="space-y-3">
             {comments?.map((c: any) => {
               const isOwnComment = c.author?.id === currentUser?.id || c.author_id === currentUser?.id;
@@ -1062,7 +1292,7 @@ export function TaskDetailPage() {
                             await updateComment.mutateAsync({ commentId: c.id, body: editingCommentBody.trim() });
                             setEditingCommentId(null);
                           }}
-                          className="btn-primary !py-1 !px-2.5 !text-xs"
+                          className="inline-flex items-center gap-1 rounded-md border-2 border-blue-600 bg-white dark:bg-slate-900 px-3 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-50 shadow-neu-sm disabled:opacity-50"
                         >
                           {updateComment.isPending ? 'Saving…' : 'Save'}
                         </button>
@@ -1102,8 +1332,9 @@ export function TaskDetailPage() {
               <button
                 type="submit"
                 disabled={addComment.isPending || !commentBody || commentBody === '<p></p>'}
-                className="btn-primary"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border-2 border-blue-600 bg-white dark:bg-slate-900 px-4 py-2 text-xs font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 shadow-neu-sm transition-all disabled:opacity-50"
               >
+                <Send className="w-3.5 h-3.5 text-blue-600" />
                 Post
               </button>
             </div>
@@ -1114,9 +1345,16 @@ export function TaskDetailPage() {
       {/* Collapsible Activity Panel */}
       {activityOpen && (
         <div className="neu-card">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Activity Log</h2>
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">Audit trail</span>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 border-slate-600 bg-white dark:bg-slate-900 text-slate-600 shadow-neu-sm">
+                <History className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Activity Log</h2>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">Audit trail &amp; change history</p>
+              </div>
+            </div>
           </div>
           <ul className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
             {activity?.map((a: any) => (
@@ -1177,10 +1415,10 @@ export function TaskDetailPage() {
                 <button
                   type="submit"
                   disabled={requestSubmitting}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-all disabled:opacity-50 ${
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-neu-sm transition-all disabled:opacity-50 border-2 ${
                     requestActionType === 'archive'
-                      ? 'bg-brand-600 hover:bg-brand-700'
-                      : 'bg-red-600 hover:bg-red-700'
+                      ? 'border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30'
+                      : 'border-red-600 hover:bg-red-50 dark:hover:bg-red-950/30'
                   }`}
                 >
                   {requestSubmitting ? 'Submitting…' : `Submit ${requestActionType === 'archive' ? 'Archive' : 'Delete'} Request`}

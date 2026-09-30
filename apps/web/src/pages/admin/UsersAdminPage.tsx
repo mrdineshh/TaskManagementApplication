@@ -205,12 +205,12 @@ export function UsersAdminPage() {
                         return (
                           <span
                             key={r.id}
-                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs"
                             style={isAdmin
-                              ? { background: "rgba(37,99,235,0.12)", color: "#2563EB" }
-                              : { background: "var(--neu-dark)", color: "var(--text-muted)" }}
+                              ? { border: "2px solid #2563EB" }
+                              : { border: "2px solid #cbd5e1" }}
                           >
-                            {isAdmin && <ShieldCheck className="w-3 h-3" />}
+                            {isAdmin && <ShieldCheck className="w-3 h-3 text-blue-600" />}
                             {r.name}
                             <button onClick={() => removeRole.mutate({ userId: u.id, roleId: r.id })} className="ml-0.5 hover:text-red-500" title={`Remove ${r.name}`}>
                               <X className="w-2.5 h-2.5" />
@@ -228,9 +228,9 @@ export function UsersAdminPage() {
                         type="button"
                         onClick={() => adminRoleObj && removeRole.mutate({ userId: u.id, roleId: adminRoleObj.id })}
                         disabled={removeRole.isPending}
-                        className="inline-flex items-center gap-1.5 btn-danger !py-1 !px-2.5 !text-xs !rounded-lg disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-900 dark:text-slate-100 !py-1 !px-2.5 !text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
                       >
-                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
                         Revoke Admin
                       </button>
                     ) : (
@@ -238,10 +238,9 @@ export function UsersAdminPage() {
                         type="button"
                         onClick={() => adminRole && assignRole.mutate({ userId: u.id, roleId: adminRole.id })}
                         disabled={assignRole.isPending || !adminRole}
-                        className="inline-flex items-center gap-1.5 btn-neu !py-1 !px-2.5 !text-xs !rounded-lg disabled:opacity-50"
-                        style={{ color: "#7c3aed" }}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-slate-900 dark:text-slate-100 !py-1 !px-2.5 !text-xs font-semibold shadow-2xs transition-colors disabled:opacity-50"
                       >
-                        <Shield className="w-3.5 h-3.5" />
+                        <Shield className="w-3.5 h-3.5 text-purple-600" />
                         Grant Admin
                       </button>
                     )}
@@ -283,11 +282,12 @@ export function UsersAdminPage() {
                   <td className="px-4 py-3 min-w-[130px]">
                     <div className="flex items-center gap-2">
                       <span
-                        className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs"
                         style={u.is_active
-                          ? { background: "rgba(16,185,129,0.1)", color: "#10b981" }
-                          : { background: "var(--neu-dark)", color: "var(--text-faint)" }}
+                          ? { border: "2px solid #10b981" }
+                          : { border: "2px solid #cbd5e1" }}
                       >
+                        <span className={`w-1.5 h-1.5 rounded-full ${u.is_active ? 'bg-emerald-600' : 'bg-slate-400'}`} />
                         {u.is_active ? 'Active' : 'Inactive'}
                       </span>
                       <button

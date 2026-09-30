@@ -111,10 +111,10 @@ export function RolesAdminPage() {
               <li key={r.id}>
                 <button
                   onClick={() => setSelectedId(r.id)}
-                  className={`flex items-center justify-between w-full px-3 py-2 text-left text-sm ${
+                  className={`flex items-center justify-between w-full px-3 py-2 text-left text-sm rounded-lg transition-all ${
                     selectedId === r.id
-                      ? 'bg-brand-50 dark:bg-brand-950/40 font-semibold text-brand-700 dark:text-brand-300'
-                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950'
+                      ? 'border-2 border-blue-600 bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-slate-100 shadow-neu-sm'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 border-2 border-transparent'
                   }`}
                 >
                   <span className="truncate">
@@ -185,9 +185,9 @@ export function RolesAdminPage() {
                     type="button"
                     onClick={handleAssignUser}
                     disabled={!userToAssignId || assignRole.isPending}
-                    className="inline-flex items-center gap-1 rounded bg-brand-600 hover:bg-brand-700 text-white px-2.5 py-1 text-xs font-medium disabled:opacity-50 transition-colors"
+                    className="inline-flex items-center gap-1 rounded border-2 border-blue-600 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-slate-900 dark:text-slate-100 px-2.5 py-1 text-xs font-semibold shadow-neu-sm disabled:opacity-50 transition-colors"
                   >
-                    <UserPlus className="w-3 h-3" />
+                    <UserPlus className="w-3 h-3 text-blue-600" />
                     Assign
                   </button>
                 </div>

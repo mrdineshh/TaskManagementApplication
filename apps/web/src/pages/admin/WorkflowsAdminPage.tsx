@@ -109,13 +109,13 @@ export function WorkflowsAdminPage() {
       {workflowId && (
         <>
           {orphanStatuses.length > 0 && (
-            <div className="flex items-start gap-3 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/40 p-4 text-sm text-amber-800 dark:text-amber-200">
-              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 rounded-lg border-2 border-amber-500 bg-white dark:bg-slate-900 shadow-neu-sm p-4 text-sm text-slate-900 dark:text-slate-100">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold">Orphan Statuses Detected</p>
-                <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
+                <p className="font-semibold text-slate-900 dark:text-slate-100">Orphan Statuses Detected</p>
+                <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
                   The following statuses have no incoming or outgoing transitions:{' '}
-                  <span className="font-semibold">{orphanStatuses.map((s) => s.label).join(', ')}</span>.
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{orphanStatuses.map((s) => s.label).join(', ')}</span>.
                   Tasks will not be able to transition into or out of these statuses until transitions are configured.
                 </p>
               </div>

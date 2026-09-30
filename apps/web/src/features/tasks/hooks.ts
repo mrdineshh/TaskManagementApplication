@@ -389,7 +389,7 @@ export function useReviewAction(taskId: string) {
       qc.invalidateQueries({ queryKey: ['tasks', taskId, 'time-logs'] });
       qc.invalidateQueries({ queryKey: ['tasks'] });
       qc.invalidateQueries({ queryKey: ['dashboards'] });
-      toast.success(vars.action === 'approve' ? 'Task approved ✓' : 'Changes requested — employee notified');
+      toast.success(vars.action === 'approve' ? 'Task approved' : 'Changes requested — employee notified');
     },
     onError: (err: Error) => toast.error(err.message),
   });

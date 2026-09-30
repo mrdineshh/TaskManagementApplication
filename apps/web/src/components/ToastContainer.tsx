@@ -2,9 +2,9 @@ import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { useToastStore, type ToastKind } from '../lib/toast/toast-store';
 
 const KIND_STYLES: Record<ToastKind, string> = {
-  success: 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200',
-  error: 'border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200',
-  info: 'border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200',
+  success: 'border-2 border-emerald-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100',
+  error: 'border-2 border-red-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100',
+  info: 'border-2 border-blue-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100',
 };
 
 function ToastIcon({ kind }: { kind: ToastKind }) {

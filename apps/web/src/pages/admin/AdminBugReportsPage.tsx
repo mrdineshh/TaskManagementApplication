@@ -76,8 +76,8 @@ function BugReportCard({ report }: { report: BugReportEntry }) {
               <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{reporterName}</span>
               <span className="text-xs text-slate-400 dark:text-slate-500">{reporterEmail}</span>
               {hasScreenshot && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300">
-                  <ImageIcon className="w-3 h-3" /> Screenshot
+                <span className="inline-flex items-center gap-1 rounded-full bg-white dark:bg-slate-900 border-2 border-purple-600 px-2 py-0.5 text-[10px] font-bold text-slate-900 dark:text-slate-100 shadow-2xs">
+                  <ImageIcon className="w-3 h-3 text-purple-600" /> Screenshot
                 </span>
               )}
             </div>
@@ -189,7 +189,7 @@ export function AdminBugReportsPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white shadow-md shadow-brand-500/30">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-blue-600 bg-white dark:bg-slate-900 text-blue-600 shadow-neu-sm">
             <Activity className="h-5 w-5" />
           </div>
           <div>
@@ -205,8 +205,8 @@ export function AdminBugReportsPage() {
 
         {!isLoading && (
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 dark:bg-red-950/60 border border-red-200 dark:border-red-900/60 px-3 py-1 text-xs font-semibold text-red-700 dark:text-red-300">
-              <Bug className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-900 border-2 border-red-600 px-3 py-1 text-xs font-bold text-slate-900 dark:text-slate-100 shadow-2xs">
+              <Bug className="w-3 h-3 text-red-600" />
               {reports.length} {reports.length === 1 ? 'report' : 'reports'}
             </span>
           </div>
@@ -218,9 +218,9 @@ export function AdminBugReportsPage() {
           <p className="text-sm text-slate-400 dark:text-slate-500 animate-pulse">Loading bug reports…</p>
         </div>
       ) : error ? (
-        <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-6 text-center">
-          <Bug className="w-8 h-8 text-red-400 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-red-800 dark:text-red-300">Failed to load bug reports</p>
+        <div className="rounded-xl border-2 border-red-600 bg-white dark:bg-slate-900 p-6 text-center shadow-2xs">
+          <Bug className="w-8 h-8 text-red-600 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Failed to load bug reports</p>
           <p className="text-xs text-red-600 dark:text-red-400 mt-1">
             {error instanceof Error ? error.message : 'An unexpected error occurred'}
           </p>

@@ -323,19 +323,12 @@ export function EmployeeTimesheetPage() {
       </div>
 
       {/* KPI Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <KpiCard
           icon={<Users className="w-4 h-4" />}
           label="Team Members"
           value={String(kpi.totalEmployees)}
           color="blue"
-        />
-        <KpiCard
-          icon={<Clock className="w-4 h-4" />}
-          label="Total Hours"
-          value={kpi.totalHours.toFixed(1) + 'h'}
-          sub={`~${kpi.avgHoursPerEmployee.toFixed(1)}h avg/person`}
-          color="violet"
         />
         <KpiCard
           icon={<CheckCircle2 className="w-4 h-4" />}
@@ -362,10 +355,10 @@ export function EmployeeTimesheetPage() {
           <button
             key={p}
             onClick={() => setDatePreset(p)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition-all ${
               datePreset === p
-                ? 'bg-brand-600 text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-blue-600 shadow-2xs'
+                : 'bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400'
             }`}
           >
             {p === 'week'
@@ -500,8 +493,8 @@ export function EmployeeTimesheetPage() {
                       {/* Active Tasks */}
                       <td className="px-3 py-3.5">
                         {emp.active_tasks > 0 ? (
-                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-blue-600 shadow-2xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
                             {emp.active_tasks}
                           </span>
                         ) : (
@@ -512,8 +505,8 @@ export function EmployeeTimesheetPage() {
                       {/* Completed */}
                       <td className="px-3 py-3.5">
                         {emp.done_tasks > 0 ? (
-                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            <CheckCircle2 className="w-3 h-3" />
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-emerald-600 shadow-2xs">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                             {emp.done_tasks}
                           </span>
                         ) : (
@@ -524,8 +517,8 @@ export function EmployeeTimesheetPage() {
                       {/* Overdue */}
                       <td className="px-3 py-3.5">
                         {hasOverdue ? (
-                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800">
-                            <AlertCircle className="w-3 h-3" />
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-red-600 shadow-2xs">
+                            <AlertCircle className="w-3 h-3 text-red-600" />
                             {emp.overdue_tasks}
                           </span>
                         ) : (

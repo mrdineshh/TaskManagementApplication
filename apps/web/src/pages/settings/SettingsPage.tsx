@@ -259,7 +259,8 @@ export function SettingsPage() {
               <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{currentUser?.full_name}</p>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>{currentUser?.email}</p>
               {activeRoleName && (
-                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: "rgba(37,99,235,0.1)", color: "#2563EB" }}>
+                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-blue-600 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
                   {activeRoleName}
                 </span>
               )}
@@ -275,7 +276,7 @@ export function SettingsPage() {
           {/* Avatar URL */}
           <div>
             <label className="section-label">Avatar URL (or upload above)</label>
-            <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://â€¦" className="neu-input max-w-sm font-mono text-xs" />
+            <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://…" className="neu-input max-w-sm font-mono text-xs" />
           </div>
 
           {(currentUser as any)?.work_country && (
@@ -290,7 +291,7 @@ export function SettingsPage() {
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={updateProfile.isPending} className="btn-primary">
-              {updateProfile.isPending ? 'Savingâ€¦' : 'Save profile'}
+              {updateProfile.isPending ? 'Saving…' : 'Save profile'}
             </button>
             {savedMessage && <span className="text-xs font-medium" style={{ color: "#10b981" }}>{savedMessage}</span>}
           </div>
@@ -323,7 +324,7 @@ export function SettingsPage() {
           <div className="flex items-center gap-3">
             <button type="submit" disabled={deptSaving || !selectedDeptId} className="btn-primary gap-2">
               {deptSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {deptSaving ? 'Savingâ€¦' : 'Update department'}
+              {deptSaving ? 'Saving…' : 'Update department'}
             </button>
             {deptMessage && (
               <span className="text-xs font-medium" style={{ color: deptMessage.includes('success') ? '#10b981' : '#ef4444' }}>{deptMessage}</span>
@@ -339,12 +340,12 @@ export function SettingsPage() {
             <h2 className="text-base font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <BellRing className="w-4 h-4" style={{ color: "#2563EB" }} /> Desktop Notifications
               {desktopPerm === 'granted' && desktopEnabled
-                ? <span className="badge" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)" }}>Active</span>
+                ? <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-emerald-600 shadow-2xs"><span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />Active</span>
                 : desktopPerm === 'denied'
-                ? <span className="badge" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>Blocked</span>
+                ? <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-red-600 shadow-2xs"><span className="w-1.5 h-1.5 rounded-full bg-red-600" />Blocked</span>
                 : !desktopEnabled
-                ? <span className="badge" style={{ background: "rgba(142,154,181,0.1)", color: "var(--text-faint)", border: "1px solid rgba(142,154,181,0.2)" }}>Disabled</span>
-                : <span className="badge" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>Permission Required</span>}
+                ? <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-slate-400 shadow-2xs"><span className="w-1.5 h-1.5 rounded-full bg-slate-400" />Disabled</span>
+                : <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-amber-500 shadow-2xs"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Permission Required</span>}
             </h2>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>Receive live popup alerts for assignments, mentions, and updates even when Pulse runs in a background tab.</p>
           </div>
@@ -442,7 +443,7 @@ export function SettingsPage() {
           <div className="flex items-center gap-3 mb-3">
             <AlertTriangle className="w-5 h-5" style={{ color: "#f59e0b" }} />
             <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>Pending Archive & Delete Requests</h2>
-            <span className="badge" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>{pendingRequests.length}</span>
+            <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-amber-500 shadow-2xs">{pendingRequests.length}</span>
           </div>
           <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>Employee requests to archive or permanently delete tasks that require your review.</p>
           <div className="overflow-x-auto">
@@ -463,7 +464,7 @@ export function SettingsPage() {
                     <td><span className="font-semibold text-sm break-words leading-snug" style={{ color: "var(--text-primary)" }}>{req.requester?.full_name ?? 'Team Member'}</span></td>
                     <td><Link to={`/tasks/${req.task_id}`} className="font-semibold text-sm hover:underline break-words leading-snug" style={{ color: "#2563EB" }}>{req.task?.title ?? req.task_id}</Link></td>
                     <td>
-                      <span className="badge" style={req.action_type === 'archive' ? { background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" } : { background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+                      <span className={`inline-flex items-center rounded-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-2.5 py-0.5 text-xs font-bold shadow-2xs border-2 ${req.action_type === 'archive' ? 'border-amber-500' : 'border-red-600'}`}>
                         {req.action_type === 'archive' ? 'Archive' : 'Permanent Delete'}
                       </span>
                     </td>
@@ -493,13 +494,13 @@ export function SettingsPage() {
           <div className="flex items-center gap-2">
             <Archive className="w-4 h-4" style={{ color: "#2563EB" }} />
             <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>Archived Tasks</h2>
-            {archivedTasks && <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(37,99,235,0.1)", color: "#2563EB" }}>{archivedTasks.length}</span>}
+            {archivedTasks && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-blue-600 shadow-2xs">{archivedTasks.length}</span>}
           </div>
 
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-faint)" }} />
-              <input type="text" value={archivedSearch} onChange={(e) => setArchivedSearch(e.target.value)} placeholder="Search archivedâ€¦" className="neu-input pl-9 py-1.5 text-xs" style={{ minWidth: "12rem" }} />
+              <input type="text" value={archivedSearch} onChange={(e) => setArchivedSearch(e.target.value)} placeholder="Search archived…" className="neu-input pl-9 py-1.5 text-xs" style={{ minWidth: "12rem" }} />
             </div>
             <NeuSelect
               value={archivedDeptId}
@@ -542,7 +543,12 @@ export function SettingsPage() {
                     <td className="pl-5">
                       <div className="flex items-center gap-2">
                         <Link to={`/tasks/${t.id}`} className="font-semibold text-sm hover:underline break-words leading-snug" style={{ color: "var(--text-primary)" }}>{t.title}</Link>
-                        {t.status && <span className="badge shrink-0 whitespace-nowrap" style={{ backgroundColor: t.status.color ? `${t.status.color}18` : 'rgba(142,154,181,0.1)', color: t.status.color ?? 'var(--text-muted)', border: `1px solid ${t.status.color ? `${t.status.color}30` : 'transparent'}` }}>{t.status.label}</span>}
+                        {t.status && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-slate-400 shadow-2xs shrink-0 whitespace-nowrap">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                            {t.status.label}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td><span className="text-sm break-words leading-snug" style={{ color: "var(--text-muted)" }}>{t.department?.name ?? '—'}</span></td>
@@ -554,8 +560,8 @@ export function SettingsPage() {
                           <RotateCcw className="w-3 h-3" /> Unarchive
                         </button>
                         {isManagerOrAdmin && (
-                          <button type="button" disabled={permanentDeleteTask.isPending} onClick={() => { if (window.confirm(`Permanently delete "${t.title}"? This cannot be undone.`)) permanentDeleteTask.mutate(t.id); }} className="btn-danger !py-1 !px-2.5 !text-xs gap-1">
-                            <Trash2 className="w-3 h-3" /> Delete
+                          <button type="button" disabled={permanentDeleteTask.isPending} onClick={() => { if (window.confirm(`Permanently delete "${t.title}"? This cannot be undone.`)) permanentDeleteTask.mutate(t.id); }} className="inline-flex items-center gap-1 rounded-lg bg-white dark:bg-slate-900 border-2 border-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-900 dark:text-slate-100 !py-1 !px-2.5 !text-xs font-semibold shadow-2xs transition-colors">
+                            <Trash2 className="w-3 h-3 text-red-600" /> Delete
                           </button>
                         )}
                       </div>

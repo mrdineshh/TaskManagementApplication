@@ -113,17 +113,15 @@ export function GlobalSearch() {
     <div ref={containerRef} className="relative flex items-center">
       {/* Search Input Bar - Always visible */}
       <div
-        className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 transition-all focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 shadow-xs"
         style={{
           width: '16rem',
           minWidth: '13rem',
-          boxShadow: 'inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light)',
-          background: 'var(--neu-bg)',
           cursor: 'text',
         }}
         onClick={() => inputRef.current?.focus()}
       >
-        <Search className="w-4 h-4 shrink-0 pointer-events-none" style={{ color: 'var(--text-faint)' }} />
+        <Search className="w-4 h-4 shrink-0 pointer-events-none text-slate-400 dark:text-slate-500" />
         <input
           ref={inputRef}
           type="text"
@@ -133,12 +131,9 @@ export function GlobalSearch() {
           onFocus={() => { if (query.trim() && results.length > 0) setOpen(true); }}
           placeholder="Search tasks…"
           aria-label="Search tasks"
-          className="flex-1 min-w-0 text-sm outline-none border-none"
+          className="flex-1 min-w-0 text-sm outline-none border-none bg-transparent"
           style={{
-            background: 'transparent',
             color: 'var(--text-primary)',
-            boxShadow: 'none',
-            cursor: 'text',
             caretColor: '#2563EB',
             padding: '2px 0',
           }}
@@ -147,15 +142,14 @@ export function GlobalSearch() {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); clearSearch(); }}
-            className="p-0.5 rounded-full hover:bg-[rgba(0,0,0,0.08)] transition-colors shrink-0"
+            className="p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0"
             title="Clear search"
           >
-            <X className="w-3.5 h-3.5" style={{ color: 'var(--text-faint)' }} />
+            <X className="w-3.5 h-3.5 text-slate-400" />
           </button>
         ) : (
           <span
-            className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 pointer-events-none select-none"
-            style={{ color: 'var(--text-faint)', background: 'rgba(0,0,0,0.06)' }}
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 pointer-events-none select-none text-slate-400 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600/40"
           >
             ⌘K
           </span>
@@ -165,12 +159,9 @@ export function GlobalSearch() {
       {/* Results dropdown */}
       {open && (
         <div
-          className="absolute top-full right-0 z-50 mt-1.5 overflow-hidden animate-pop-in"
+          className="absolute top-full right-0 z-50 mt-1.5 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl animate-pop-in"
           style={{
             width: '22rem',
-            background: 'var(--neu-bg)',
-            borderRadius: '1rem',
-            boxShadow: '8px 8px 24px var(--neu-dark), -4px -4px 12px var(--neu-light)',
           }}
         >
           {loading && (
@@ -199,8 +190,8 @@ export function GlobalSearch() {
               </div>
               {r.status && (
                 <span
-                  className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
-                  style={{ backgroundColor: r.status.color ?? '#94a3b8' }}
+                  className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2"
+                  style={{ borderColor: r.status.color ?? '#94a3b8' }}
                 >
                   {r.status.label}
                 </span>

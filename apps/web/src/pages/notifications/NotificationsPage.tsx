@@ -117,21 +117,21 @@ export function NotificationsPage() {
             </button>
           )}
           {/* Filter toggle */}
-          <div className="neu-inset flex !p-1 !rounded-xl gap-1">
+          <div className="neu-card !p-1 !rounded-xl flex gap-1 bg-white/50 dark:bg-slate-900/50">
             {(["all", "unread"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className="relative rounded-xl px-3 py-1.5 text-xs font-semibold capitalize transition-all"
+                className="relative rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition-all"
                 style={filter === f
-                  ? { background: "var(--neu-bg)", boxShadow: "3px 3px 6px var(--neu-dark), -3px -3px 6px var(--neu-light)", color: "#2563EB" }
-                  : { color: "var(--text-faint)" }}
+                  ? { background: "#ffffff", border: "2px solid #2563EB", color: "#0f172a", boxShadow: "0 2px 8px rgba(37,99,235,0.15)" }
+                  : { border: "2px solid transparent", color: "var(--text-muted)" }}
               >
                 {f}
                 {f === "unread" && unreadCount > 0 && (
                   <span
-                    className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white"
-                    style={{ background: "#ef4444" }}
+                    className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-[10px] font-bold bg-white text-slate-900 shadow-xs"
+                    style={{ border: "2px solid #ef4444" }}
                   >
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
@@ -183,8 +183,8 @@ export function NotificationsPage() {
                     className="flex w-full items-start gap-4 px-5 py-4 text-left transition-all hover:bg-[rgba(37,99,235,0.03)]"
                   >
                     <div
-                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: meta.bg, color: meta.color }}
+                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-slate-900 shadow-2xs"
+                      style={{ border: `2px solid ${meta.color}`, color: meta.color }}
                     >
                       <Icon className="w-4.5 h-4.5" style={{ width: "1.125rem", height: "1.125rem" }} />
                     </div>
@@ -198,7 +198,7 @@ export function NotificationsPage() {
                       <p className="mt-0.5 text-xs" style={{ color: "var(--text-faint)" }}>{timeAgo(n.created_at)}</p>
                     </div>
                     {!n.is_read && (
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full" style={{ background: "#2563EB" }} aria-label="Unread" />
+                      <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-white" style={{ border: "2px solid #2563EB" }} aria-label="Unread" />
                     )}
                   </button>
                 </li>

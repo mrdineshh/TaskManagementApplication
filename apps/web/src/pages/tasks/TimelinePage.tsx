@@ -120,10 +120,10 @@ function initialsOf(name: string | null | undefined): string {
 
 function statusBadgeStyle(category: string): string {
   const map: Record<string, string> = {
-    todo: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700',
-    in_progress: 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-    done: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-    cancelled: 'bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700',
+    todo: 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-slate-400',
+    in_progress: 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-blue-600',
+    done: 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-emerald-600',
+    cancelled: 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 border-slate-400',
   };
   return map[category] ?? map.todo;
 }
@@ -473,12 +473,12 @@ export function TimelinePage() {
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {hasOpenBlocker && (
-                          <span className="inline-flex items-center gap-0.5 rounded bg-amber-100 dark:bg-amber-950/80 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300" title={`Blocked by: ${blockers.map((b) => b.title).join(', ')}`}>
-                            <Link2 className="w-3 h-3" />Blocked
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-white dark:bg-slate-900 border-2 border-amber-500 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900 dark:text-slate-100 shadow-2xs" title={`Blocked by: ${blockers.map((b) => b.title).join(', ')}`}>
+                            <Link2 className="w-3 h-3 text-amber-500" />Blocked
                           </span>
                         )}
                         {isOverdue && (
-                          <span className="inline-flex items-center rounded bg-red-100 dark:bg-red-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 dark:text-red-300">
+                          <span className="inline-flex items-center rounded-full bg-white dark:bg-slate-900 border-2 border-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900 dark:text-slate-100 shadow-2xs">
                             Overdue
                           </span>
                         )}
@@ -575,7 +575,7 @@ export function TimelinePage() {
                     const barWidth = Math.max(140, endX - startX);
                     const isDone = t.status?.category === 'done';
                     const isOverdue = !isDone && t.due_date && new Date(t.due_date).getTime() < Date.now();
-                    const baseColor = t.status?.color ?? CATEGORY_COLOR[t.status?.category ?? 'todo'] ?? '#3b82f6';
+                    const baseColor = t.status?.color ?? CATEGORY_COLOR[t.status?.category ?? 'todo'] ?? '#2563EB';
                     const barColor = isOverdue ? '#dc2626' : baseColor;
                     const isSelfAssigned = (t as any).assignee_id === currentUser?.id || (t as any).assignee?.id === currentUser?.id;
                     const canOpenTask = isManagerOrAdmin || isSelfAssigned;
@@ -584,46 +584,60 @@ export function TimelinePage() {
                     const barStyle = {
                       left: startX + 2,
                       width: barWidth - 4,
-                      backgroundColor: barColor,
+                      borderColor: barColor,
                       height: 32,
-                      opacity: isDone ? 0.75 : 1,
+                      opacity: isDone ? 0.85 : 1,
                     };
 
-                    const barClass = `absolute top-1/2 -translate-y-1/2 rounded-lg px-2.5 text-xs font-semibold text-white shadow-md flex items-center justify-between gap-1.5 z-10 transition-all overflow-hidden ${
-                      canOpenTask ? 'hover:shadow-lg hover:brightness-110 cursor-pointer' : 'cursor-default select-none opacity-85'
-                    } ${isOverdue ? 'ring-2 ring-red-400/60 ring-offset-1 dark:ring-offset-slate-900' : ''}`;
+                    const barClass = `absolute top-1/2 -translate-y-1/2 rounded-xl px-2.5 text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-2 shadow-neu-sm flex items-center justify-between gap-1.5 z-10 transition-all overflow-hidden ${
+                      canOpenTask ? 'hover:shadow-md hover:scale-[1.01] cursor-pointer' : 'cursor-default select-none'
+                    } ${isOverdue ? 'ring-2 ring-red-400/30' : ''}`;
 
                     const barTitle = `${t.title} (${t.status?.label ?? 'Todo'}${isOverdue ? ' · OVERDUE' : ''}) — ${eff.start.toLocaleDateString()} → ${eff.due.toLocaleDateString()}${assigneeName ? ` · ${assigneeName}` : ''}`;
-                    const isCompactBar = barWidth < 180;
+                    const isWideBar = barWidth >= 130;
 
                     const barContent = (
                       <>
-                        <span className="truncate whitespace-nowrap min-w-0 flex-1 text-xs font-medium leading-none" title={t.title}>
-                          {t.title}
-                        </span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {assigneeName && (
-                            <span
-                              className="flex items-center justify-center w-5 h-5 rounded-full bg-white/25 text-[9px] font-bold shrink-0"
-                              title={`Assignee: ${assigneeName}`}
-                            >
-                              {initialsOf(assigneeName)}
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          {assigneeName ? (
+                            <>
+                              <span
+                                className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-[9px] font-bold text-slate-800 dark:text-slate-200 shrink-0 leading-none"
+                                title={`Assignee: ${assigneeName}`}
+                              >
+                                {initialsOf(assigneeName)}
+                              </span>
+                              {isWideBar && (
+                                <span className="truncate whitespace-nowrap text-xs font-semibold text-slate-900 dark:text-slate-100 leading-none" title={assigneeName}>
+                                  {assigneeName}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 dark:text-slate-500 italic truncate leading-none">
+                              {isWideBar ? 'Unassigned' : '—'}
                             </span>
                           )}
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
                           {isDone ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-white/90" />
+                            <span className="inline-flex items-center gap-1 shrink-0 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                              {isWideBar && <span>Done</span>}
+                            </span>
                           ) : isOverdue ? (
-                            <span className="inline-flex items-center gap-1 shrink-0 bg-red-900/50 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                              <AlertCircle className="w-3 h-3 shrink-0" />
-                              {!isCompactBar && <span>Late</span>}
+                            <span className="inline-flex items-center gap-0.5 shrink-0 px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-[10px] font-bold text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800">
+                              <AlertCircle className="w-3 h-3 shrink-0 text-red-600" />
+                              {isWideBar && <span>Late</span>}
                             </span>
                           ) : t.status?.category === 'in_progress' ? (
-                            <span className="inline-flex items-center gap-1 shrink-0 bg-blue-900/30 px-1.5 py-0.5 rounded text-[10px]">
-                              <CircleDot className="w-3 h-3 shrink-0" />
-                              {!isCompactBar && <span>Active</span>}
+                            <span className="inline-flex items-center gap-0.5 shrink-0 px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[10px] font-bold text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-800">
+                              <CircleDot className="w-3 h-3 shrink-0 text-blue-600" />
+                              {isWideBar && <span>Active</span>}
                             </span>
                           ) : (
-                            <CircleDot className="w-3.5 h-3.5 shrink-0 text-white/60" />
+                            <CircleDot className="w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
                           )}
                         </div>
                       </>
@@ -678,10 +692,10 @@ export function TimelinePage() {
           <button
             key={p}
             onClick={() => setDatePreset(p)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition-all ${
               datePreset === p
-                ? 'bg-brand-600 text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                ? 'bg-white dark:bg-slate-900 border-2 border-blue-600 text-slate-900 dark:text-slate-100 shadow-2xs'
+                : 'bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400'
             }`}
           >
             {p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : p === 'last30' ? 'Last 30 Days' : p === 'quarter' ? 'Last 3 Months' : 'All Time'}
@@ -933,15 +947,15 @@ function FilterLegendButton({ label, count, isActive, onClick, color, icon }: {
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
         isActive
-          ? 'bg-slate-900 text-white shadow-sm ring-2 ring-slate-900/20 dark:bg-slate-100 dark:text-slate-900'
-          : 'bg-slate-100/80 text-slate-700 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:bg-slate-700'
+          ? 'bg-white dark:bg-slate-900 border-2 border-blue-600 text-slate-900 dark:text-slate-100 shadow-2xs'
+          : 'bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400'
       }`}
     >
-      {icon ? icon : <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />}
+      {icon ? icon : <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />}
       <span>{label}</span>
-      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isActive ? 'bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
+      <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${isActive ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
         {count}
       </span>
     </button>

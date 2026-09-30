@@ -16,15 +16,21 @@ function StatusBadges({ statuses }: { statuses?: StatusCount[] }) {
   if (list.length === 0) return <span className="text-xs" style={{ color: "var(--text-faint)" }}>No open tasks</span>;
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
-      {list.map((s) => (
-        <span
-          key={s.status_id}
-          className="badge"
-          style={{ backgroundColor: `${s.color ?? "#94a3b8"}18`, color: s.color ?? "#475569", border: `1px solid ${s.color ?? "#94a3b8"}30` }}
-        >
-          {s.label}: {s.count}
-        </span>
-      ))}
+      {list.map((s) => {
+        const c = s.color ?? "#2563EB";
+        return (
+          <span
+            key={s.status_id}
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs"
+            style={{
+              border: `2px solid ${c}`,
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: c }} />
+            {s.label}: {s.count}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -32,27 +38,44 @@ function StatusBadges({ statuses }: { statuses?: StatusCount[] }) {
 function StatRow({ stats, linkParams }: { stats: TeamStats; linkParams: Record<string, string> | null }) {
   const qs = (extra: Record<string, string>) => new URLSearchParams({ ...linkParams, ...extra }).toString();
   return (
-    <div className="mt-2.5 flex flex-wrap items-center gap-4 text-xs">
-      <span className="flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-        <TrendingUp className="w-3 h-3" style={{ color: "#2563EB" }} />
-        Open: <strong className="ml-0.5" style={{ color: "var(--text-primary)" }}>{stats.open_count}</strong>
+    <div className="mt-3 flex flex-wrap items-center gap-2.5 text-xs">
+      <span className="inline-flex items-center gap-1.5 rounded-lg border-2 border-blue-500 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100 shadow-2xs">
+        <TrendingUp className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+        <span>Open:</span>
+        <span className="font-bold text-blue-600 dark:text-blue-400">{stats.open_count}</span>
       </span>
       {linkParams ? (
-        <Link to={`/tasks?${qs({ overdue: "true" })}`} className="flex items-center gap-1 hover:underline" style={{ color: "#ef4444" }} onClick={(e) => e.stopPropagation()}>
-          <AlertCircle className="w-3 h-3" /> Overdue: <strong className="ml-0.5">{stats.overdue_count}</strong>
+        <Link
+          to={`/tasks?${qs({ overdue: "true" })}`}
+          className="inline-flex items-center gap-1.5 rounded-lg border-2 border-red-500 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100 shadow-2xs hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+          <span>Overdue:</span>
+          <span className="font-bold text-red-600 dark:text-red-400">{stats.overdue_count}</span>
         </Link>
       ) : (
-        <span className="flex items-center gap-1" style={{ color: "#ef4444" }}>
-          <AlertCircle className="w-3 h-3" /> Overdue: <strong className="ml-0.5">{stats.overdue_count}</strong>
+        <span className="inline-flex items-center gap-1.5 rounded-lg border-2 border-red-500 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100 shadow-2xs">
+          <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+          <span>Overdue:</span>
+          <span className="font-bold text-red-600 dark:text-red-400">{stats.overdue_count}</span>
         </span>
       )}
       {linkParams ? (
-        <Link to={`/tasks?${qs({ over_budget: "true" })}`} className="flex items-center gap-1 hover:underline" style={{ color: "#f97316" }} onClick={(e) => e.stopPropagation()}>
-          <Clock className="w-3 h-3" /> Over budget: <strong className="ml-0.5">{stats.over_budget_count}</strong>
+        <Link
+          to={`/tasks?${qs({ over_budget: "true" })}`}
+          className="inline-flex items-center gap-1.5 rounded-lg border-2 border-amber-500 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100 shadow-2xs hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <span>Over budget:</span>
+          <span className="font-bold text-amber-600 dark:text-amber-400">{stats.over_budget_count}</span>
         </Link>
       ) : (
-        <span className="flex items-center gap-1" style={{ color: "#f97316" }}>
-          <Clock className="w-3 h-3" /> Over budget: <strong className="ml-0.5">{stats.over_budget_count}</strong>
+        <span className="inline-flex items-center gap-1.5 rounded-lg border-2 border-amber-500 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100 shadow-2xs">
+          <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <span>Over budget:</span>
+          <span className="font-bold text-amber-600 dark:text-amber-400">{stats.over_budget_count}</span>
         </span>
       )}
     </div>
@@ -122,7 +145,7 @@ export function TeamDashboardPage() {
                   className="flex items-center gap-3 px-5 py-3.5 text-sm font-semibold hover:bg-[rgba(37,99,235,0.04)] transition-colors"
                   style={{ color: "#2563EB" }}
                 >
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-white" style={{ background: "linear-gradient(135deg,#2563EB,#1d4ed8)" }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 border-2 border-blue-600 shadow-2xs">
                     {memberName(m).charAt(0)}
                   </div>
                   {memberName(m)}
@@ -188,7 +211,7 @@ export function TeamDashboardPage() {
                       {reports.map((r) => (
                         <li key={r.id}>
                           <Link to={`/tasks?assignee_id=${r.id}`} className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold hover:bg-[rgba(37,99,235,0.04)] transition-colors" style={{ color: "#2563EB" }}>
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white" style={{ background: "linear-gradient(135deg,#2563EB,#1d4ed8)" }}>
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 border-2 border-blue-600 shadow-2xs">
                               {memberName(r).charAt(0)}
                             </div>
                             {memberName(r)}

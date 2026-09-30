@@ -94,7 +94,7 @@ export function NotificationToasts() {
           }}
         >
           {/* Bell icon */}
-          <div className="w-8 h-8 rounded-xl shrink-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, #2563EB22, #1d4ed822)", color: "#2563EB" }}>
+          <div className="w-8 h-8 rounded-xl shrink-0 flex items-center justify-center border-2 border-blue-600 bg-white dark:bg-slate-900 text-blue-600 shadow-neu-sm">
             <Bell className="w-4 h-4" />
           </div>
 
@@ -225,8 +225,8 @@ export function NotificationBell() {
       {/* Role-change banner */}
       {roleChangePending && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 rounded-2xl px-4 py-3 animate-pop-in" style={{ maxWidth: '22rem', width: 'calc(100vw - 2rem)', background: "var(--neu-bg)", boxShadow: "8px 8px 24px var(--neu-dark), -4px -4px 12px var(--neu-light), 0 0 0 1px rgba(245,158,11,0.3)" }}>
-          <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b" }}>
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+          <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center border-2 border-amber-500 bg-white dark:bg-slate-900 text-amber-600 shadow-neu-sm">
+            <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Your permissions changed</p>
@@ -244,7 +244,7 @@ export function NotificationBell() {
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full text-[10px] font-bold text-white px-1" style={{ background: "#ef4444" }}>
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full text-[10px] font-bold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 border-2 border-red-600 px-1 shadow-xs">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

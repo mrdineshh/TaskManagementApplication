@@ -435,6 +435,8 @@ model Task {
   completedAt    DateTime?          @map("completed_at")
   isRecurring    Boolean            @default(false) @map("is_recurring") // v1.1
   recurrenceRule String?            @map("recurrence_rule") // v1.1, iCal RRULE
+  recurrenceIndex Int               @default(1) @map("recurrence_index")
+  recurrenceParentId String?        @map("recurrence_parent_id")
   slaPolicyId    String?            @map("sla_policy_id") // v1.1
   slaPolicy      SLAPolicy?         @relation(fields: [slaPolicyId], references: [id])
   /// Set when transitioning into a WorkflowStatus with requiresHoldReason=true; cleared moving

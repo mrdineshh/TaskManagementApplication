@@ -122,8 +122,8 @@ export function DepartmentPickerModal({ onDone }: DepartmentPickerModalProps) {
 
         {/* Header */}
         <div className="border-b border-slate-100 dark:border-slate-800 px-8 py-6">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800">
-            <Building2 className="h-6 w-6 text-brand-600 dark:text-brand-400" />
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border-2 border-blue-600 bg-white dark:bg-slate-900 shadow-neu-sm text-blue-600">
+            <Building2 className="h-6 w-6 text-blue-600" />
           </div>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             Welcome, {(currentUser as any)?.full_name?.split(' ')[0] ?? 'there'}!
@@ -153,21 +153,21 @@ export function DepartmentPickerModal({ onDone }: DepartmentPickerModalProps) {
                     key={dept.id}
                     type="button"
                     onClick={() => setSelected(dept.id)}
-                    className={`w-full flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-all ${
+                    className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left transition-all ${
                       isSelected
-                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/40 ring-2 ring-brand-400/30'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-brand-300 dark:hover:border-brand-700 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                        ? 'border-2 border-blue-600 bg-white dark:bg-slate-900 shadow-neu-sm ring-2 ring-blue-500/20'
+                        : 'border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-slate-50 dark:hover:bg-slate-800/60'
                     }`}
                   >
                     <div>
-                      <p className={`text-sm font-medium ${isSelected ? 'text-brand-700 dark:text-brand-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                      <p className={`text-sm font-semibold ${isSelected ? 'text-slate-900 dark:text-slate-100' : 'text-slate-800 dark:text-slate-200'}`}>
                         {dept.name}
                       </p>
                       {dept.description && (
                         <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{dept.description}</p>
                       )}
                     </div>
-                    {isSelected && <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-600 dark:text-brand-400" />}
+                    {isSelected && <CheckCircle2 className="h-5 w-5 shrink-0 text-blue-600" />}
                   </button>
                 );
               })}

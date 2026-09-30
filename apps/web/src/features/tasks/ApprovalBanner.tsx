@@ -11,8 +11,8 @@ export function ApprovalBanner({ taskId }: { taskId: string }) {
   if (pending.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 p-4">
-      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+    <div className="rounded-lg border-2 border-amber-500 bg-white dark:bg-slate-900 shadow-neu-sm p-4">
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
         This task has a status change awaiting approval.
       </p>
       {canApprove ? (
@@ -22,14 +22,14 @@ export function ApprovalBanner({ taskId }: { taskId: string }) {
               <button
                 onClick={() => decide.mutate({ stepId: step.id, decision: 'approved' })}
                 disabled={decide.isPending}
-                className="rounded-md bg-green-600 dark:bg-green-500 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50"
+                className="rounded-md border-2 border-emerald-600 bg-white dark:bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 shadow-neu-sm disabled:opacity-50"
               >
                 Approve
               </button>
               <button
                 onClick={() => decide.mutate({ stepId: step.id, decision: 'rejected' })}
                 disabled={decide.isPending}
-                className="rounded-md bg-red-600 dark:bg-red-500 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 dark:hover:bg-red-600 disabled:opacity-50"
+                className="rounded-md border-2 border-red-600 bg-white dark:bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-900 dark:text-slate-100 hover:bg-red-50 dark:hover:bg-red-950/30 shadow-neu-sm disabled:opacity-50"
               >
                 Reject
               </button>

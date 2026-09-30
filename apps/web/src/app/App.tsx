@@ -25,13 +25,9 @@ import { AdminHomePage } from '../pages/admin/AdminHomePage';
 import { DepartmentsAdminPage } from '../pages/admin/DepartmentsAdminPage';
 import { RolesAdminPage } from '../pages/admin/RolesAdminPage';
 import { UsersAdminPage } from '../pages/admin/UsersAdminPage';
-import { CustomFieldsAdminPage } from '../pages/admin/CustomFieldsAdminPage';
 import { WorkflowsAdminPage } from '../pages/admin/WorkflowsAdminPage';
 import { PrioritiesAdminPage } from '../pages/admin/PrioritiesAdminPage';
 import { IntegrationsAdminPage } from '../pages/admin/IntegrationsAdminPage';
-import { OrgSettingsAdminPage } from '../pages/admin/OrgSettingsAdminPage';
-import { HolidayCalendarsAdminPage } from '../pages/admin/HolidayCalendarsAdminPage';
-import { OnHoldReasonsAdminPage } from '../pages/admin/OnHoldReasonsAdminPage';
 import { ScorecardWeightsAdminPage } from '../pages/admin/ScorecardWeightsAdminPage';
 import { ScorecardPage } from '../pages/scorecard/ScorecardPage';
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
@@ -102,15 +98,12 @@ function AppRoutes() {
             <Route path="departments" element={<DepartmentsAdminPage />} />
             <Route path="roles" element={<RolesAdminPage />} />
             <Route path="users" element={<UsersAdminPage />} />
-            <Route path="custom-fields" element={<CustomFieldsAdminPage />} />
+            <Route path="custom-fields" element={<Navigate to="/admin/priorities" replace />} />
             <Route path="workflows" element={<WorkflowsAdminPage />} />
             <Route path="priorities" element={<PrioritiesAdminPage />} />
             <Route path="integrations" element={<IntegrationsAdminPage />} />
             <Route path="sla" element={<SLAAdminPage />} />
-            <Route path="holiday-calendars" element={<HolidayCalendarsAdminPage />} />
-            <Route path="on-hold-reasons" element={<OnHoldReasonsAdminPage />} />
             <Route path="scorecard-weights" element={<ScorecardWeightsAdminPage />} />
-            <Route path="settings" element={<OrgSettingsAdminPage />} />
             <Route path="bug-reports" element={<AdminBugReportsPage />} />
           </Route>
         </Route>

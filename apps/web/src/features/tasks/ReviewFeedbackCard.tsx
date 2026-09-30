@@ -89,20 +89,21 @@ export function ReviewFeedbackCard({
   // If task is currently in review, show an "awaiting review" banner
   if (isInReviewStatus) {
     return (
-      <div className="neu-card !p-4 border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/60 dark:bg-indigo-950/30 flex items-center gap-3">
-        <div className="rounded-lg bg-indigo-100 dark:bg-indigo-900/60 p-2 text-indigo-600 dark:text-indigo-400 shrink-0">
+      <div className="neu-card !p-4 border-2 border-blue-500 bg-white dark:bg-slate-900 flex items-center gap-3 shadow-sm" style={{ borderLeftWidth: '6px' }}>
+        <div className="rounded-lg bg-white dark:bg-slate-900 border-2 border-blue-600 p-2 text-blue-600 shrink-0 shadow-2xs">
           <Clock className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-200">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
               Awaiting Manager Review
             </p>
-            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white dark:bg-slate-900 border-2 border-blue-600 px-2.5 py-0.5 text-[10px] font-bold text-slate-900 dark:text-slate-100 shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
               In Review
             </span>
           </div>
-          <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-1">
+          <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
             {isAssignee
               ? 'Your task has been submitted for review. Your manager has been notified and will provide feedback or approval shortly.'
               : 'Employee has submitted this task for review. Use the review panel above to approve or request changes.'}
@@ -118,7 +119,7 @@ export function ReviewFeedbackCard({
       <div className="neu-card !p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-blue-50 dark:bg-blue-950/60 p-2.5 text-blue-600 dark:text-blue-400 shrink-0 border border-blue-100 dark:border-blue-900/50 shadow-inner">
+            <div className="rounded-xl bg-white dark:bg-slate-900 border-2 border-blue-600 p-2.5 text-blue-600 shrink-0 shadow-2xs">
               <FileCheck className="w-5 h-5" />
             </div>
             <div>
@@ -126,7 +127,7 @@ export function ReviewFeedbackCard({
                 <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                   Manager Review &amp; Feedback
                 </h3>
-                <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                <span className="rounded-full bg-white dark:bg-slate-900 border-2 border-slate-400 text-slate-900 dark:text-slate-100 px-2.5 py-0.5 text-[10px] font-semibold">
                   No reviews yet
                 </span>
               </div>
@@ -142,9 +143,9 @@ export function ReviewFeedbackCard({
               <button
                 type="button"
                 onClick={onRequestReview}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-900 dark:text-slate-100 px-3.5 py-1.5 text-xs font-semibold shadow-2xs transition-colors"
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-3.5 h-3.5 text-blue-600" />
                 Submit for Manager Review
               </button>
             </div>
@@ -158,7 +159,7 @@ export function ReviewFeedbackCard({
               : 'This task does not have any review records yet. Once submitted, manager feedback and attachments will appear here.'}
           </span>
           {isAssignee && onRequestReview && (
-            <span className="text-[11px] font-medium text-brand-600 dark:text-brand-400">
+            <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
               Optional: Click "Submit for Manager Review" when ready
             </span>
           )}
@@ -190,16 +191,17 @@ export function ReviewFeedbackCard({
           className={
             isMarkedRead
               ? 'neu-card !p-5 transition-all border border-slate-200 dark:border-slate-800'
-              : 'rounded-xl border border-amber-400/90 dark:border-amber-600/90 bg-amber-50/90 dark:bg-amber-950/60 p-5 shadow-sm transition-all'
+              : 'rounded-xl border-2 border-amber-500 bg-white dark:bg-slate-900 p-5 shadow-sm transition-all'
           }
+          style={!isMarkedRead ? { borderLeftWidth: '6px' } : undefined}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <div
                 className={
                   isMarkedRead
-                    ? 'rounded-xl bg-emerald-50 dark:bg-emerald-950/60 p-2.5 text-emerald-600 dark:text-emerald-400 shrink-0 border border-emerald-200 dark:border-emerald-800'
-                    : 'rounded-xl bg-amber-100 dark:bg-amber-900/80 p-2.5 text-amber-700 dark:text-amber-300 shrink-0 shadow-inner'
+                    ? 'rounded-xl bg-white dark:bg-slate-900 border-2 border-emerald-600 p-2.5 text-emerald-600 shrink-0 shadow-2xs'
+                    : 'rounded-xl bg-white dark:bg-slate-900 border-2 border-amber-500 p-2.5 text-amber-500 shrink-0 shadow-2xs'
                 }
               >
                 {isMarkedRead ? <CheckCircle className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
@@ -209,10 +211,11 @@ export function ReviewFeedbackCard({
                   <span
                     className={
                       isMarkedRead
-                        ? 'inline-flex items-center gap-1.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300'
-                        : 'inline-flex items-center gap-1.5 rounded-md bg-amber-200/80 dark:bg-amber-900/80 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-200'
+                        ? 'inline-flex items-center gap-1.5 rounded-md bg-white dark:bg-slate-900 border-2 border-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100 shadow-2xs'
+                        : 'inline-flex items-center gap-1.5 rounded-md bg-white dark:bg-slate-900 border-2 border-amber-500 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 shadow-2xs'
                     }
                   >
+                    <span className={`w-1.5 h-1.5 rounded-full ${isMarkedRead ? 'bg-emerald-600' : 'bg-amber-500'}`} />
                     {isMarkedRead ? 'Feedback Acknowledged • In Progress' : 'Changes Requested'}
                   </span>
                   <span className="text-xs text-slate-600 dark:text-slate-400">
@@ -236,14 +239,14 @@ export function ReviewFeedbackCard({
               <button
                 type="button"
                 onClick={() => handleMarkAsRead(latestReview.id)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors shrink-0 shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-900 dark:text-slate-100 px-3 py-1.5 text-xs font-semibold shrink-0 shadow-2xs transition-all"
               >
-                <Eye className="w-3.5 h-3.5" />
+                <Eye className="w-3.5 h-3.5 text-amber-500" />
                 Mark as Read
               </button>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 shrink-0">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-emerald-600 px-2.5 py-1 text-xs font-medium text-slate-900 dark:text-slate-100 shrink-0 shadow-2xs">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                 Marked as Read
               </span>
             )}
@@ -369,24 +372,24 @@ export function ReviewFeedbackCard({
                 type="button"
                 onClick={() => setResubmitModalOpen(true)}
                 disabled={resubmitReview.isPending}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 text-xs font-semibold shadow-sm transition-colors shrink-0 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-900 dark:text-slate-100 px-4 py-2 text-xs font-semibold shadow-2xs transition-colors shrink-0 disabled:opacity-50"
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-3.5 h-3.5 text-blue-600" />
                 Resubmit for Review
               </button>
             </div>
           )}
         </div>
       ) : latestReview?.decision === 'approved' ? (
-        <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/40 p-4 shadow-sm">
+        <div className="rounded-xl border-2 border-emerald-500 bg-white dark:bg-slate-900 p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-emerald-100 dark:bg-emerald-900/60 p-2 text-emerald-600 dark:text-emerald-400 shrink-0">
+              <div className="rounded-lg bg-white dark:bg-slate-900 border-2 border-emerald-600 p-2 text-emerald-600 shrink-0 shadow-2xs">
                 <CheckCircle className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
                     Review Approved
                   </span>
                   <span className="text-xs text-slate-500 dark:text-slate-400">

@@ -1,26 +1,22 @@
 import { NavLink, Outlet, Navigate } from "react-router-dom";
 import {
-  LayoutGrid, Building2, Shield, Users, Tags, Sliders, Target,
-  Clock, Calendar, PauseCircle, BarChart3, Plug, Settings, Bug,
+  LayoutGrid, Building2, Shield, Users, Sliders, Target,
+  Clock, BarChart3, Plug, Bug,
 } from "lucide-react";
 import { usePermission } from "../../lib/permissions/usePermission";
 import { useSessionStore } from "../../lib/auth/session-store";
 
 const sections = [
-  { to: "",                   label: "Overview",          icon: LayoutGrid,   end: true },
-  { to: "departments",        label: "Departments",       icon: Building2 },
+  { to: "",                   label: "Overview",            icon: LayoutGrid,   end: true },
+  { to: "departments",        label: "Departments",         icon: Building2 },
   { to: "roles",              label: "Roles & Permissions", icon: Shield },
-  { to: "users",              label: "Users",             icon: Users },
-  { to: "custom-fields",      label: "Custom Fields",     icon: Tags },
-  { to: "workflows",          label: "Workflows",         icon: Sliders },
-  { to: "priorities",         label: "Priorities",        icon: Target },
-  { to: "sla",                label: "SLA Policies",      icon: Clock },
-  { to: "holiday-calendars",  label: "Holiday Calendars", icon: Calendar },
-  { to: "on-hold-reasons",    label: "On-Hold Reasons",   icon: PauseCircle },
-  { to: "scorecard-weights",  label: "Scorecard Weights", icon: BarChart3 },
-  { to: "integrations",       label: "Integrations",      icon: Plug },
-  { to: "settings",           label: "Org Settings",      icon: Settings },
-  { to: "bug-reports",        label: "Bug Reports",       icon: Bug },
+  { to: "users",              label: "Users",               icon: Users },
+  { to: "workflows",          label: "Workflows",           icon: Sliders },
+  { to: "priorities",         label: "Priorities & Fields", icon: Target },
+  { to: "sla",                label: "SLA Policies",        icon: Clock },
+  { to: "scorecard-weights",  label: "Scorecard Weights",   icon: BarChart3 },
+  { to: "integrations",       label: "Integrations",        icon: Plug },
+  { to: "bug-reports",        label: "Bug Reports",         icon: Bug },
 ];
 
 /** Neumorphic Admin area layout with scrollable left sidebar sub-navigation. */
@@ -69,15 +65,20 @@ export function AdminLayout() {
                 style={({ isActive }) =>
                   isActive
                     ? {
-                        background: "var(--neu-bg)",
-                        boxShadow: "inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light)",
-                        color: "#2563EB",
+                        background: "#ffffff",
+                        border: "2px solid #2563EB",
+                        color: "#0f172a",
+                        boxShadow: "0 2px 6px rgba(37,99,235,0.12)",
                       }
-                    : { color: "var(--text-muted)" }
+                    : { color: "var(--text-muted)", border: "2px solid transparent" }
                 }
               >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span className="truncate">{s.label}</span>
+                {({ isActive }) => (
+                  <>
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-blue-600" : ""}`} />
+                    <span className="truncate">{s.label}</span>
+                  </>
+                )}
               </NavLink>
             );
           })}

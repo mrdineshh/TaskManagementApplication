@@ -66,8 +66,7 @@ export function KanbanBoardPage() {
         style={{ borderLeft: "4px solid #f59e0b" }}
       >
         <div
-          className="flex items-center justify-center w-16 h-16 rounded-2xl mb-5 animate-float"
-          style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}
+          className="flex items-center justify-center w-16 h-16 rounded-2xl mb-5 border-2 border-amber-500 bg-white dark:bg-slate-900 text-amber-600 shadow-neu-sm animate-float"
         >
           <Construction className="w-8 h-8" />
         </div>

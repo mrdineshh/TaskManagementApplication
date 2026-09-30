@@ -17,6 +17,8 @@ export interface Task {
   completed_at: ISODateString | null;
   is_recurring: boolean; // v1.1
   recurrence_rule: string | null; // v1.1, iCal RRULE
+  recurrence_index?: number;
+  recurrence_parent_id?: string | null;
   // Phase 2 (docs/10-OPEN-DECISIONS.md §H1/§H2)
   on_hold_reason_id: string | null;
   estimate_value: number | null;
@@ -79,6 +81,8 @@ export const createTaskSchema = z.object({
   parent_task_id: z.string().uuid().nullable().optional(),
   due_date: z.string().datetime().nullable().optional(),
   start_date: z.string().datetime().nullable().optional(),
+  estimate_value: z.number().nullable().optional(),
+  estimate_unit: z.enum(['hours', 'days']).nullable().optional(),
   custom_field_values: z.record(z.string(), z.unknown()).optional(),
 });
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;

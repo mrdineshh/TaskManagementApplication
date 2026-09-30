@@ -130,8 +130,8 @@ export function ReportScheduleSection({ reportId }: { reportId: string }) {
                   }}
                   className={`text-[11px] px-2 py-0.5 rounded-lg transition-all font-medium ${
                     isSelected
-                      ? "bg-blue-600 text-white"
-                      : "bg-[var(--neu-bg)] text-[var(--text-muted)] hover:bg-[rgba(37,99,235,0.06)]"
+                      ? "border-2 border-blue-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-neu-sm"
+                      : "bg-[var(--neu-bg)] text-[var(--text-muted)] hover:bg-[rgba(37,99,235,0.06)] border-2 border-transparent"
                   }`}
                   style={!isSelected ? {
                     boxShadow: "1px 1px 3px var(--neu-dark), -1px -1px 3px var(--neu-light)",

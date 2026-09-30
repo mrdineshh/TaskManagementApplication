@@ -75,19 +75,24 @@ export function CustomFieldsWidget({
 
   return (
     <div className="neu-card">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <FormInput className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Custom Fields</h2>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 border-amber-600 bg-white dark:bg-slate-900 text-amber-600 shadow-neu-sm">
+            <FormInput className="h-4 w-4" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Custom Fields</h2>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">Department &amp; workflow specific metadata</p>
+          </div>
         </div>
         {canEdit && dirty && (
           <button
             type="button"
             onClick={handleSave}
             disabled={saveMutation.isPending}
-            className="inline-flex items-center gap-1 btn-primary !py-1 !px-2.5 !text-xs transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 rounded-lg border-2 border-amber-600 bg-white dark:bg-slate-900 px-3.5 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/50 shadow-neu-sm transition-all shrink-0"
           >
-            <Save className="w-3 h-3" />
+            <Save className="w-3.5 h-3.5" />
             {saveMutation.isPending ? 'Saving…' : 'Save Fields'}
           </button>
         )}

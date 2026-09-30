@@ -1,3 +1,4 @@
+import { EffortUnit } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
@@ -55,6 +56,15 @@ export class CreateTaskDto {
   start_date?: string | null;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0.25)
+  estimate_value?: number | null;
+
+  @IsOptional()
+  @IsIn(['hours', 'days'])
+  estimate_unit?: EffortUnit | null;
+
+  @IsOptional()
   @IsObject()
   custom_field_values?: Record<string, unknown>;
 
@@ -66,6 +76,15 @@ export class CreateTaskDto {
   @IsString()
   @MaxLength(500)
   recurrence_rule?: string; // iCal RRULE, e.g. "FREQ=WEEKLY;BYDAY=MO"
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  recurrence_index?: number;
+
+  @IsOptional()
+  @IsUUID()
+  recurrence_parent_id?: string | null;
 
   @IsOptional()
   @IsUUID()
@@ -101,6 +120,15 @@ export class UpdateTaskDto {
   start_date?: string | null;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0.25)
+  estimate_value?: number | null;
+
+  @IsOptional()
+  @IsIn(['hours', 'days'])
+  estimate_unit?: EffortUnit | null;
+
+  @IsOptional()
   @IsObject()
   custom_field_values?: Record<string, unknown>;
 
@@ -116,6 +144,15 @@ export class UpdateTaskDto {
   @IsString()
   @MaxLength(500)
   recurrence_rule?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  recurrence_index?: number;
+
+  @IsOptional()
+  @IsUUID()
+  recurrence_parent_id?: string | null;
 }
 
 export class AssignTaskDto {

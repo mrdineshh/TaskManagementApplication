@@ -64,16 +64,21 @@ body {
 
   input, select, textarea {
     font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-    background-color: var(--neu-bg);
+    background-color: #ffffff;
     color: var(--text-primary);
-    box-shadow: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
-    border: none;
+    border: 1px solid #d1d5db;
     outline: none;
     border-radius: var(--radius-input);
     transition: var(--transition);
   }
+  .dark input, .dark select, .dark textarea {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: var(--text-primary);
+  }
   input:focus, select:focus, textarea:focus {
-    box-shadow: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light), 0 0 0 3px rgba(37,99,235,0.15);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
   }
   input::placeholder, textarea::placeholder { color: var(--text-faint); }
 
@@ -150,10 +155,15 @@ body {
     padding: 1.25rem;
   }
   .neu-inset {
-    background: var(--neu-bg);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 0.75rem;
-    box-shadow: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light);
     padding: 0.75rem 1rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  }
+  .dark .neu-inset {
+    background: #1e293b;
+    border-color: #334155;
   }
 
   /* Buttons */
@@ -213,7 +223,8 @@ body {
     color: var(--brand);
   }
   .btn-neu:active {
-    box-shadow: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light);
+    transform: translateY(1px);
+    box-shadow: 2px 2px 4px var(--neu-dark), -2px -2px 4px var(--neu-light);
   }
   .btn-neu:disabled {
     opacity: 0.55;
@@ -278,14 +289,22 @@ body {
     text-decoration: none;
   }
   .nav-item:hover {
-    background: rgba(67,97,238,0.07);
-    color: var(--brand);
+    background: rgba(37,99,235,0.07);
+    color: #2563EB;
   }
   .nav-item.active {
-    background: var(--neu-bg);
-    box-shadow: 4px 4px 8px var(--neu-dark), -4px -4px 8px var(--neu-light);
-    color: var(--brand);
+    background: #ffffff;
+    border: 2px solid #2563EB;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.15);
+    color: #0f172a;
     font-weight: 600;
+  }
+  .dark .nav-item.active {
+    background: #1e293b;
+    color: #f8fafc;
+  }
+  .nav-item.active svg {
+    color: #2563EB !important;
   }
   .nav-icon-btn {
     display: flex;
@@ -306,26 +325,37 @@ body {
     box-shadow: 6px 6px 12px var(--neu-dark), -6px -6px 12px var(--neu-light);
   }
   .nav-icon-btn.active {
-    box-shadow: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
-    color: var(--brand);
+    background: #ffffff;
+    border: 2px solid #2563EB;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.15);
+    color: #2563EB;
+  }
+  .dark .nav-icon-btn.active {
+    background: #1e293b;
   }
 
   /* Input fields */
   .neu-input {
     width: 100%;
-    background: var(--neu-bg);
+    background: #ffffff;
     color: var(--text-primary);
     font-size: 0.875rem;
     font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
     padding: 0.625rem 1rem;
     border-radius: var(--radius-input);
-    border: none;
-    box-shadow: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
+    border: 1px solid #d1d5db;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
     transition: var(--transition);
+  }
+  .dark .neu-input {
+    background: #1e293b;
+    border-color: #334155;
+    color: var(--text-primary);
   }
   .neu-input:focus {
     outline: none;
-    box-shadow: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light), 0 0 0 3px rgba(37,99,235,0.15);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
   }
   .neu-input::placeholder { color: var(--text-faint); }
 
@@ -354,7 +384,7 @@ body {
     appearance: none;
     width: 100%;
     padding-right: 2.25rem;
-    background: var(--neu-bg);
+    background: #ffffff;
     color: var(--text-primary);
     font-size: 0.875rem;
     font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -362,14 +392,20 @@ body {
     padding-bottom: 0.625rem;
     padding-left: 0.875rem;
     border-radius: var(--radius-input);
-    border: none;
+    border: 1px solid #d1d5db;
     cursor: pointer;
-    box-shadow: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
     transition: var(--transition);
+  }
+  .dark .neu-select-wrap select {
+    background: #1e293b;
+    border-color: #334155;
+    color: var(--text-primary);
   }
   .neu-select-wrap select:focus {
     outline: none;
-    box-shadow: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light), 0 0 0 3px rgba(37,99,235,0.15);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
   }
 
   /* Also fix standalone select.neu-input (legacy) */
@@ -457,14 +493,16 @@ body {
   .neu-progress-track {
     height: 0.5rem;
     border-radius: 9999px;
-    background: var(--neu-bg);
-    box-shadow: inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light);
+    background: #e2e8f0;
     overflow: hidden;
+  }
+  .dark .neu-progress-track {
+    background: #334155;
   }
   .neu-progress-fill {
     height: 100%;
     border-radius: 9999px;
-    background: linear-gradient(90deg, #4361ee, #7367f0);
+    background: linear-gradient(90deg, #2563EB, #3b82f6);
     transition: width 0.4s ease;
     position: relative;
   }
@@ -483,27 +521,32 @@ body {
     width: 3rem;
     height: 1.625rem;
     border-radius: 9999px;
-    background: var(--neu-bg);
-    box-shadow: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
+    background: #e2e8f0;
+    border: 1px solid #cbd5e1;
     cursor: pointer;
     transition: var(--transition);
     flex-shrink: 0;
   }
+  .dark .neu-toggle {
+    background: #334155;
+    border-color: #475569;
+  }
   .neu-toggle::after {
     content: "";
     position: absolute;
-    top: 0.25rem;
-    left: 0.25rem;
+    top: 0.1875rem;
+    left: 0.1875rem;
     width: 1.125rem;
     height: 1.125rem;
-    background: linear-gradient(135deg, #ffffff, #e8edf5);
+    background: #ffffff;
     border-radius: 9999px;
-    box-shadow: 2px 2px 4px var(--neu-dark);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
     transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
   }
   .neu-toggle.on {
-    background: linear-gradient(135deg, #4361ee, #7367f0);
-    box-shadow: inset 2px 2px 4px rgba(0,0,0,0.2), inset -2px -2px 4px rgba(255,255,255,0.15), 0 0 12px rgba(67,97,238,0.35);
+    background: linear-gradient(135deg, #2563EB, #1d4ed8);
+    border-color: #2563EB;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.35);
   }
   .neu-toggle.on::after {
     transform: translateX(1.375rem);
@@ -618,7 +661,7 @@ body {
   .bg-neu-card  { background-color: var(--neu-card); }
   .shadow-neu   { box-shadow: 6px 6px 12px var(--neu-dark), -6px -6px 12px var(--neu-light); }
   .shadow-neu-sm{ box-shadow: 4px 4px 8px var(--neu-dark), -4px -4px 8px var(--neu-light); }
-  .shadow-neu-inset { box-shadow: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light); }
+  .shadow-neu-inset { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }

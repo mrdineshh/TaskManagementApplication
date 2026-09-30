@@ -46,18 +46,13 @@ export function NotificationPermissionBanner() {
 
   return (
     <div
-      className="flex items-center gap-4 rounded-2xl px-5 py-4 animate-fade-in"
-      style={{
-        background: "linear-gradient(135deg, rgba(37,99,235,0.07), rgba(29,78,216,0.05))",
-        border: "1px solid rgba(37,99,235,0.15)",
-      }}
+      className="flex items-center gap-4 rounded-2xl px-5 py-4 animate-fade-in bg-white dark:bg-slate-900 border-2 border-blue-600 shadow-neu-sm"
     >
       {/* Icon */}
       <div
-        className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
-        style={{ background: "linear-gradient(135deg, #2563EB, #1d4ed8)", boxShadow: "0 4px 14px rgba(37,99,235,0.35)" }}
+        className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center border-2 border-blue-600 bg-white dark:bg-slate-900 text-blue-600 shadow-neu-sm"
       >
-        <Bell className="w-5 h-5 text-white" />
+        <Bell className="w-5 h-5 text-blue-600" />
       </div>
 
       {/* Text */}

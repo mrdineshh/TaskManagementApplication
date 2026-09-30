@@ -124,18 +124,22 @@ export function ReportBuilderPage() {
           <div>
             <label className="section-label">Dimensions</label>
             <div className="flex flex-wrap gap-2">
-              {reportDimensions.map((dim) => (
-                <label
-                  key={dim}
-                  className="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-xl text-sm font-medium transition-all"
-                  style={dimensions.includes(dim)
-                    ? { background: "rgba(37,99,235,0.1)", color: "#2563EB", boxShadow: "inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light)" }
-                    : { background: "var(--neu-bg)", boxShadow: "3px 3px 6px var(--neu-dark), -3px -3px 6px var(--neu-light)", color: "var(--text-muted)" }}
-                >
-                  <input type="checkbox" checked={dimensions.includes(dim)} onChange={() => toggleDimension(dim)} className="sr-only" />
-                  {dim.replace("_", " ")}
-                </label>
-              ))}
+              {reportDimensions.map((dim) => {
+                const isSelected = dimensions.includes(dim);
+                return (
+                  <label
+                    key={dim}
+                    className="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-xl text-sm font-semibold transition-all select-none"
+                    style={isSelected
+                      ? { background: "#ffffff", border: "2px solid #2563EB", color: "#0f172a", boxShadow: "0 2px 8px rgba(37,99,235,0.15)" }
+                      : { background: "var(--neu-bg)", border: "2px solid transparent", boxShadow: "3px 3px 6px var(--neu-dark), -3px -3px 6px var(--neu-light)", color: "var(--text-muted)" }}
+                  >
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleDimension(dim)} className="sr-only" />
+                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />}
+                    {dim.replace("_", " ")}
+                  </label>
+                );
+              })}
             </div>
           </div>
 
@@ -210,8 +214,8 @@ export function ReportBuilderPage() {
                       }}
                       className={`text-xs px-2.5 py-1 rounded-xl transition-all font-medium ${
                         isSelected
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "bg-[var(--neu-bg)] text-[var(--text-muted)] hover:bg-[rgba(37,99,235,0.06)]"
+                          ? "border-2 border-blue-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-neu-sm"
+                          : "bg-[var(--neu-bg)] text-[var(--text-muted)] hover:bg-[rgba(37,99,235,0.06)] border-2 border-transparent"
                       }`}
                       style={!isSelected ? {
                         boxShadow: "2px 2px 5px var(--neu-dark), -2px -2px 5px var(--neu-light)",

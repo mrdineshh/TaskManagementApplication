@@ -1,7 +1,7 @@
-import { useMemo, useRef, useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { ListTodo, Search, X, Plus, SlidersHorizontal, Archive, Users, ArrowRight, ChevronDown } from "lucide-react";
+import { ListTodo, Search, X, Plus, SlidersHorizontal, Archive, Users, ArrowRight, Filter, Link2, Repeat } from "lucide-react";
 import { useDepartments, usePriorities, useTasks, useUsers, useWorkflowStatuses, useWorkflows } from "../../features/tasks/hooks";
 import { Badge } from "../../components/Badge";
 import { EmptyState } from "../../components/EmptyState";
@@ -37,8 +37,9 @@ export function TaskListPage() {
   const overdue      = params.get("overdue")       === "true";
   const overBudget   = params.get("over_budget")   === "true";
   const dueThisWeek  = params.get("due_this_week") === "true";
-  // Include departmentId and searchQuery in the active-filter check
-  const hasDrillFilters = Boolean(departmentId || assigneeIds || statusId || priorityId || searchQuery || overdue || overBudget || dueThisWeek);
+  const statusParam  = params.get("status")        ?? (overdue ? "overdue" : "all");
+
+  const hasDrillFilters = Boolean(departmentId || assigneeIds || statusId || priorityId || searchQuery || overdue || overBudget || dueThisWeek || (statusParam !== "all"));
 
   const { data: departments } = useDepartments();
   const { data: workflows }   = useWorkflows();
@@ -51,15 +52,58 @@ export function TaskListPage() {
   const { data, isLoading, isError } = useTasks({
     department_id: departmentId,
     assignee_id:   assigneeIds,
-    status_id:     statusId,
     priority_id:   priorityId,
     q:             searchQuery || undefined,
-    overdue:       overdue    ? "true" : undefined,
     over_budget:   overBudget ? "true" : undefined,
     due_this_week: dueThisWeek ? "true" : undefined,
   });
 
-  const tasks = data?.items ?? [];
+  const rawTasks = data?.items ?? [];
+
+  const counts = useMemo(() => {
+    let all = 0, todo = 0, inProgress = 0, done = 0, overdueCount = 0, blocked = 0;
+    const now = Date.now();
+    for (const taskItem of rawTasks) {
+      const t = taskItem as any;
+      all++;
+      const cat = t.status?.category ?? t.status?.key;
+      if (cat === "done") {
+        done++;
+      } else if (cat === "in_progress") {
+        inProgress++;
+      } else {
+        todo++;
+      }
+
+      const isDone = cat === "done";
+      if (!isDone && t.due_date && new Date(t.due_date).getTime() < now) {
+        overdueCount++;
+      }
+      if ((t as any).is_blocked || (t as any).open_blocker_count > 0 || (t as any).dependencies?.some((d: any) => d.type === "blocks")) {
+        blocked++;
+      }
+    }
+    return { all, todo, inProgress, done, overdue: overdueCount, blocked };
+  }, [rawTasks]);
+
+  const tasks = useMemo(() => {
+    const now = Date.now();
+    return rawTasks.filter((t: any) => {
+      if (statusId && t.status_id !== statusId && t.status?.id !== statusId) {
+        return false;
+      }
+      const cat = t.status?.category ?? t.status?.key;
+      const isDone = cat === "done";
+      if (statusParam === "todo") return cat !== "in_progress" && cat !== "done";
+      if (statusParam === "in_progress") return cat === "in_progress";
+      if (statusParam === "done") return cat === "done";
+      if (statusParam === "overdue") return !isDone && t.due_date && new Date(t.due_date).getTime() < now;
+      if (statusParam === "blocked") {
+        return (t as any).is_blocked || (t as any).open_blocker_count > 0 || (t as any).dependencies?.some((d: any) => d.type === "blocks");
+      }
+      return true;
+    });
+  }, [rawTasks, statusParam, statusId]);
 
   // Resolve chip labels from reference data, not from returned tasks
   // This ensures labels still show even when the filter returns 0 results
@@ -102,19 +146,25 @@ export function TaskListPage() {
     setParams((p) => { const n = new URLSearchParams(p); val ? n.set(key, val) : n.delete(key); return n; });
   }
 
-  const [filterOpen, setFilterOpen] = useState(false);
-  const filterRef = useRef<HTMLDivElement>(null);
-  const activeFilterCount = [departmentId, statusId, priorityId, assigneeIds, searchQuery || null].filter(Boolean).length;
-
-  useEffect(() => {
-    function onOutside(e: MouseEvent) {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
-    }
-    document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
-  }, []);
-
-  const selectCls = "w-full neu-input py-2 px-3 text-sm cursor-pointer appearance-none pr-8";
+  function handleStatusFilter(filter: "all" | "todo" | "in_progress" | "done" | "overdue" | "blocked") {
+    setParams((p) => {
+      const n = new URLSearchParams(p);
+      if (filter === "all") {
+        n.delete("status");
+        n.delete("overdue");
+        n.delete("status_id");
+      } else if (filter === "overdue") {
+        n.set("status", "overdue");
+        n.set("overdue", "true");
+        n.delete("status_id");
+      } else {
+        n.set("status", filter);
+        n.delete("overdue");
+        n.delete("status_id");
+      }
+      return n;
+    });
+  }
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -144,152 +194,159 @@ export function TaskListPage() {
       {/* Bulk status toast */}
       {bulkStatus && (
         <div
-          className="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium animate-fade-in"
-          style={{ background: "rgba(37,99,235,0.08)", color: "#2563EB", border: "1px solid rgba(37,99,235,0.2)" }}
+          className="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold animate-fade-in bg-white dark:bg-slate-900 border-2 border-blue-600 text-slate-900 dark:text-slate-100 shadow-2xs"
         >
-          {bulkStatus}
-          <button onClick={() => setBulkStatus(null)} className="ml-2 text-xs underline opacity-70 hover:opacity-100">Dismiss</button>
+          <span>{bulkStatus}</span>
+          <button onClick={() => setBulkStatus(null)} className="ml-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">Dismiss</button>
         </div>
       )}
 
       {/* Active drill-down filter chips */}
       {hasDrillFilters && (
-        <div className="flex flex-wrap items-center gap-2 neu-inset">
+        <div className="flex flex-wrap items-center gap-2 neu-card !p-2.5 !rounded-xl">
           <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" style={{ color: "#2563EB" }} />
-          <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Active filters:</span>
-          {departmentName && <span className="badge" style={{ background: "rgba(37,99,235,0.1)", color: "#2563EB" }}>{departmentName}</span>}
-          {assigneeLabel  && <span className="badge" style={{ background: "rgba(37,99,235,0.1)", color: "#2563EB" }}>{assigneeLabel}</span>}
-          {statusLabel    && <span className="badge" style={{ background: "rgba(37,99,235,0.1)", color: "#2563EB" }}>Status: {statusLabel}</span>}
-          {priorityLabel  && <span className="badge" style={{ background: "rgba(37,99,235,0.1)", color: "#2563EB" }}>Priority: {priorityLabel}</span>}
-          {overdue        && <span className="badge" style={{ background: "rgba(239,68,68,0.1)",   color: "#ef4444" }}>Overdue</span>}
-          {overBudget     && <span className="badge" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>Over Budget</span>}
-          {dueThisWeek    && <span className="badge" style={{ background: "rgba(139,92,246,0.1)", color: "#8b5cf6" }}>Due This Week</span>}
+          <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>Active filters:</span>
+          {departmentName && <Badge color="blue">{departmentName}</Badge>}
+          {assigneeLabel  && <Badge color="blue">{assigneeLabel}</Badge>}
+          {statusLabel    && <Badge color="blue">Status: {statusLabel}</Badge>}
+          {priorityLabel  && <Badge color="blue">Priority: {priorityLabel}</Badge>}
+          {overdue        && <Badge color="red">Overdue</Badge>}
+          {overBudget     && <Badge color="amber">Over Budget</Badge>}
+          {dueThisWeek    && <Badge color="purple">Due This Week</Badge>}
           <button onClick={() => setParams({})} className="ml-auto btn-ghost text-xs">
             <X className="w-3 h-3" /> Clear all
           </button>
         </div>
       )}
 
-      {/* Filter bar — compact single row */}
-      <div className="neu-card !p-3.5 sm:!p-4 flex items-center gap-3 rounded-2xl shadow-sm">
-        {/* Search */}
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--text-faint)" }} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setParam("q", e.target.value)}
-            placeholder="Search tasks…"
-            className="neu-input pl-9 py-2"
+      {/* Filter controls — standardized with Gantt Timeline & Timesheet */}
+      <div className="space-y-2.5">
+        {/* Row 1: Search & secondary selectors */}
+        <div className="neu-card !p-3 sm:!p-3.5 flex flex-wrap items-center gap-3 rounded-2xl shadow-sm">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--text-faint)" }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setParam("q", e.target.value)}
+              placeholder="Search tasks…"
+              className="neu-input pl-9 py-1.5 text-xs"
+            />
+          </div>
+
+          {/* Department selector */}
+          <NeuSelect
+            value={departmentId ?? ""}
+            onChange={(v) => setParam("department_id", v)}
+            options={[
+              { value: "", label: "All Departments" },
+              ...(departments ?? []).map((d) => ({ value: d.id, label: d.name })),
+            ]}
+            placeholder="All Departments"
+            compact
+            style={{ minWidth: "140px" }}
           />
-        </div>
 
-        {/* Filters button with popover */}
-        <div ref={filterRef} className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setFilterOpen((o) => !o)}
-            className="btn-neu flex items-center gap-2 !py-2 !px-4 !text-sm relative"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            Filters
-            {activeFilterCount > 0 && (
-              <span
-                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center text-white"
-                style={{ background: "#2563EB" }}
-              >
-                {activeFilterCount}
-              </span>
-            )}
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`} />
-          </button>
+          {/* Priority selector */}
+          <NeuSelect
+            value={priorityId ?? ""}
+            onChange={(v) => setParam("priority_id", v)}
+            options={[
+              { value: "", label: "All Priorities" },
+              ...(priorities ?? []).map((p) => ({ value: p.id, label: p.label })),
+            ]}
+            placeholder="All Priorities"
+            compact
+            style={{ minWidth: "125px" }}
+          />
 
-          {filterOpen && (
-            <div
-              className="absolute right-0 top-full mt-2 z-50 w-64 rounded-2xl p-4 space-y-3 animate-pop-in"
-              style={{
-                background: "var(--neu-bg)",
-                boxShadow: "8px 8px 24px var(--neu-dark), -4px -4px 12px var(--neu-light)",
-              }}
+          {/* Assignee selector for managers/admins */}
+          {isManagerOrAdmin && (
+            <NeuSelect
+              value={assigneeIds ?? ""}
+              onChange={(v) => setParam("assignee_id", v)}
+              options={[
+                { value: "", label: "All Members" },
+                ...((members as any[]) ?? []).map((m: any) => ({ value: m.id, label: m.full_name })),
+              ]}
+              placeholder="All Members"
+              compact
+              style={{ minWidth: "140px" }}
+            />
+          )}
+
+          {(hasDrillFilters || searchQuery) && (
+            <button
+              type="button"
+              onClick={() => setParams({})}
+              className="inline-flex items-center gap-1 rounded-lg border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:border-slate-400 transition-all shrink-0"
             >
-              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-faint)" }}>Filter by</p>
-
-              <div className="space-y-2.5">
-                <div>
-                  <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Department</label>
-                  <NeuSelect
-                    value={departmentId ?? ""}
-                    onChange={(v) => { setParam("department_id", v); setFilterOpen(false); }}
-                    options={[
-                      { value: "", label: "All departments" },
-                      ...(departments ?? []).map((d) => ({ value: d.id, label: d.name })),
-                    ]}
-                    placeholder="All departments"
-                    compact
-                    style={{ width: "100%" }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Status</label>
-                  <NeuSelect
-                    value={statusId ?? ""}
-                    onChange={(v) => { setParam("status_id", v); setFilterOpen(false); }}
-                    options={[
-                      { value: "", label: "All statuses" },
-                      ...(statuses ?? []).map((s) => ({ value: s.id, label: s.label })),
-                    ]}
-                    placeholder="All statuses"
-                    compact
-                    style={{ width: "100%" }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Priority</label>
-                  <NeuSelect
-                    value={priorityId ?? ""}
-                    onChange={(v) => { setParam("priority_id", v); setFilterOpen(false); }}
-                    options={[
-                      { value: "", label: "All priorities" },
-                      ...(priorities ?? []).map((p) => ({ value: p.id, label: p.label })),
-                    ]}
-                    placeholder="All priorities"
-                    compact
-                    style={{ width: "100%" }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>Assignee</label>
-                  <NeuSelect
-                    value={assigneeIds ?? ""}
-                    onChange={(v) => { setParam("assignee_id", v); setFilterOpen(false); }}
-                    options={[
-                      { value: "", label: "All assignees" },
-                      ...((members as any[]) ?? []).map((m: any) => ({ value: m.id, label: m.full_name })),
-                    ]}
-                    placeholder="All assignees"
-                    compact
-                    style={{ width: "100%" }}
-                  />
-                </div>
-              </div>
-
-              {activeFilterCount > 0 && (
-                <button type="button" onClick={() => { setParams({}); setFilterOpen(false); }} className="btn-ghost text-xs gap-1 w-full justify-center">
-                  <X className="h-3 w-3" /> Clear all filters
-                </button>
-              )}
-            </div>
+              <X className="w-3.5 h-3.5" /> Reset
+            </button>
           )}
         </div>
 
-        {(hasDrillFilters || searchQuery) && (
-          <button type="button" onClick={() => setParams({})} className="btn-ghost !py-2 !px-3 text-xs gap-1 shrink-0">
-            <X className="h-3.5 w-3.5" /> Reset
-          </button>
-        )}
+        {/* Row 2: Status Filter Strip — Identical to Gantt of Timeline */}
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5 text-xs shadow-sm">
+          <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300 mr-2 px-1">
+            <Filter className="w-3.5 h-3.5 text-slate-500" />
+            <span>Status Filter:</span>
+          </div>
+          <FilterLegendButton
+            label="All"
+            count={counts.all}
+            isActive={statusParam === "all"}
+            onClick={() => handleStatusFilter("all")}
+            color="#475569"
+          />
+          <FilterLegendButton
+            label="To Do"
+            count={counts.todo}
+            isActive={statusParam === "todo"}
+            onClick={() => handleStatusFilter("todo")}
+            color="#64748b"
+          />
+          <FilterLegendButton
+            label="In Progress"
+            count={counts.inProgress}
+            isActive={statusParam === "in_progress"}
+            onClick={() => handleStatusFilter("in_progress")}
+            color="#2563eb"
+          />
+          <FilterLegendButton
+            label="Completed"
+            count={counts.done}
+            isActive={statusParam === "done"}
+            onClick={() => handleStatusFilter("done")}
+            color="#16a34a"
+          />
+          <FilterLegendButton
+            label="Overdue"
+            count={counts.overdue}
+            isActive={statusParam === "overdue"}
+            onClick={() => handleStatusFilter("overdue")}
+            color="#dc2626"
+          />
+          <FilterLegendButton
+            label="Blocked"
+            count={counts.blocked}
+            isActive={statusParam === "blocked"}
+            onClick={() => handleStatusFilter("blocked")}
+            color="#f59e0b"
+            icon={<Link2 className="w-3 h-3 text-amber-500" />}
+          />
+          {hasDrillFilters && (
+            <button
+              type="button"
+              onClick={() => setParams({})}
+              className="ml-auto inline-flex items-center gap-1 rounded-lg border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-400 transition-all"
+            >
+              <X className="w-3 h-3" />
+              Clear all filters
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -380,18 +437,26 @@ export function TaskListPage() {
                       )}
                     </td>
                     <td className="px-3 py-3.5 align-middle min-w-[180px]">
-                      {canOpen ? (
-                        <Link
-                          to={`/tasks/${t.id}`}
-                          className="font-semibold text-sm hover:text-gradient transition-colors inline-flex items-center gap-1 group break-words"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          <span className="leading-snug break-words">{t.title}</span>
-                          <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" style={{ color: "#2563EB" }} />
-                        </Link>
-                      ) : (
-                        <span className="font-semibold text-sm leading-snug break-words" style={{ color: "var(--text-muted)" }}>{t.title}</span>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {canOpen ? (
+                          <Link
+                            to={`/tasks/${t.id}`}
+                            className="font-semibold text-sm hover:text-gradient transition-colors inline-flex items-center gap-1 group break-words"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            <span className="leading-snug break-words">{t.title}</span>
+                            <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" style={{ color: "#2563EB" }} />
+                          </Link>
+                        ) : (
+                          <span className="font-semibold text-sm leading-snug break-words" style={{ color: "var(--text-muted)" }}>{t.title}</span>
+                        )}
+                        {(t.is_recurring || (t.recurrence_index && t.recurrence_index > 1) || t.recurrence_parent_id) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 dark:bg-purple-950/60 border border-purple-300 dark:border-purple-700 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:text-purple-300 shrink-0">
+                            <Repeat className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0 mr-0.5" />
+                            <span>#{t.recurrence_index ?? 1}</span>
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-3.5 align-middle whitespace-nowrap min-w-[105px]">
                       {(hasTimer || loggedMins > 0) ? (
@@ -474,9 +539,9 @@ export function TaskListPage() {
             <button
               disabled={bulkPending}
               onClick={() => { if (window.confirm(`Archive ${selected.size} task(s)?`)) runBulk("archive"); }}
-              className="btn-danger !py-1.5 !px-3 !text-xs gap-1"
+              className="inline-flex items-center gap-1 rounded-lg bg-white dark:bg-slate-900 border-2 border-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-900 dark:text-slate-100 !py-1.5 !px-3 !text-xs font-semibold shadow-2xs transition-colors"
             >
-              <Archive className="w-3.5 h-3.5" /> Archive
+              <Archive className="w-3.5 h-3.5 text-red-600" /> Archive
             </button>
           )}
 
@@ -486,5 +551,45 @@ export function TaskListPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function FilterLegendButton({
+  label,
+  count,
+  isActive,
+  onClick,
+  color,
+  icon,
+}: {
+  label: string;
+  count: number;
+  isActive: boolean;
+  onClick: () => void;
+  color: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+        isActive
+          ? "bg-white dark:bg-slate-900 border-2 border-blue-600 text-slate-900 dark:text-slate-100 shadow-2xs"
+          : "bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400"
+      }`}
+    >
+      {icon ? icon : <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />}
+      <span>{label}</span>
+      <span
+        className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+          isActive
+            ? "bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700"
+            : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
   );
 }
