@@ -39,7 +39,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://taskapp-api-430674734301.us-central1.run.app',
+        target: process.env.VITE_PROXY_TARGET || 'https://taskapp-api-jnimlvkvmq-uc.a.run.app',
         changeOrigin: true,
         secure: true,
       },

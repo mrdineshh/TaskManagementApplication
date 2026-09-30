@@ -39,7 +39,7 @@ images:
   - '${_IMAGE}'
 substitutions:
   _IMAGE: us-central1-docker.pkg.dev/testing-sujeeth/taskapp-repo/web:latest
-  _API_URL: https://taskapp-api-430674734301.us-central1.run.app
+  _API_URL: https://taskapp-api-jnimlvkvmq-uc.a.run.app
   _FIREBASE_API_KEY: 'AIzaSyCA6Sgz5QUV9eWgeKTXwaXDXrvU7jJAfOg'
   _FIREBASE_AUTH_DOMAIN: 'testing-sujeeth.firebaseapp.com'
   _FIREBASE_PROJECT_ID: 'testing-sujeeth'

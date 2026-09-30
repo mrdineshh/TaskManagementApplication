@@ -287,7 +287,7 @@ export function NewTaskForm({ onDone }: { onDone: () => void }) {
                 type="number"
                 min="0.25"
                 max="24"
-                step="0.5"
+                step="any"
                 value={estimateValue}
                 onChange={(e) => setEstimateValue(e.target.value)}
                 placeholder="e.g. 6"
